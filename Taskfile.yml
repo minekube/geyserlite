@@ -38,6 +38,13 @@ tasks:
     cmds:
       - go build ./...
       - go build -o bin/basic ./examples/basic
+      - go build -o bin/bedrock-probe ./cmd/bedrock-probe
+
+  build:go:embed:
+    desc: build the Go library with -tags geyserlite_embed (run `task embed:fetch` first)
+    dir: go
+    cmds:
+      - go build -tags geyserlite_embed ./...
 
   build:rust:
     desc: build the Rust crate + examples
@@ -45,9 +52,23 @@ tasks:
     cmds:
       - cargo build --all-targets
 
+  build:rust:embed:
+    desc: build the Rust crate with --features embed (run `task embed:fetch` first)
+    dir: rust
+    cmds:
+      - cargo build --features embed --all-targets
+
   build:
     desc: build everything (no Docker)
     deps: [build:go, build:rust]
+
+  embed:fetch:
+    desc: |
+      download native release assets into go/assets/ + rust/assets/ so
+      embed-mode builds can include them. Defaults to the latest release;
+      pass a specific tag with: task embed:fetch -- v0.5
+    cmds:
+      - bash scripts/fetch-embed-assets.sh {{.CLI_ARGS}}
 
   # ─── Test ────────────────────────────────────────────────────────────────
   test:go:
