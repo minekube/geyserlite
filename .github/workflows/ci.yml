@@ -59,6 +59,12 @@ jobs:
           restore-keys: |
             dev-${{ runner.os }}-
 
+      # mise's rust backend installs the toolchain but not its optional
+      # components — rustfmt and clippy aren't implied by `rust = "1.85"`
+      # in mise.toml. Add them explicitly via rustup before running lint.
+      - name: Add rustup components (rustfmt, clippy)
+        run: rustup component add rustfmt clippy
+
       - name: Setup
         run: task setup
 
