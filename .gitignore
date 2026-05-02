@@ -1,0 +1,34 @@
+# Local build artifacts (binaries are produced by CI; never committed)
+geyserlite
+libgeyserlite.so
+libgeyserlite.h
+*.iprof
+
+# Per-target embed assets (downloaded by `make embed-blobs`, never committed)
+go/embed/assets/
+rust/assets/
+
+# Fetched Geyser source tree during local builds
+build/.work/
+build/Geyser/
+
+# Floodgate keys / secrets — never committed
+floodgate.pem
+floodgate.key
+*.pem
+!build/overlay/**/*.pem
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Go
+**/vendor
+/bin
+
+# Rust
+target/
+Cargo.lock
+!rust/Cargo.lock

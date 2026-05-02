@@ -1,0 +1,7225 @@
+[
+  {
+    "name": "[B",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[C",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[D",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[F",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[I",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[J",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljava.lang.Double;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljava.lang.Float;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljava.lang.Integer;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljava.lang.String;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljava.lang.Void;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Ljavax.management.openmbean.CompositeData;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.Appender;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.Filter;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.appender.rolling.TriggeringPolicy;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.config.AppenderRef;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.config.LoggerConfig;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.apache.logging.log4j.core.config.Property;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.cloudburstmc.nbt.NbtList;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.cloudburstmc.nbt.NbtMap;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.cloudburstmc.protocol.bedrock.data.inventory.ItemData;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lorg.geysermc.geyser.registry.type.ItemMapping;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Lsun.security.pkcs.SignerInfo;",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[S",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "[Z",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "com.fasterxml.jackson.databind.ObjectMapper",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "com.google.common.util.concurrent.AbstractFuture",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "listeners"
+      },
+      {
+        "name": "value"
+      },
+      {
+        "name": "waiters"
+      }
+    ]
+  },
+  {
+    "name": "com.google.common.util.concurrent.AbstractFuture$Waiter",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "next"
+      },
+      {
+        "name": "thread"
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.AESCipher$General",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.ARCFOURCipher",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.ChaCha20Cipher$ChaCha20Poly1305",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.DESCipher",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.DESedeCipher",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.DHParameters",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.GaloisCounterMode$AESGCM",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.HmacCore$HmacSHA256",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.HmacCore$HmacSHA384",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.KeyWrapCipher$AES_KW_NoPadding",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.RSACipher",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.crypto.provider.TlsMasterSecretGenerator",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sun.jna.CallbackProxy",
+    "methods": [
+      {
+        "name": "callback",
+        "parameterTypes": [
+          "java.lang.Object[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "com.sun.jndi.dns.DnsContextFactory"
+  },
+  {
+    "name": "com.sun.management.GarbageCollectorMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.GcInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.HotSpotDiagnosticMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.ThreadMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.UnixOperatingSystemMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.VMOption",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "com.sun.management.internal.GarbageCollectorExtImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "com.sun.management.internal.HotSpotDiagnostic",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "com.sun.management.internal.HotSpotThreadImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "com.sun.management.internal.OperatingSystemImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "io.netty.bootstrap.ServerBootstrap$1",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapAcceptor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.buffer.AbstractByteBufAllocator",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.buffer.AbstractReferenceCountedByteBuf",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "refCnt"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.buffer.AdaptivePoolingAllocator$Chunk",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "refCnt"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.buffer.AdaptivePoolingAllocator$Magazine",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "nextInLine"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.AbstractChannelHandlerContext",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "handlerState"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelDuplexHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "bind",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "close",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "connect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "deregister",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "disconnect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "read",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelHandlerAdapter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelInboundHandlerAdapter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelUnregistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelWritabilityChanged",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "userEventTriggered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelInitializer",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelOutboundBuffer",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "totalPendingSize"
+      },
+      {
+        "name": "unwritable"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.ChannelOutboundHandlerAdapter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "bind",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "close",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "connect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "deregister",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "disconnect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "read",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.DefaultChannelConfig",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "autoRead"
+      },
+      {
+        "name": "writeBufferWaterMark"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.DefaultChannelPipeline",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "estimatorHandle"
+      }
+    ],
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "io.netty.channel.Channel"
+        ]
+      },
+      {
+        "name": "destroy",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.DefaultChannelPipeline$HeadContext",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "bind",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelUnregistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelWritabilityChanged",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "close",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "connect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "deregister",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "disconnect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "read",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "userEventTriggered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.DefaultChannelPipeline$TailContext",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelUnregistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelWritabilityChanged",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "userEventTriggered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.DefaultFileRegion",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.MultiThreadIoEventLoopGroup",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.SimpleChannelInboundHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.epoll.Epoll",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollDatagramChannel",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.epoll.NativeDatagramPacketArray$NativeDatagramPacket",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.unix.DatagramSocketAddress",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.unix.DomainDatagramSocketAddress",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.unix.FileDescriptor",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "state"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.channel.unix.PeerCredentials",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.channel.uring.IoUring",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.codec.ByteToMessageCodec",
+    "methods": [
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.codec.MessageToMessageCodec",
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.codec.MessageToMessageDecoder",
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.codec.MessageToMessageEncoder",
+    "methods": [
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.flow.FlowControlHandler",
+    "methods": [
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.timeout.IdleStateHandler",
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.timeout.ReadTimeoutHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.handler.timeout.WriteTimeoutHandler",
+    "methods": [
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.util.AbstractReferenceCounted",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "refCnt"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.DefaultAttributeMap",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "attributes"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.DefaultAttributeMap$DefaultAttribute",
+    "fields": [
+      {
+        "name": "attributeMap"
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.util.Recycler$DefaultHandle",
+    "fields": [
+      {
+        "name": "state"
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.util.ReferenceCountUtil",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.util.concurrent.DefaultPromise",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.concurrent.MpscIntQueue$MpscAtomicIntegerArrayQueue",
+    "fields": [
+      {
+        "name": "consumerIndex"
+      },
+      {
+        "name": "producerIndex"
+      },
+      {
+        "name": "producerLimit"
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "io.netty.util.concurrent.SingleThreadEventExecutor",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "accumulatedActiveTimeNanos"
+      },
+      {
+        "name": "consecutiveBusyCycles"
+      },
+      {
+        "name": "consecutiveIdleCycles"
+      },
+      {
+        "name": "state"
+      },
+      {
+        "name": "threadProperties"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.NativeLibraryUtil",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "loadLibrary",
+        "parameterTypes": [
+          "java.lang.String",
+          "boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.shaded.org.jctools.queues.BaseMpscLinkedArrayQueueColdProducerFields",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "producerLimit"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.shaded.org.jctools.queues.BaseMpscLinkedArrayQueueConsumerFields",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "consumerIndex"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.shaded.org.jctools.queues.BaseMpscLinkedArrayQueueProducerFields",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "producerIndex"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.shaded.org.jctools.queues.MpmcArrayQueueConsumerIndexField",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "consumerIndex"
+      }
+    ]
+  },
+  {
+    "name": "io.netty.util.internal.shaded.org.jctools.queues.MpmcArrayQueueProducerIndexField",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "producerIndex"
+      }
+    ]
+  },
+  {
+    "name": "jakarta.servlet.Servlet",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "java.awt.GraphicsEnvironment",
+    "methods": [
+      {
+        "name": "isHeadless",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.io.FileDescriptor"
+  },
+  {
+    "name": "java.io.IOException"
+  },
+  {
+    "name": "java.io.ObjectInputStream",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.Boolean",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Byte",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Character",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Class",
+    "methods": [
+      {
+        "name": "getRecordComponents",
+        "parameterTypes": []
+      },
+      {
+        "name": "isRecord",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Deprecated",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.Double",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Float",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Integer",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Long",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Object",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "equals",
+        "parameterTypes": [
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "hashCode",
+        "parameterTypes": []
+      },
+      {
+        "name": "toString",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.OutOfMemoryError"
+  },
+  {
+    "name": "java.lang.ProcessHandle",
+    "methods": [
+      {
+        "name": "current",
+        "parameterTypes": []
+      },
+      {
+        "name": "pid",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Record",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.lang.RuntimeException"
+  },
+  {
+    "name": "java.lang.Short",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.StackTraceElement",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.String",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Thread",
+    "fields": [
+      {
+        "name": "threadLocalRandomProbe"
+      }
+    ],
+    "methods": [
+      {
+        "name": "isVirtual",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Throwable",
+    "methods": [
+      {
+        "name": "addSuppressed",
+        "parameterTypes": [
+          "java.lang.Throwable"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.Void",
+    "fields": [
+      {
+        "name": "TYPE"
+      }
+    ]
+  },
+  {
+    "name": "java.lang.invoke.MethodHandle",
+    "methods": [
+      {
+        "name": "bindTo",
+        "parameterTypes": [
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "invokeWithArguments",
+        "parameterTypes": [
+          "java.lang.Object[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.invoke.MethodHandles",
+    "methods": [
+      {
+        "name": "lookup",
+        "parameterTypes": []
+      },
+      {
+        "name": "privateLookupIn",
+        "parameterTypes": [
+          "java.lang.Class",
+          "java.lang.invoke.MethodHandles$Lookup"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.invoke.MethodHandles$Lookup",
+    "methods": [
+      {
+        "name": "findSpecial",
+        "parameterTypes": [
+          "java.lang.Class",
+          "java.lang.String",
+          "java.lang.invoke.MethodType",
+          "java.lang.Class"
+        ]
+      },
+      {
+        "name": "in",
+        "parameterTypes": [
+          "java.lang.Class"
+        ]
+      },
+      {
+        "name": "unreflectSpecial",
+        "parameterTypes": [
+          "java.lang.reflect.Method",
+          "java.lang.Class"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.invoke.MethodType",
+    "methods": [
+      {
+        "name": "methodType",
+        "parameterTypes": [
+          "java.lang.Class",
+          "java.lang.Class[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.management.BufferPoolMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.ClassLoadingMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.CompilationMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.LockInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.ManagementFactory",
+    "methods": [
+      {
+        "name": "getRuntimeMXBean",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.management.ManagementPermission",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.management.MemoryMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.MemoryManagerMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.MemoryPoolMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.MemoryUsage",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.MonitorInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.management.PlatformLoggingMXBean",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "getLoggerLevel",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "getLoggerNames",
+        "parameterTypes": []
+      },
+      {
+        "name": "getParentLoggerName",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "setLoggerLevel",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.lang.management.RuntimeMXBean",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "getStartTime",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.management.ThreadInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "java.lang.reflect.Method",
+    "methods": [
+      {
+        "name": "isDefault",
+        "parameterTypes": []
+      },
+      {
+        "name": "isVarArgs",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.lang.reflect.RecordComponent",
+    "methods": [
+      {
+        "name": "getName",
+        "parameterTypes": []
+      },
+      {
+        "name": "getType",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.math.BigDecimal"
+  },
+  {
+    "name": "java.math.BigInteger"
+  },
+  {
+    "name": "java.net.InetSocketAddress"
+  },
+  {
+    "name": "java.net.PortUnreachableException"
+  },
+  {
+    "name": "java.net.http.HttpClient"
+  },
+  {
+    "name": "java.nio.Bits",
+    "fields": [
+      {
+        "name": "MAX_MEMORY"
+      },
+      {
+        "name": "UNALIGNED"
+      }
+    ]
+  },
+  {
+    "name": "java.nio.Buffer",
+    "fields": [
+      {
+        "name": "address"
+      }
+    ]
+  },
+  {
+    "name": "java.nio.ByteBuffer",
+    "methods": [
+      {
+        "name": "alignedSlice",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "slice",
+        "parameterTypes": [
+          "int",
+          "int"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.nio.DirectByteBuffer",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "long",
+          "long"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.nio.channels.ClosedChannelException"
+  },
+  {
+    "name": "java.nio.channels.FileChannel"
+  },
+  {
+    "name": "java.security.AlgorithmParametersSpi"
+  },
+  {
+    "name": "java.security.KeyStoreSpi"
+  },
+  {
+    "name": "java.security.SecureRandomParameters"
+  },
+  {
+    "name": "java.security.interfaces.ECPrivateKey"
+  },
+  {
+    "name": "java.security.interfaces.ECPublicKey"
+  },
+  {
+    "name": "java.security.interfaces.RSAPrivateKey"
+  },
+  {
+    "name": "java.security.interfaces.RSAPublicKey"
+  },
+  {
+    "name": "java.sql.Date"
+  },
+  {
+    "name": "java.sql.Time"
+  },
+  {
+    "name": "java.sql.Timestamp"
+  },
+  {
+    "name": "java.util.Date"
+  },
+  {
+    "name": "java.util.PropertyPermission",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.util.ServiceLoader",
+    "methods": [
+      {
+        "name": "load",
+        "parameterTypes": [
+          "java.lang.Class",
+          "java.lang.ClassLoader"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinTask",
+    "fields": [
+      {
+        "name": "aux"
+      },
+      {
+        "name": "status"
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicBoolean",
+    "fields": [
+      {
+        "name": "value"
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicReference",
+    "fields": [
+      {
+        "name": "value"
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.Striped64",
+    "fields": [
+      {
+        "name": "base"
+      },
+      {
+        "name": "cellsBusy"
+      }
+    ]
+  },
+  {
+    "name": "java.util.logging.LogManager",
+    "methods": [
+      {
+        "name": "getLoggingMXBean",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.logging.LoggingMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "javax.imageio.spi.ImageReaderSpi"
+  },
+  {
+    "name": "javax.imageio.spi.ImageReaderWriterSpi",
+    "methods": [
+      {
+        "name": "getFileSuffixes",
+        "parameterTypes": []
+      },
+      {
+        "name": "getFormatNames",
+        "parameterTypes": []
+      },
+      {
+        "name": "getMIMETypes",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "javax.imageio.spi.ImageWriterSpi"
+  },
+  {
+    "name": "javax.management.MBeanOperationInfo",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "getSignature",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "javax.management.MBeanServerBuilder",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "javax.management.NotificationBroadcasterSupport",
+    "methods": [
+      {
+        "name": "getNotificationInfo",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "javax.management.ObjectName"
+  },
+  {
+    "name": "javax.management.StandardEmitterMBean",
+    "methods": [
+      {
+        "name": "cacheMBeanInfo",
+        "parameterTypes": [
+          "javax.management.MBeanInfo"
+        ]
+      },
+      {
+        "name": "getCachedMBeanInfo",
+        "parameterTypes": []
+      },
+      {
+        "name": "getMBeanInfo",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "javax.management.openmbean.CompositeData"
+  },
+  {
+    "name": "javax.management.openmbean.OpenMBeanOperationInfoSupport"
+  },
+  {
+    "name": "javax.management.openmbean.TabularData"
+  },
+  {
+    "name": "javax.security.auth.x500.X500Principal",
+    "fields": [
+      {
+        "name": "thisX500Name"
+      }
+    ],
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "sun.security.x509.X500Name"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "javax.servlet.Servlet"
+  },
+  {
+    "name": "jdk.internal.misc.Unsafe",
+    "methods": [
+      {
+        "name": "getUnsafe",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "jdk.management.jfr.ConfigurationInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "jdk.management.jfr.EventTypeInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "jdk.management.jfr.FlightRecorderMXBean",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "jdk.management.jfr.FlightRecorderMXBeanImpl",
+    "queryAllPublicConstructors": true,
+    "methods": [
+      {
+        "name": "cacheMBeanInfo",
+        "parameterTypes": [
+          "javax.management.MBeanInfo"
+        ]
+      },
+      {
+        "name": "getCachedMBeanInfo",
+        "parameterTypes": []
+      },
+      {
+        "name": "getMBeanInfo",
+        "parameterTypes": []
+      },
+      {
+        "name": "getNotificationInfo",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "jdk.management.jfr.RecordingInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "jdk.management.jfr.SettingDescriptorInfo",
+    "queryAllPublicMethods": true
+  },
+  {
+    "name": "net.lenni0451.commons.httpclient.executor.HttpClientExecutor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "net.lenni0451.commons.httpclient.HttpClient"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "net.minecrell.terminalconsole.HighlightErrorConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "net.minecrell.terminalconsole.MinecraftFormattingConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.config.Configuration",
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "net.minecrell.terminalconsole.TerminalConsoleAppender",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createAppender",
+        "parameterTypes": [
+          "java.lang.String",
+          "org.apache.logging.log4j.core.Filter",
+          "org.apache.logging.log4j.core.Layout",
+          "boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "net.minecrell.terminalconsole.util.LoggerNamePatternSelector",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.AbstractAppender$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.AbstractOutputStreamAppender$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.AppenderSet",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.AsyncAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.ConsoleAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.CountingNoOpAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.FailoverAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.FailoversPlugin",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.FileAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.HttpAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.MemoryMappedFileAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.NullAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.OutputStreamAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.RandomAccessFileAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.RollingFileAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.RollingRandomAccessFileAppender",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newBuilder",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.RollingRandomAccessFileAppender$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.ScriptAppenderSelector",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.SmtpAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.SocketAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.SyslogAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.WriterAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.ColumnMapping",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.jdbc.ColumnConfig",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.jdbc.DataSourceConnectionSource",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.jdbc.DriverManagerConnectionSource",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.jdbc.FactoryMethodConnectionSource",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.db.jdbc.JdbcAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.mom.JmsAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.mom.jeromq.JeroMqAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.mom.kafka.KafkaAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.nosql.NoSqlAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rewrite.LoggerNameLevelRewritePolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rewrite.MapRewritePolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rewrite.PropertiesRewritePolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rewrite.RewriteAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.CompositeTriggeringPolicy",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createPolicy",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.appender.rolling.TriggeringPolicy[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.CronTriggeringPolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.DefaultRolloverStrategy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.DirectWriteRolloverStrategy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.NoOpTriggeringPolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.OnStartupTriggeringPolicy",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createPolicy",
+        "parameterTypes": [
+          "long"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.RollingFileManager",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "patternProcessor"
+      },
+      {
+        "name": "rolloverStrategy"
+      },
+      {
+        "name": "triggeringPolicy"
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.SizeBasedTriggeringPolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.TimeBasedTriggeringPolicy",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newBuilder",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.TimeBasedTriggeringPolicy$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.DeleteAction",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfAccumulatedFileCount",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfAccumulatedFileSize",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfAll",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfAny",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfFileName",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfLastModified",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.IfNot",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.PathSortByModificationTime",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.PosixViewAttributeAction",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.rolling.action.ScriptCondition",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.routing.IdlePurgePolicy",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.routing.Route",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.routing.Routes",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.appender.routing.RoutingAppender",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.ArrayBlockingQueueFactory",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.AsyncLoggerConfig",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.AsyncLoggerConfig$RootLogger",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.AsyncWaitStrategyFactoryConfig",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.DisruptorBlockingQueueFactory",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.JCToolsBlockingQueueFactory",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.async.LinkedTransferQueueFactory",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.AppenderControlArraySet",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "appenderArray"
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.AppenderRef",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createAppenderRef",
+        "parameterTypes": [
+          "java.lang.String",
+          "org.apache.logging.log4j.Level",
+          "org.apache.logging.log4j.core.Filter"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.AppendersPlugin",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createAppenders",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.Appender[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.CustomLevelConfig",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.CustomLevels",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.DefaultAdvertiser",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.HttpWatcher",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.LoggerConfig",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.LoggerConfig$RootLogger",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newRootBuilder",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.LoggerConfig$RootLogger$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.LoggersPlugin",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createLoggers",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.config.LoggerConfig[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.PropertiesPlugin",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.Property",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.ScriptsPlugin",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.arbiters.ClassArbiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.arbiters.DefaultArbiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.arbiters.ScriptArbiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.arbiters.SelectArbiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.arbiters.SystemPropertyArbiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.json.JsonConfigurationFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$BigDecimalConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$BigIntegerConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$BooleanConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$ByteArrayConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$ByteConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$CharArrayConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$CharacterConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$CharsetConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$ClassConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$CronExpressionConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$DoubleConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$DurationConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$FileConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$FloatConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$InetAddressConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$IntegerConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$LevelConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$LongConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$PathConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$PatternConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$SecurityProviderConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$ShortConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$StringConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$UriConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$UrlConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.convert.TypeConverters$UuidConverter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.validation.validators.RequiredValidator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.visitors.PluginAttributeVisitor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.visitors.PluginBuilderAttributeVisitor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.visitors.PluginConfigurationVisitor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.plugins.visitors.PluginElementVisitor",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.properties.PropertiesConfigurationFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.xml.XmlConfigurationFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.config.yaml.YamlConfigurationFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.AbstractFilterable$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.BurstFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.CompositeFilter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createFilters",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.Filter[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.DenyAllFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.DynamicThresholdFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.LevelMatchFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.LevelRangeFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.MapFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.MarkerFilter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "createFilter",
+        "parameterTypes": [
+          "java.lang.String",
+          "org.apache.logging.log4j.core.Filter$Result",
+          "org.apache.logging.log4j.core.Filter$Result"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.MutableThreadContextMapFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.NoMarkerFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.RegexFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.ScriptFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.StringMatchFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.StructuredDataFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.ThreadContextMapFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.ThresholdFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.TimeFilter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.impl.Log4jContextFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.AppenderAdmin",
+    "queryAllPublicConstructors": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.AppenderAdminMBean",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.ContextSelectorAdmin",
+    "queryAllPublicConstructors": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.ContextSelectorAdminMBean",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.LoggerConfigAdmin",
+    "queryAllPublicConstructors": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.LoggerConfigAdminMBean",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.LoggerContextAdmin",
+    "queryAllPublicConstructors": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.LoggerContextAdminMBean",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.StatusLoggerAdmin",
+    "queryAllPublicConstructors": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.jmx.StatusLoggerAdminMBean",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.CsvLogEventLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.CsvParameterLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.GelfLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.HtmlLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.JsonLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.LevelPatternSelector",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.LoggerFields",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.MarkerPatternSelector",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.MessageLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.PatternLayout",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newBuilder",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.PatternLayout$Builder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.PatternMatch",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.Rfc5424Layout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.ScriptPatternSelector",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.SerializedLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.SyslogLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.XmlLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.layout.YamlLayout",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.ContextMapLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.DateLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.EnvironmentLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.EventLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.JavaLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.JmxRuntimeInputArgumentsLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.JndiLookup",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.Log4jLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.LowerLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.MainMapLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.MapLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.MarkerLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.ResourceBundleLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.StructuredDataLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.SystemPropertiesLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.lookup.UpperLookup",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.MulticastDnsAdvertiser",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.SocketAddress",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.SocketOptions",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.SocketPerformancePreferences",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.ssl.KeyStoreConfiguration",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.ssl.SslConfiguration",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.net.ssl.TrustStoreConfiguration",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Black",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Blue",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Cyan",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Green",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Magenta",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Red",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$White",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.AbstractStyleNameConverter$Yellow",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ClassNamePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.DatePatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.EncodingPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.EndOfBatchPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.EqualsIgnoreCaseReplacementConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.EqualsReplacementConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ExtendedThrowablePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.FileDatePatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.FileLocationPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.FullLocationPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.HighlightConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.config.Configuration",
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.IntegerPatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.LevelPatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.LineLocationPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.LineSeparatorPatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.LoggerFqcnPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.LoggerPatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MapPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MarkerPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MarkerSimpleNamePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MaxLengthConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MdcPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MessagePatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.config.Configuration",
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MethodLocationPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.NanoTimePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.NdcPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ProcessIdPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.RegexReplacement",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.RegexReplacementConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.RelativeTimePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.RepeatPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.RootThrowablePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.SequenceNumberPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.StyleConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "org.apache.logging.log4j.core.config.Configuration",
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ThreadIdPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ThreadNamePatternConverter",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "newInstance",
+        "parameterTypes": [
+          "java.lang.String[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ThreadPriorityPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.ThrowablePatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.UuidPatternConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.VariablesNotEmptyReplacementConverter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.script.Script",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.script.ScriptFile",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.script.ScriptRef",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.util.KeyValuePair",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.apache.logging.log4j.message.DefaultFlowMessageFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.message.ReusableMessageFactory",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.apache.logging.log4j.util.internal.DefaultObjectInputFilter",
+    "queryAllPublicMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.AdvancedChannelInboundHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.ProxyInboundRouter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "channelReadComplete",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRegistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelUnregistered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelWritabilityChanged",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "userEventTriggered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.ProxyOutboundRouter",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "bind",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "close",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "connect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.net.SocketAddress",
+          "java.net.SocketAddress",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "deregister",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "disconnect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "read",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.ConnectedPingHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.ConnectedPongHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.DisconnectNotificationHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.RakAcknowledgeHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.RakDatagramCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.RakSessionCodec",
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "disconnect",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "io.netty.channel.ChannelPromise"
+        ]
+      },
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.RakUnhandledMessagesQueue",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.common.UnconnectedPongEncoder",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakChildDatagramHandler",
+    "methods": [
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakServerOfflineHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakServerOnlineInitialHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakServerRateLimiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakServerRouteHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.netty.handler.codec.raknet.server.RakServerTailHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.BedrockPeer",
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "userEventTriggered",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.CoordinateEvaluationOrder",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.ExpressionOp",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.RandomDistributionType",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeCappedSurfaceData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeClimateData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeConditionalTransformationData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeConsolidatedFeatureData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeCoordinateData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionChunkGenData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeElementData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeLegacyWorldGenRulesData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeMesaSurfaceData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeMountainParamsData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeMultinoiseGenRulesData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeOverworldGenRulesData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeReplacementData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeScatterParamData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeSurfaceMaterialAdjustmentData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeSurfaceMaterialData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeTemperatureCategory",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeWeightedData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.data.biome.BiomeWeightedTemperatureData",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.BlackholeInboundAdapter",
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.FrameIdCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.batch.BedrockBatchDecoder",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.batch.BedrockBatchEncoder",
+    "methods": [
+      {
+        "name": "flush",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.compression.CompressionCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.encryption.BedrockEncryptionDecoder",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.encryption.BedrockEncryptionEncoder",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec_v3",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.api.network.BedrockListener",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.api.network.RemoteServer",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.command.standalone.PermissionConfiguration",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$AdvancedBedrockConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$AdvancedConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$AdvancedJavaConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$BedrockConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$GameplayConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$JavaConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfig$MotdConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$AdvancedBedrockConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$AdvancedConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$AdvancedJavaConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$BedrockConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$GameplayConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserConfigImpl$MotdConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserCustomSkullConfiguration",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserRemoteConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserRemoteConfig$RemoteConfig",
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserRemoteConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.configuration.GeyserRemoteConfigImpl$RemoteConfigImpl",
+    "allDeclaredFields": true,
+    "queryAllDeclaredMethods": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.network.GeyserBedrockPeer",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.network.GeyserServerInitializer",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.network.InvalidPacketHandler",
+    "methods": [
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.network.netty.handler.RakConnectionRequestHandler",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "channelRead",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.network.netty.handler.RakGeyserRateLimiter",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.network.netty.handler.RakPingHandler",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "int",
+          "org.geysermc.geyser.pack.GeyserResourcePackManifest$Header",
+          "java.util.Collection",
+          "java.util.Collection",
+          "java.util.Collection",
+          "java.util.Collection"
+        ]
+      },
+      {
+        "name": "dependencies",
+        "parameterTypes": []
+      },
+      {
+        "name": "formatVersion",
+        "parameterTypes": []
+      },
+      {
+        "name": "header",
+        "parameterTypes": []
+      },
+      {
+        "name": "modules",
+        "parameterTypes": []
+      },
+      {
+        "name": "settings",
+        "parameterTypes": []
+      },
+      {
+        "name": "subpacks",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Dependency",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.util.UUID",
+          "org.geysermc.geyser.pack.GeyserResourcePackManifest$Version"
+        ]
+      },
+      {
+        "name": "uuid",
+        "parameterTypes": []
+      },
+      {
+        "name": "version",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Header",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.util.UUID",
+          "org.geysermc.geyser.pack.GeyserResourcePackManifest$Version",
+          "java.lang.String",
+          "java.lang.String",
+          "org.geysermc.geyser.pack.GeyserResourcePackManifest$Version"
+        ]
+      },
+      {
+        "name": "description",
+        "parameterTypes": []
+      },
+      {
+        "name": "minimumSupportedMinecraftVersion",
+        "parameterTypes": []
+      },
+      {
+        "name": "name",
+        "parameterTypes": []
+      },
+      {
+        "name": "uuid",
+        "parameterTypes": []
+      },
+      {
+        "name": "version",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Module",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.util.UUID",
+          "org.geysermc.geyser.pack.GeyserResourcePackManifest$Version",
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "description",
+        "parameterTypes": []
+      },
+      {
+        "name": "type",
+        "parameterTypes": []
+      },
+      {
+        "name": "uuid",
+        "parameterTypes": []
+      },
+      {
+        "name": "version",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Setting",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "text",
+        "parameterTypes": []
+      },
+      {
+        "name": "type",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Subpack",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.Float"
+        ]
+      },
+      {
+        "name": "folderName",
+        "parameterTypes": []
+      },
+      {
+        "name": "memoryTier",
+        "parameterTypes": []
+      },
+      {
+        "name": "name",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.pack.GeyserResourcePackManifest$Version$VersionDeserializer",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.ping.GeyserPingInfo",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.ping.GeyserPingInfo$DescriptionDeserializer",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.ping.GeyserPingInfo$Players",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.registry.loader.BiomeIdentifierRegistryLoader$BiomeEntry",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.registry.type.GeyserMappingItem",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.registry.type.PaletteItem",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.session.auth.BedrockClientData",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.session.auth.BedrockClientData$IntToEnumTypeFactory",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.session.auth.BedrockClientData$StringToByteDeserializer",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.SolidCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.BellCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.ChestCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.ConduitCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.DoorCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.EndPortalCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.GlassPaneAndIronBarsCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.LanternCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.ScaffoldingCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.SeaPickleCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.collision.fixes.TrapdoorCollision",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "org.geysermc.geyser.level.block.type.BlockState",
+          "org.geysermc.geyser.level.physics.BoundingBox[]"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.BannerBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.BeaconBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.BedBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.BrushableBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.CampfireBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.CommandBlockBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.CopperBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.DecoratedPotBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.DoubleChestBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.EndGatewayBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.HangingSignBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.JigsawBlockBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.ShelfBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.ShulkerBoxBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.SignBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.SkullBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.SpawnerBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.StructureBlockBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.TrialSpawnerBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.level.block.entity.VaultBlockEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockAnimateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockBlockEntityDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockBlockPickRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockBookEditTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockCommandBlockUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockCommandRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockContainerCloseTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockEntityPickRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockFilterTextTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockInventoryTransactionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockItemStackRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockLecternUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockMobEquipmentTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockNetworkStackLatencyTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockPacketViolationWarningTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockPositionTrackingDBClientRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockRequestChunkRadiusTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockRespawnTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockServerSettingsRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockSetLocalPlayerAsInitializedTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockShowCreditsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockStructureBlockUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockStructureTemplateDataRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockTextTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.BedrockToggleCrafterSlotRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.BedrockEntityEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockEmoteTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockInteractTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockPlayerActionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockRequestPermissionsPacket",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockSetDefaultGameTypeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockSetDifficultyTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockSetPlayerGameTypeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.BedrockSetPlayerInventoryOptionsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.entity.player.input.BedrockPlayerAuthInputTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.bedrock.world.BedrockLevelSoundEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaAwardStatsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaBossEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaChangeDifficultyTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaClientboundResourcePackPushPacket",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaCodeOfConductTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaCommandsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaCustomPayloadTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaCustomQueryTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaDisguisedChatTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaFinishConfigurationTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaKeepAliveTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaLoginFinishedTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaLoginTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaPingTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaPlayerChatTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaRecipeBookAddTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaRecipeBookRemoveTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaRegistryDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaRespawnTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaSelectAdvancementsTabTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaSelectKnownPacksTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaServerLinksTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaStartConfigurationTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaSystemChatTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaTickingStateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaTickingStepTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaUpdateAdvancementsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaUpdateEnabledFeaturesPacket",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaUpdateRecipesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.JavaUpdateTagsTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.dialogues.JavaClearDialogTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.dialogues.JavaShowDialogGameTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.dialogues.JavaShowDialogueConfigurationTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaAddEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaAnimateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaDamageEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaEntityEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaEntityPositionSyncTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaMoveEntityPosRotTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaMoveEntityPosTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaMoveEntityRotTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaMoveMinecartTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaMoveVehicleTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaRemoveEntitiesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaRemoveMobEffectTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaRotateHeadTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSetEntityDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSetEntityLinkTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSetEntityMotionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSetEquipmentTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSetPassengersTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaSoundEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaTakeItemEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaTeleportEntityTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaUpdateAttributesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.JavaUpdateMobEffectTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaBlockChangedAckTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaCookieRequestTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerAbilitiesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerCombatKillTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerInfoRemoveTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerInfoUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerLookAtTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerPositionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaPlayerRotationTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaSetExperienceTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaSetHealthTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaSetHeldSlotTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaStoreCookieTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.entity.player.JavaTransferPacketTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaContainerCloseTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaContainerSetContentTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaContainerSetDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaContainerSetSlotTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaMerchantOffersTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaMountScreenOpenTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaOpenBookTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaOpenScreenTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaSetCursorItemTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.inventory.JavaSetPlayerInventoryTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaBlockDestructionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaBlockEntityDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaBlockEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaBlockUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaChunkBatchFinishedTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaCooldownTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaExplodeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaForgetLevelChunkTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaGameEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaLevelChunkWithLightTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaLevelEventTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaLevelParticlesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaMapItemDataTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaOpenSignEditorTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSectionBlocksUpdateTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSetChunkCacheCenterTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSetChunkCacheRadiusTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSetDefaultSpawnPositionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSetTimeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaSoundTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaStopSoundTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.JavaTrackedWaypointTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaInitializeBorderTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaSetBorderCenterTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaSetBorderLerpSizeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaSetBorderSizeTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaSetBorderWarningDelayTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.level.border.JavaSetBorderWarningDistanceTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.scoreboard.JavaResetScorePacket",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.scoreboard.JavaSetDisplayObjectiveTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.scoreboard.JavaSetObjectiveTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.scoreboard.JavaSetPlayerTeamTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.scoreboard.JavaSetScoreTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.title.JavaClearTitlesTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.title.JavaSetActionBarTextTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.title.JavaSetSubtitleTextTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.title.JavaSetTitleTextTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.protocol.java.title.JavaSetTitlesAnimationTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.BucketSoundInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.ButtonSoundInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.ComparatorSoundInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.FlintAndSteelInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.GrassPathInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.HoeInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.LeverSoundInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.translator.sound.block.OpenableSoundInteractionTranslator",
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$Asset",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$AssetIndex",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$LatestVersion",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$Version",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$VersionDownload",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$VersionInfo",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.geyser.util.AssetUtils$VersionManifest",
+    "allDeclaredFields": true,
+    "unsafeAllocated": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.AutoReadFlowControlHandler",
+    "methods": [
+      {
+        "name": "read",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.FlushHandler",
+    "methods": [
+      {
+        "name": "write",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Object",
+          "io.netty.channel.ChannelPromise"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.PacketCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.PacketCompressionCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.PacketEncryptorCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.netty.PacketSizerCodec",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.session.ClientNetworkSession",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.session.ClientNetworkSession$1",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.geysermc.mcprotocollib.network.session.NetworkSession",
+    "methods": [
+      {
+        "name": "channelActive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "channelInactive",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext"
+        ]
+      },
+      {
+        "name": "exceptionCaught",
+        "parameterTypes": [
+          "io.netty.channel.ChannelHandlerContext",
+          "java.lang.Throwable"
+        ]
+      }
+    ],
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.osgi.framework.FrameworkUtil",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "org.spongepowered.configurate.AbstractCommentedConfigurationNode",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "comment"
+      }
+    ]
+  },
+  {
+    "name": "org.spongepowered.configurate.ListConfigValue",
+    "unsafeAllocated": true,
+    "fields": [
+      {
+        "name": "values"
+      }
+    ]
+  },
+  {
+    "name": "reactor.netty.http.client.HttpClient",
+    "unsafeAllocated": true
+  },
+  {
+    "name": "sun.management.ClassLoadingImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.CompilationImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.ManagementFactoryHelper$1",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.ManagementFactoryHelper$PlatformLoggingImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.MemoryImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.MemoryManagerImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.MemoryPoolImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.management.RuntimeImpl",
+    "queryAllPublicConstructors": true
+  },
+  {
+    "name": "sun.misc.Unsafe",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "allocateInstance",
+        "parameterTypes": [
+          "java.lang.Class"
+        ]
+      },
+      {
+        "name": "copyMemory",
+        "parameterTypes": [
+          "java.lang.Object",
+          "long",
+          "java.lang.Object",
+          "long",
+          "long"
+        ]
+      },
+      {
+        "name": "getAndAddLong",
+        "parameterTypes": [
+          "java.lang.Object",
+          "long",
+          "long"
+        ]
+      },
+      {
+        "name": "getAndSetObject",
+        "parameterTypes": [
+          "java.lang.Object",
+          "long",
+          "java.lang.Object"
+        ]
+      },
+      {
+        "name": "invokeCleaner",
+        "parameterTypes": [
+          "java.nio.ByteBuffer"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.pkcs12.PKCS12KeyStore",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.pkcs12.PKCS12KeyStore$DualFormatPKCS12",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.DSA$SHA224withDSA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.DSA$SHA256withDSA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.JavaKeyStore$DualFormatJKS",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.JavaKeyStore$JKS",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.MD5",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.NativePRNG",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.security.SecureRandomParameters"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SHA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SHA2$SHA224",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SHA2$SHA256",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SHA5$SHA384",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SHA5$SHA512",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.SecureRandom",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.security.SecureRandomParameters"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.X509Factory",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.provider.certpath.PKIXCertPathValidator",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.PSSParameters",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.RSAKeyFactory$Legacy",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.RSAPSSSignature",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.RSASignature$SHA224withRSA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.RSASignature$SHA256withRSA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.rsa.RSASignature$SHA384withRSA",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.ssl.KeyManagerFactoryImpl$SunX509",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.ssl.SSLContextImpl$DefaultSSLContext",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.ssl.TrustManagerFactoryImpl$PKIXFactory",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "sun.security.util.ObjectIdentifier"
+  },
+  {
+    "name": "sun.security.x509.AuthorityInfoAccessExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.AuthorityKeyIdentifierExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.BasicConstraintsExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.CRLDistributionPointsExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.CertificateExtensions"
+  },
+  {
+    "name": "sun.security.x509.CertificatePoliciesExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.ExtendedKeyUsageExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.KeyUsageExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.NetscapeCertTypeExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.OCSPNoCheckExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.PrivateKeyUsageExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.SubjectAlternativeNameExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sun.security.x509.SubjectKeyIdentifierExtension",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.Boolean",
+          "java.lang.Object"
+        ]
+      }
+    ]
+  }
+]

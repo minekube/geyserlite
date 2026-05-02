@@ -1,0 +1,96 @@
+name: Build native image
+
+# The slow ~3-min GraalVM build. Only runs when build/** changes (typically
+# Renovate bumping geyser.version or graalvm.version) or on manual dispatch.
+# All other commits — Go/Rust changes, doc edits, examples — skip this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'build/**'
+      - '.github/workflows/native-image.yml'
+  pull_request:
+    paths:
+      - 'build/**'
+      - '.github/workflows/native-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # GH Release upload
+  packages: write   # GHCR push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned versions
+        id: pins
+        run: |
+          GEYSER_REF=$(tr -d '[:space:]' < build/geyser.version)
+          GRAALVM=$(tr -d '[:space:]' < build/graalvm.version)
+          echo "geyser_ref=$GEYSER_REF"   >> "$GITHUB_OUTPUT"
+          echo "geyser_short=${GEYSER_REF:0:12}" >> "$GITHUB_OUTPUT"
+          echo "graalvm=$GRAALVM" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch == 'arm64'
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/Dockerfile
+          target: image
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/geyserlite:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      - name: Extract artifacts
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p out
+          docker buildx build \
+            --target shared \
+            --platform linux/${{ matrix.arch }} \
+            --build-arg GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }} \
+            --output type=local,dest=out \
+            -f build/Dockerfile .
+          mv out/libgeyserlite.so out/libgeyserlite-linux-${{ matrix.arch }}.so
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: geyserlite-${{ matrix.arch }}
+          path: out/
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pull image
+        run: docker pull ghcr.io/${{ github.repository_owner }}/geyserlite:$(tr -d '[:space:]' < build/geyser.version | cut -c1-12)-amd64
+      - name: TODO synthetic Bedrock client probe
+        run: echo "TODO: implement in internal/synthetic"

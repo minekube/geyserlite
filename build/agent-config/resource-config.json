@@ -1,0 +1,216 @@
+{
+  "resources":{
+  "includes":[{
+    "pattern":"\\QGeyserIntegratedPack.mcpack\\E"
+  }, {
+    "pattern":"\\QMETA-INF/log4j-provider.properties\\E"
+  }, {
+    "pattern":"\\QMETA-INF/native/libnetty_transport_native_epoll_x86_64.so\\E"
+  }, {
+    "pattern":"\\QMETA-INF/native/libnetty_transport_native_io_uring42_x86_64.so\\E"
+  }, {
+    "pattern":"\\QMETA-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.lang.System$LoggerFinder\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.net.spi.InetAddressResolverProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.net.spi.URLStreamHandlerProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.nio.channels.spi.SelectorProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.time.zone.ZoneRulesProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.imageio.spi.ImageInputStreamSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.imageio.spi.ImageOutputStreamSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.imageio.spi.ImageReaderSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.imageio.spi.ImageTranscoderSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.imageio.spi.ImageWriterSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.xml.parsers.DocumentBuilderFactory\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/net.kyori.adventure.internal.properties.AdventureProperties$DefaultOverrideProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/net.kyori.adventure.text.serializer.gson.GsonComponentSerializer$Provider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer$Provider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.logging.log4j.core.util.ContextDataProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.logging.log4j.core.util.WatchEventService\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.logging.log4j.spi.Provider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.logging.log4j.util.PropertySource\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.cloudburstmc.math.vector.VectorProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.incendo.cloud.parser.ParserContributor\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.jline.terminal.spi.JansiSupport\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.jline.terminal.spi.JnaSupport\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.slf4j.spi.SLF4JServiceProvider\\E"
+  }, {
+    "pattern":"\\Qbedrock/biome_definitions.dat\\E"
+  }, {
+    "pattern":"\\Qbedrock/block_palette.1_21_130.nbt\\E"
+  }, {
+    "pattern":"\\Qbedrock/block_palette.1_26_10.nbt\\E"
+  }, {
+    "pattern":"\\Qbedrock/creative_items.1_21_130.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/creative_items.1_26_0.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/creative_items.1_26_10.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/entity_identifiers.dat\\E"
+  }, {
+    "pattern":"\\Qbedrock/geometries/geo.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_components.1_21_130.nbt\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_components.1_26_0.nbt\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_components.1_26_10.nbt\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_tags.1_21_130.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_tags.1_26_0.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/item_tags.1_26_10.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/runtime_item_states.1_21_130.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/runtime_item_states.1_26_0.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/runtime_item_states.1_26_10.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/skin/geometry.humanoid.customskull.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/skin/geometry.humanoid.wearingCustomSkull.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/skin/geometry.humanoid.wearingCustomSkullSlim.json\\E"
+  }, {
+    "pattern":"\\Qbedrock/stripped_biome_definitions.json\\E"
+  }, {
+    "pattern":"\\Qcom/sun/jna/linux-x86-64/libjnidispatch.so\\E"
+  }, {
+    "pattern":"\\Qjndi.properties\\E"
+  }, {
+    "pattern":"\\Qlanguages/texts/de_DE.properties\\E"
+  }, {
+    "pattern":"\\Qlanguages/texts/en_US.properties\\E"
+  }, {
+    "pattern":"\\Qliblibnukkit-natives-linux-x86_64.so\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.jsn\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.json\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.xml\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.yaml\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test.yml\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.jsn\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.json\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.xml\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.yaml\\E"
+  }, {
+    "pattern":"\\Qlog4j2-test2626b418.yml\\E"
+  }, {
+    "pattern":"\\Qlog4j2.StatusLogger.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.component.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.jsn\\E"
+  }, {
+    "pattern":"\\Qlog4j2.json\\E"
+  }, {
+    "pattern":"\\Qlog4j2.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.system.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.xml\\E"
+  }, {
+    "pattern":"\\Qlog4j2.yaml\\E"
+  }, {
+    "pattern":"\\Qlog4j2.yml\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.jsn\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.json\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.xml\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.yaml\\E"
+  }, {
+    "pattern":"\\Qlog4j22626b418.yml\\E"
+  }, {
+    "pattern":"\\Qmappings/biomes.json\\E"
+  }, {
+    "pattern":"\\Qmappings/block_shapes.nbt\\E"
+  }, {
+    "pattern":"\\Qmappings/blocks.nbt\\E"
+  }, {
+    "pattern":"\\Qmappings/collisions.nbt\\E"
+  }, {
+    "pattern":"\\Qmappings/effects.json\\E"
+  }, {
+    "pattern":"\\Qmappings/interactions.json\\E"
+  }, {
+    "pattern":"\\Qmappings/item_data_components.json\\E"
+  }, {
+    "pattern":"\\Qmappings/items.json\\E"
+  }, {
+    "pattern":"\\Qmappings/particles.json\\E"
+  }, {
+    "pattern":"\\Qmappings/sounds.json\\E"
+  }, {
+    "pattern":"\\Qmappings/util.json\\E"
+  }, {
+    "pattern":"\\QnetworkCodec.nbt\\E"
+  }, {
+    "pattern":"\\Qorg.geysermc.geyser.translator.collision.CollisionRemapper\\E"
+  }, {
+    "pattern":"\\Qorg.geysermc.geyser.translator.level.block.entity.BlockEntity\\E"
+  }, {
+    "pattern":"\\Qorg.geysermc.geyser.translator.protocol.Translator\\E"
+  }, {
+    "pattern":"\\Qorg.geysermc.geyser.translator.sound.SoundTranslator\\E"
+  }, {
+    "pattern":"\\Qorg/spongepowered/configurate/interfaces/interface_mappings.properties\\E"
+  }, {
+    "pattern":"\\Qyggdrasil_session_pubkey.der\\E"
+  }, {
+    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfkc.nrm\\E"
+  }, {
+    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/uprops.icu\\E"
+  }, {
+    "pattern":"java.base:\\Qsun/net/idn/uidna.spp\\E"
+  }, {
+    "pattern":"jdk.jfr:\\Qjdk/jfr/internal/query/view.ini\\E"
+  }, {
+    "pattern":"jdk.jfr:\\Qjdk/jfr/internal/types/metadata.bin\\E"
+  }]},
+  "bundles":[{
+    "name":"sun.awt.resources.awt",
+    "classNames":["sun.awt.resources.awt"]
+  }]
+}

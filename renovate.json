@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^build/geyser\\.version$"],
+      "matchStrings": ["^(?<currentDigest>[a-f0-9]{40})\\s*$"],
+      "depNameTemplate": "GeyserMC/Geyser",
+      "packageNameTemplate": "https://github.com/GeyserMC/Geyser",
+      "datasourceTemplate": "git-refs",
+      "currentValueTemplate": "master"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["^build/graalvm\\.version$"],
+      "matchStrings": ["^(?<depName>[\\w./-]+):(?<currentValue>[\\w.-]+)\\s*$"],
+      "datasourceTemplate": "docker"
+    }
+  ],
+
+  "packageRules": [
+    {
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["GeyserMC/Geyser"],
+      "groupName": "Geyser",
+      "commitMessageTopic": "Geyser",
+      "commitMessageExtra": "to {{newDigestShort}}",
+      "labels": ["dependencies", "geyser-rebuild"],
+      "automerge": false
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["ghcr.io/graalvm/native-image-community"],
+      "groupName": "GraalVM",
+      "labels": ["dependencies", "graalvm-rebuild"],
+      "automerge": false
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["ghcr.io/minekube/geyserlite"],
+      "groupName": "Geyserlite native image"
+    },
+    {
+      "matchManagers": ["gomod", "cargo"],
+      "groupName": "language deps",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["minor", "patch"]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+# Geyser config consumed by the geyserlite container in this compose stack.
+# Connects to the `paper` service on the compose network using offline-mode
+# auth (Paper is online-mode=false). For real deployments use Floodgate
+# auth + a Floodgate-aware upstream like Gate.
+
+bedrock:
+  address: 0.0.0.0
+  port: 19132
+  motd1: 'geyserlite'
+  motd2: 'cross-play example'
+  server-name: geyserlite
+  compression-level: 6
+
+java:
+  address: paper
+  port: 25565
+  auth-type: offline
+  forward-hostname: false
+
+floodgate-key-file: /data/key.bin
+
+passthrough-motd: false
+passthrough-player-counts: false
+legacy-ping-passthrough: false
+
+forward-player-ping: true
+max-players: 100
+debug-mode: false
+
+show-cooldown: title
+show-coordinates: true
+disable-bedrock-scaffolding: false
+
+xbox-achievements-enabled: false
+log-player-ip-addresses: true
+notify-on-new-bedrock-update: false
+
+scoreboard-packet-threshold: 20
+enable-proxy-connections: false
+mtu: 1400
+use-direct-connection: false
+disable-compression: false
+
+config-version: 4
