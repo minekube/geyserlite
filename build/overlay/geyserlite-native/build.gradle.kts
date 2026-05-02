@@ -16,7 +16,12 @@ graalvmNative {
         named("main") {
             imageName.set("libgeyserlite")
             sharedLibrary.set(true)
-            mainClass.set("") // unused for shared mode
+            // mainClass is consulted by the plugin even for shared
+            // libraries — it's the analysis root, i.e. the class
+            // native-image scans for @CEntryPoint methods. Without
+            // a real class here, only graal_isolate exports survive
+            // and no libgeyserlite.h is generated.
+            mainClass.set("com.minekube.geyserlite.bridge.GeyserBridge")
             useFatJar.set(true)
             // Notes on what's NOT set here:
             //  --static    incompatible with --shared (set via
