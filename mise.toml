@@ -1,0 +1,41 @@
+# mise — single source of truth for dev tooling.
+# https://mise.jdx.dev
+#
+# After cloning:
+#   mise trust && mise install
+#
+# That installs the right versions of Go, Rust, Java/GraalVM, and `task`,
+# pinned to what CI uses. From there everything goes through `task`
+# (run `task` for a list).
+
+[tools]
+# Go library
+go = "1.24"
+
+# Rust crate (Edition 2024 requires 1.85+)
+rust = "1.85"
+
+# Java + GraalVM 21 LTS for the native-image build (when building locally
+# without Docker — most builds happen via `task build:native` which uses
+# the GraalVM container image, but tracing-agent runs need a local JVM).
+java = "graalvm-community-21"
+
+# Task runner. Required to run anything in the Taskfile.
+"aqua:go-task/task" = "latest"
+
+# Used by build/Dockerfile's reflect-config patcher and various scripts.
+python = "3.12"
+
+# Linters / formatters used by CI and by `task lint`.
+"aqua:DavidAnson/markdownlint-cli2" = "latest"
+"aqua:adrienverge/yamllint" = "latest"
+"aqua:golangci/golangci-lint" = "latest"
+
+[env]
+# Make local Go/Rust caches predictable across project clones.
+GOPATH = "{{config_root}}/.cache/go"
+CARGO_TARGET_DIR = "{{config_root}}/.cache/cargo-target"
+
+[settings]
+# Auto-install missing tools the first time this project is entered.
+experimental = true

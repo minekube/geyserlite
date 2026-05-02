@@ -28,6 +28,22 @@ language wrapper at all.
 | **Rust crate** (`geyserlite` on [crates.io](https://crates.io/crates/geyserlite)) | Embed Geyser in your Rust MC server in 5 lines. |
 | **Compose example** (`deploy/compose/`) | Cross-play stack: Geyser + Paper, in 60 seconds. |
 
+## Contributing / local dev
+
+This repo uses [`mise`](https://mise.jdx.dev) to pin all dev tooling
+(Go, Rust, GraalVM, `task`, linters) and [`task`](https://taskfile.dev)
+as the workflow runner. After cloning:
+
+```sh
+mise trust && mise install     # installs everything in mise.toml
+task                            # list tasks
+task build:native               # GraalVM build of geyserlite + .so via Docker
+task test                       # all language tests
+task lint                       # all linters
+```
+
+`task` itself is installed by `mise`, so the only prerequisite is `mise`.
+
 ## Quick starts
 
 ### Run the binary directly

@@ -18,6 +18,9 @@ floodgate.key
 *.pem
 !build/overlay/**/*.pem
 
+# Local mise/cargo/go caches (kept inside the repo via mise.toml [env])
+.cache/
+
 # OS / editor cruft
 .DS_Store
 .idea/

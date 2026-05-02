@@ -1,0 +1,169 @@
+# Taskfile — https://taskfile.dev
+#
+# All dev workflows live here. Run `task` for the list.
+# All commands assume `mise install` has been run; tools are picked up
+# from mise.toml automatically.
+
+version: "3"
+
+vars:
+  GEYSER_VERSION:
+    sh: tr -d '[:space:]' < build/geyser.version
+  IMAGE_REPO: ghcr.io/minekube/geyserlite
+
+tasks:
+  default:
+    desc: list available tasks
+    cmds:
+      - task --list
+
+  # ─── Setup ───────────────────────────────────────────────────────────────
+  setup:
+    desc: one-time setup after `mise install`
+    cmds:
+      - go -C go mod download
+      - cd rust && cargo fetch
+      - echo "Done. Try `task build:native` next."
+
+  # ─── Build ───────────────────────────────────────────────────────────────
+  build:native:
+    desc: build geyserlite ELF + libgeyserlite.so via Docker (slow, ~3 min)
+    cmds:
+      - docker build -f build/Dockerfile --target image  -t {{.IMAGE_REPO}}:local-image  .
+      - docker build -f build/Dockerfile --target shared -t {{.IMAGE_REPO}}:local-shared .
+
+  build:go:
+    desc: build the Go library + examples
+    dir: go
+    cmds:
+      - go build ./...
+      - go build -o bin/basic ./examples/basic
+
+  build:rust:
+    desc: build the Rust crate + examples
+    dir: rust
+    cmds:
+      - cargo build --all-targets
+
+  build:
+    desc: build everything (no Docker)
+    deps: [build:go, build:rust]
+
+  # ─── Test ────────────────────────────────────────────────────────────────
+  test:go:
+    desc: Go tests
+    dir: go
+    cmds:
+      - go test -race ./...
+
+  test:rust:
+    desc: Rust tests
+    dir: rust
+    cmds:
+      - cargo test --all-features
+
+  test:
+    desc: all tests
+    deps: [test:go, test:rust]
+
+  # ─── Lint ────────────────────────────────────────────────────────────────
+  lint:go:
+    desc: Go lint (golangci-lint)
+    dir: go
+    cmds:
+      - golangci-lint run
+
+  lint:rust:
+    desc: Rust lint (cargo fmt + clippy)
+    dir: rust
+    cmds:
+      - cargo fmt --check
+      - cargo clippy --all-targets -- -D warnings
+
+  lint:md:
+    desc: Markdown lint
+    cmds:
+      - markdownlint-cli2 '**/*.md' '#node_modules' '#**/.cache/**' '#build/.work/**'
+
+  lint:yaml:
+    desc: YAML lint
+    cmds:
+      - yamllint .
+
+  lint:
+    desc: run all linters
+    deps: [lint:go, lint:rust, lint:md, lint:yaml]
+
+  # ─── Native build pipeline helpers ──────────────────────────────────────
+  overlay:apply:
+    desc: clone Geyser at pinned ref + apply overlay/ + patches/ to ./build/.work/Geyser
+    cmds:
+      - bash build/apply-overlay.sh
+
+  patch:create:
+    desc: |
+      after editing files in ./build/.work/Geyser, regenerate a patch.
+      usage: task patch:create -- 0002-short-description
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "usage: task patch:create -- 0002-short-description" >&2; exit 1
+        fi
+        cd build/.work/Geyser && git diff > "{{.PWD}}/build/patches/{{.CLI_ARGS}}.patch"
+        echo "wrote build/patches/{{.CLI_ARGS}}.patch"
+
+  agent:capture:
+    desc: |
+      run a JVM Geyser with the GraalVM tracing agent attached, merging
+      into build/agent-config/. Connect from a Bedrock client + play 30s+
+      to capture login + chunk-loading reflection. SIGTERM to flush.
+    cmds:
+      - |
+        cd build/.work/Geyser && ./gradlew :standalone:shadowJar --no-daemon
+      - |
+        java -agentlib:native-image-agent=config-merge-dir={{.PWD}}/build/agent-config \
+             -jar build/.work/Geyser/bootstrap/standalone/build/libs/Geyser-Standalone.jar \
+             --nogui
+
+  geyser:bump:
+    desc: |
+      manually bump the pinned Geyser ref (Renovate does this in CI normally).
+      usage: task geyser:bump -- <new-sha>
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "usage: task geyser:bump -- <new-sha-or-tag>" >&2; exit 1
+        fi
+        echo "{{.CLI_ARGS}}" > build/geyser.version
+        echo "bumped to {{.CLI_ARGS}}; verify with: task overlay:apply"
+
+  # ─── Local utilities ────────────────────────────────────────────────────
+  floodgate:keygen:
+    desc: generate a 16-byte AES-128 Floodgate key
+    cmds:
+      - bash scripts/floodgate-keygen.sh {{.CLI_ARGS}}
+
+  compose:up:
+    desc: bring up the docker-compose example (geyserlite + Paper)
+    dir: deploy/compose
+    cmds:
+      - docker compose up
+
+  compose:down:
+    desc: tear down the docker-compose example
+    dir: deploy/compose
+    cmds:
+      - docker compose down -v
+
+  clean:
+    desc: remove local build artifacts
+    cmds:
+      - rm -rf build/.work
+      - rm -rf go/bin
+      - cd rust && cargo clean
+      - go -C go clean ./...
+
+  # ─── Pre-commit ──────────────────────────────────────────────────────────
+  pre-commit:
+    desc: run lint + test (what CI runs)
+    deps: [lint, test]
