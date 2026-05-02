@@ -78,8 +78,12 @@ NI_FLAGS_COMMON=(
 
     -O2
 
-    # Bake heap settings into the image so runtime needs no -Xmx parsing.
-    -R:MaxHeapSize=64m
+    # Baked-in default max heap. The smoke test surfaced that 64m is
+    # too tight for Geyser's standalone bootstrap (Loading extensions →
+    # OOM during config parse). 192m fits comfortably inside a 256MB
+    # Fly VM with headroom for native, netty buffers, and the JVM
+    # bookkeeping. Runtime callers can still override with -Xmx.
+    -R:MaxHeapSize=192m
 
     -H:+UnlockExperimentalVMOptions
     -H:+RemoveSaturatedTypeFlows
