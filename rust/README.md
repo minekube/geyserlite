@@ -31,7 +31,7 @@ Both expose the same [`Server`] API; switch via `Options::mode`.
 
 ## Quick start
 
-```rust
+```rust,no_run
 use geyserlite::{Server, Options, AuthType};
 
 #[tokio::main]
