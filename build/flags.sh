@@ -34,6 +34,13 @@ NI_FLAGS_COMMON=(
     # Reflection / JNI metadata captured by the tracing agent.
     -H:ConfigurationFileDirectories=agent-config
 
+    # Bundle Geyser's runtime resources into the image. Without this,
+    # the binary throws "Unable to find resource: custom-skulls.yml"
+    # (and similar) because native-image discards classpath resources
+    # by default. The patterns cover the YAML configs, JSON schemas,
+    # mappings, language packs, and the embedded resource pack.
+    -H:IncludeResources=^(custom-skulls\\.yml|permissions\\.yml|.+\\.json|.+\\.properties|.+\\.lang|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\\.mcpack)$
+
     # Don't fall back to bytecode at runtime if static analysis can't reach a method —
     # we want a true native binary, not a JVM wrapper.
     --no-fallback
@@ -44,7 +51,11 @@ NI_FLAGS_COMMON=(
     # Force log4j to initialize at build time so its ServiceLoader reflection
     # runs in the JVM (where reflection works) instead of native runtime
     # (where it doesn't, because of LambdaMetafactory hidden classes).
-    --initialize-at-build-time=org.apache.logging.log4j,java.awt.Color
+    # Also need terminalconsoleappender + jline + jansi (interactive
+    # console layer that log4j2 wires up for Geyser-Standalone), plus
+    # snakeyaml whose dynamic constructor synthesis hits the same
+    # "hidden classes at runtime" wall.
+    --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color
 
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
