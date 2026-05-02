@@ -18,11 +18,17 @@ graalvmNative {
             sharedLibrary.set(true)
             mainClass.set("") // unused for shared mode
             useFatJar.set(true)
-            // Note: --static is intentionally absent — it's mutually
-            // exclusive with --shared (which the plugin sets via
-            // sharedLibrary = true above).
-            // -march is architecture-specific; the buildtime arch is
-            // resolved from System.getProperty("os.arch") at config eval.
+            // Notes on what's NOT set here:
+            //  --static    incompatible with --shared (set via
+            //              sharedLibrary = true above).
+            //  --libc=musl static musl libs are built without -fPIC, so
+            //              the linker can't fold them into a shared
+            //              object. The shared library uses the system
+            //              glibc instead — its consumer's libc is
+            //              already loaded anyway, so there's no benefit
+            //              to bundling our own.
+            // -march is architecture-specific; the buildtime arch comes
+            // from os.arch at config eval.
             val osArch = System.getProperty("os.arch", "x86_64")
             val march = when (osArch) {
                 "amd64", "x86_64" -> "-march=x86-64-v2"
@@ -36,7 +42,6 @@ graalvmNative {
                 "--initialize-at-build-time=org.apache.logging.log4j,java.awt.Color",
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
                 "--strict-image-heap",
-                "--libc=musl",
                 march,
                 "-O2",
                 "-R:MaxHeapSize=64m",
