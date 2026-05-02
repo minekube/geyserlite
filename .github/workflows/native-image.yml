@@ -28,12 +28,20 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        # Native runners per arch — public repos get free linux/amd64
+        # *and* linux/arm64 GitHub-hosted runners. QEMU emulation of
+        # arm64 took >45 min and timed out; native arm64 finishes in
+        # ~10 min like amd64.
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
 
@@ -53,9 +61,6 @@ jobs:
             echo "geyser_short=${REF:0:12}"
             echo "graalvm=$GRAALVM"
           } >> "$GITHUB_OUTPUT"
-
-      - uses: docker/setup-qemu-action@v3
-        if: matrix.arch == 'arm64'
 
       - uses: docker/setup-buildx-action@v3
 
