@@ -14,7 +14,7 @@ type Server struct {
 	logger *slog.Logger
 
 	mu      sync.Mutex
-	started bool
+	started atomic.Bool // read by Healthy without the lock; set by Start under mu
 
 	// Set when Start runs.
 	healthy atomic.Bool
@@ -62,11 +62,11 @@ func New(opts Options) (*Server, error) {
 // Returns ctx.Err() on graceful shutdown, or the underlying error otherwise.
 func (s *Server) Start(ctx context.Context) error {
 	s.mu.Lock()
-	if s.started {
+	if s.started.Load() {
 		s.mu.Unlock()
 		return ErrAlreadyStarted
 	}
-	s.started = true
+	s.started.Store(true)
 	runCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 	s.done = make(chan struct{})
@@ -84,7 +84,7 @@ func (s *Server) Start(ctx context.Context) error {
 // has stopped or ctx is canceled.
 func (s *Server) Stop(ctx context.Context) error {
 	s.mu.Lock()
-	if !s.started {
+	if !s.started.Load() {
 		s.mu.Unlock()
 		return ErrNotStarted
 	}
@@ -106,7 +106,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // Healthy reports whether Geyser is currently accepting connections.
 func (s *Server) Healthy() bool {
-	if !s.started {
+	if !s.started.Load() {
 		return false
 	}
 	return s.runner.healthy()

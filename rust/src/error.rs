@@ -43,6 +43,18 @@ pub enum Error {
     #[error("geyserlite: max restarts ({0}) exceeded")]
     MaxRestarts(usize),
 
+    /// HTTP fetch (download mode) failed with a non-2xx status.
+    #[error("geyserlite: http {status} for {url}")]
+    Http { status: u16, url: String },
+
+    /// Downloaded asset's sha256 didn't match the manifest.
+    #[error("geyserlite: sha256 mismatch for {asset}: got {got}, want {want}")]
+    ChecksumMismatch { asset: String, got: String, want: String },
+
+    /// Auto-download isn't supported on this build target.
+    #[error("geyserlite: auto-download supports linux amd64/arm64 only; set Options.binary_path or Options.library_path")]
+    UnsupportedTarget,
+
     /// Generic IO failure.
     #[error("geyserlite: io: {0}")]
     Io(#[from] std::io::Error),

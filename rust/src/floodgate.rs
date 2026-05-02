@@ -8,11 +8,8 @@
 /// `pkg/edition/bedrock/geyser/floodgate/cipher.go:38` which checks
 /// `len(key) ∈ {16, 24, 32}`.
 pub fn generate_floodgate_key() -> Vec<u8> {
-    use rand::TryRngCore;
     let mut buf = vec![0u8; 16];
-    rand::rngs::OsRng
-        .try_fill_bytes(&mut buf)
-        .expect("OS RNG should not fail");
+    getrandom::fill(&mut buf).expect("OS RNG should not fail");
     buf
 }
 

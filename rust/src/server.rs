@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio_util::sync::CancellationToken;
 
 use crate::embedded::EmbeddedRunner;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::options::{Mode, Options};
 use crate::subprocess::SubprocessRunner;
 
@@ -14,6 +14,7 @@ pub struct Server {
     pub(crate) opts: Options,
     pub(crate) healthy: Arc<AtomicBool>,
     pub(crate) cancel: CancellationToken,
+    started: AtomicBool,
 }
 
 impl Server {
@@ -24,12 +25,17 @@ impl Server {
             opts,
             healthy: Arc::new(AtomicBool::new(false)),
             cancel: CancellationToken::new(),
+            started: AtomicBool::new(false),
         })
     }
 
     /// Start the server. Resolves when [`Server::stop`] is called or the
-    /// underlying Geyser exits unrecoverably.
+    /// underlying Geyser exits unrecoverably. Returns
+    /// [`Error::AlreadyStarted`] on the second call.
     pub async fn start(&self) -> Result<()> {
+        if self.started.swap(true, Ordering::AcqRel) {
+            return Err(Error::AlreadyStarted);
+        }
         match self.opts.mode {
             Mode::Embedded => EmbeddedRunner.run(self).await,
             Mode::Subprocess => SubprocessRunner.run(self).await,

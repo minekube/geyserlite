@@ -16,6 +16,8 @@ mod fly;
 mod floodgate;
 mod locate;
 mod options;
+#[cfg(any(feature = "embed", feature = "download"))]
+mod paths;
 mod server;
 mod subprocess;
 mod version;

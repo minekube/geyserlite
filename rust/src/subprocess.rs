@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 use std::process::Stdio;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -29,13 +30,14 @@ impl SubprocessRunner {
         let policy = srv.opts.restart_policy.expect("validated default");
         let mut backoff = Backoff::new(policy.min_backoff, policy.max_backoff);
 
-        let mut attempt: usize = 0;
+        let mut total_runs: usize = 0;
         loop {
-            attempt += 1;
-            if policy.max_retries > 0 && attempt > policy.max_retries {
+            if policy.max_retries > 0 && total_runs >= policy.max_retries {
                 return Err(Error::MaxRestarts(policy.max_retries));
             }
+            total_runs += 1;
 
+            let started_at = Instant::now();
             let result = run_once(srv, &binary, workdir.path()).await;
             match result {
                 Ok(()) => return Ok(()),
@@ -44,8 +46,14 @@ impl SubprocessRunner {
                     return Ok(());
                 }
                 Err(e) => {
+                    // If Geyser stayed up long enough to look stable, reset
+                    // backoff so a later flap doesn't inherit yesterday's
+                    // max-backoff.
+                    if started_at.elapsed() > Duration::from_secs(5 * 60) {
+                        backoff.reset();
+                    }
                     let wait = backoff.next();
-                    warn!(?e, ?wait, attempt, "geyser exited; restarting after backoff");
+                    warn!(?e, ?wait, attempt = total_runs, "geyser exited; restarting after backoff");
                     tokio::select! {
                         _ = sleep(wait) => {},
                         _ = srv.cancel.cancelled() => return Ok(()),
@@ -87,7 +95,7 @@ async fn run_once(srv: &Server, binary: &std::path::Path, workdir: &std::path::P
             // Graceful: SIGTERM, then SIGKILL on timeout.
             #[cfg(unix)]
             if let Some(id) = child.id() {
-                let _ = nix_kill(id, libc_sigterm());
+                let _ = send_sigterm(id);
             }
             let timeout = srv.opts.shutdown_timeout.unwrap_or(Duration::from_secs(30));
             tokio::select! {
@@ -157,21 +165,11 @@ fn strip_ansi(s: &str) -> String {
 }
 
 #[cfg(unix)]
-fn nix_kill(pid: u32, signal: i32) -> std::io::Result<()> {
-    // Avoid pulling in nix crate just for this.
-    // SAFETY: kill is signal-safe and doesn't dereference user pointers.
-    let rc = unsafe { libc_kill(pid as i32, signal) };
+fn send_sigterm(pid: u32) -> std::io::Result<()> {
+    // SAFETY: kill(2) is signal-safe and doesn't dereference user pointers.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
     if rc == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
 }
-
-#[cfg(unix)]
-unsafe extern "C" {
-    #[link_name = "kill"]
-    fn libc_kill(pid: i32, sig: i32) -> i32;
-}
-
-#[cfg(unix)]
-fn libc_sigterm() -> i32 { 15 }
 
 #[cfg(test)]
 mod tests {

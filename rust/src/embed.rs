@@ -10,7 +10,8 @@ use std::path::PathBuf;
 
 use sha2::{Digest, Sha256};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::paths::cache_root;
 
 /// Returns the on-disk path of the extracted asset, writing it from the
 /// embedded blob if not already present. The cache key is the blob's
@@ -20,11 +21,9 @@ pub(crate) fn extract_asset(blob: &[u8], name: &str, executable: bool) -> Result
     if blob.is_empty() {
         return Ok(None);
     }
-    let mut hasher = Sha256::new();
-    hasher.update(blob);
-    let sha = hex(&hasher.finalize());
+    let sha = format!("{:x}", Sha256::digest(blob));
 
-    let mut dir = cache_dir()?;
+    let mut dir = cache_root()?;
     dir.push("geyserlite");
     dir.push(&sha);
     let path = dir.join(name);
@@ -35,53 +34,28 @@ pub(crate) fn extract_asset(blob: &[u8], name: &str, executable: bool) -> Result
         }
     }
 
-    fs::create_dir_all(&dir).map_err(Error::Io)?;
+    fs::create_dir_all(&dir)?;
     let tmp = path.with_extension("tmp");
     {
         let mut f = fs::OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
-            .open(&tmp)
-            .map_err(Error::Io)?;
-        f.write_all(blob).map_err(Error::Io)?;
+            .open(&tmp)?;
+        f.write_all(blob)?;
     }
     #[cfg(unix)]
     if executable {
         use std::os::unix::fs::PermissionsExt;
-        let mut perm = fs::metadata(&tmp).map_err(Error::Io)?.permissions();
+        let mut perm = fs::metadata(&tmp)?.permissions();
         perm.set_mode(0o755);
-        fs::set_permissions(&tmp, perm).map_err(Error::Io)?;
+        fs::set_permissions(&tmp, perm)?;
     }
     #[cfg(not(unix))]
     let _ = executable;
 
-    fs::rename(&tmp, &path).map_err(Error::Io)?;
+    fs::rename(&tmp, &path)?;
     Ok(Some(path))
-}
-
-fn cache_dir() -> Result<PathBuf> {
-    if let Ok(p) = std::env::var("XDG_CACHE_HOME") {
-        if !p.is_empty() {
-            return Ok(PathBuf::from(p));
-        }
-    }
-    if let Some(home) = std::env::var_os("HOME") {
-        let mut p = PathBuf::from(home);
-        p.push(".cache");
-        return Ok(p);
-    }
-    Err(Error::Io(std::io::Error::other("cannot determine user cache dir")))
-}
-
-fn hex(b: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut s = String::with_capacity(b.len() * 2);
-    for &x in b {
-        s.push(HEX[(x >> 4) as usize] as char);
-        s.push(HEX[(x & 0x0f) as usize] as char);
-    }
-    s
 }
 
 // ── Per-target embedded blobs ────────────────────────────────────────────
