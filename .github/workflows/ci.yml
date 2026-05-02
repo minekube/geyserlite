@@ -3,10 +3,34 @@ name: CI
 # Local and CI run the same `task` targets so they can't diverge.
 # All tool versions come from mise.toml; mise-action installs them with caching.
 
+# Path filters: lint+test only runs when something it actually checks
+# changes. Doc-only or workflow-config edits skip CI. The native-image
+# workflow has its own filter for build/**.
 on:
   push:
     branches: [main]
+    paths:
+      - 'go/**'
+      - 'rust/**'
+      - 'examples/**'
+      - 'mise.toml'
+      - 'Taskfile.yml'
+      - '.golangci.yml'
+      - '.markdownlint*'
+      - '.yamllint*'
+      - '.github/workflows/ci.yml'
   pull_request:
+    paths:
+      - 'go/**'
+      - 'rust/**'
+      - 'examples/**'
+      - 'mise.toml'
+      - 'Taskfile.yml'
+      - '.golangci.yml'
+      - '.markdownlint*'
+      - '.yamllint*'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
