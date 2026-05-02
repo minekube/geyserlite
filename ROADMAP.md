@@ -149,11 +149,11 @@ built from day 1 — no separate "subprocess first, embed later" phase.
     - `libgeyserlite-linux-arm64.so`
     - `libgeyserlite.h`
     - `checksums.txt` (sha256)
-- [ ] Auto-sync from upstream:
-  - Renovate watches GeyserMC/Geyser master; opens PR bumping `geyser.version`
+- [x] Auto-sync from upstream:
+  - Renovate watches GeyserMC/Geyser master; opens PR bumping `geyser.version` (`.github/renovate.json5` custom managers)
   - CI re-applies overlay + patches; conflicts surface as failed PR
-  - Mergify auto-merges clean Renovate PRs after smoke tests pass
-  - Slack/Discord webhook on conflict
+  - Auto-merge via GitHub's `platformAutomerge` once CI passes (no Mergify needed)
+  - [ ] Slack/Discord webhook on conflict — left for ops setup
 - [ ] Reproducibility: same SHAs in `geyser.version` + `graalvm.version` produce byte-identical artifacts (modulo timestamps in metadata)
 - [x] **Acceptance**:
   - `docker run ghcr.io/minekube/geyserlite` boots, listens on UDP 19132, responds to RakNet ping with the configured MOTD (verified by `smoke` job in `native-image.yml`)

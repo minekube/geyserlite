@@ -1,0 +1,90 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  timezone: "Europe/Berlin",
+  schedule: ["before 6am every weekday"],
+
+  // Each Renovate PR re-runs CI, which re-applies our overlay + patches
+  // against the bumped Geyser ref. Conflicts surface as failing CI on
+  // the PR; clean ones auto-merge once green.
+  packageRules: [
+    {
+      groupName: "Geyser upstream",
+      matchManagers: ["custom.regex"],
+      matchDepNames: ["GeyserMC/Geyser"],
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: true,
+    },
+    {
+      groupName: "GraalVM image",
+      matchPackageNames: ["ghcr.io/graalvm/native-image-community"],
+      // Manual review for base-image bumps — they routinely break things
+      // (microdnf glibc pinning, JDK static lib shipping, etc.).
+      automerge: false,
+    },
+    {
+      // GitHub Actions used in workflows: group + auto-merge minor/patch.
+      matchManagers: ["github-actions"],
+      groupName: "GitHub Actions",
+      automerge: true,
+      matchUpdateTypes: ["minor", "patch", "digest"],
+    },
+    {
+      // Major action bumps (Node 20→24 deprecation paths etc.) need
+      // human eyes.
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+    {
+      // Go module deps: group, auto-merge minor/patch.
+      matchManagers: ["gomod"],
+      groupName: "Go deps",
+      automerge: true,
+      matchUpdateTypes: ["minor", "patch"],
+    },
+    {
+      // Cargo deps: group, auto-merge minor/patch.
+      matchManagers: ["cargo"],
+      groupName: "Rust deps",
+      automerge: true,
+      matchUpdateTypes: ["minor", "patch"],
+    },
+  ],
+
+  customManagers: [
+    {
+      // Track the upstream Geyser SHA pinned in build/geyser.version.
+      // datasourceTemplate=git-refs against GeyserMC/Geyser master.
+      customType: "regex",
+      managerFilePatterns: ["/^build/geyser\\.version$/"],
+      matchStrings: ["^(?<currentDigest>[0-9a-f]{40})\\s*$"],
+      depNameTemplate: "GeyserMC/Geyser",
+      packageNameTemplate: "https://github.com/GeyserMC/Geyser",
+      datasourceTemplate: "git-refs",
+      currentValueTemplate: "master",
+    },
+    {
+      // Track the GraalVM image digest in build/graalvm.version.
+      // The file holds a fully-qualified docker reference like
+      //   ghcr.io/graalvm/native-image-community:21-ol9@sha256:...
+      // Renovate's docker datasource handles digest-only bumps cleanly.
+      customType: "regex",
+      managerFilePatterns: ["/^build/graalvm\\.version$/"],
+      matchStrings: [
+        "^(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})\\s*$",
+      ],
+      datasourceTemplate: "docker",
+    },
+  ],
+
+  // Don't try to update the Geyser source we're soft-forking; Renovate
+  // doesn't know it's an overlay tree.
+  ignorePaths: ["build/.work/**", "build/overlay/**", "node_modules/**"],
+
+  // Friendly defaults for human-reviewed PRs.
+  prHourlyLimit: 4,
+  prConcurrentLimit: 8,
+  rebaseWhen: "behind-base-branch",
+}
