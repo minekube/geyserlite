@@ -39,7 +39,12 @@ RUN curl -fsSLO https://musl.libc.org/releases/musl-1.2.5.tar.gz \
     && CC=/usr/local/musl/bin/musl-gcc ./configure --prefix=/usr/local/musl --static \
     && make -j"$(nproc)" install \
     && cp /usr/local/musl/lib/libz.a /usr/lib64/ \
-    && cd .. && rm -rf zlib-1.3.1
+    && cd .. && rm -rf zlib-1.3.1 \
+    # GraalVM's --libc=musl looks up the C compiler as
+    # `<arch>-linux-musl-gcc` on PATH (see CCompilerInvoker.java).
+    # Provide both linkage names from our musl install.
+    && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/x86_64-linux-musl-gcc \
+    && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/aarch64-linux-musl-gcc
 
 WORKDIR /work
 COPY build/geyser.version build/apply-overlay.sh build/flags.sh ./build/
