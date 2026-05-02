@@ -10,7 +10,7 @@
 
 [tools]
 # Go library
-go = "1.24"
+go = "1.26"
 
 # Rust crate (Edition 2024 requires 1.85+)
 rust = "1.85"

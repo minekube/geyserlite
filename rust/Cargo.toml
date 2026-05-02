@@ -38,7 +38,24 @@ reqwest = { version = "0.12", features = ["rustls-tls"], default-features = fals
 tokio = { version = "1", features = ["full"] }
 tracing-subscriber = "0.3"
 anyhow = "1"
+base64 = "0.22"
 
 [[example]]
 name = "basic"
 path = "examples/basic.rs"
+
+[[example]]
+name = "floodgate"
+path = "examples/floodgate.rs"
+
+[[example]]
+name = "fly"
+path = "examples/fly.rs"
+
+[[example]]
+name = "healthcheck"
+path = "examples/healthcheck.rs"
+
+[[example]]
+name = "custom_config"
+path = "examples/custom_config.rs"
