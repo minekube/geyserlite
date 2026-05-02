@@ -39,7 +39,12 @@ graalvmNative {
                 "-H:ConfigurationFileDirectories=${rootProject.projectDir}/agent-config",
                 "--no-fallback",
                 "--enable-url-protocols=https,http",
-                "--initialize-at-build-time=org.apache.logging.log4j,java.awt.Color",
+                // GeyserBridge is initialize-at-build-time so its
+                // @CEntryPoint methods are discovered during analysis.
+                // Without this, native-image produces a stub .so with
+                // only graal_isolate.* exports — no libgeyserlite.h is
+                // generated because nothing is reachable.
+                "--initialize-at-build-time=org.apache.logging.log4j,java.awt.Color,com.minekube.geyserlite.bridge.GeyserBridge",
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
                 "--strict-image-heap",
                 march,

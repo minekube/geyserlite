@@ -92,10 +92,20 @@ RUN ./gradlew :geyserlite-native:nativeCompile --no-daemon \
     || (echo "geyserlite-native subproject build failed — see build/overlay/" && exit 1)
 
 # Collect outputs.
-RUN mkdir -p /out \
+# When @CEntryPoint methods are reachable, GraalVM emits libgeyserlite.h
+# next to the .so. When they're not, only graal_isolate.h is produced —
+# we fall back to that so the build doesn't break, but the resulting
+# header carries no project-specific exports until the bridge is wired.
+RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
+    && mkdir -p /out \
     && cp /build/geyserlite /out/geyserlite \
-    && cp /work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile/libgeyserlite.so /out/libgeyserlite.so \
-    && cp /work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile/libgeyserlite.h  /out/libgeyserlite.h
+    && cp "$NC/libgeyserlite.so" /out/libgeyserlite.so \
+    && if [ -f "$NC/libgeyserlite.h" ]; then \
+         cp "$NC/libgeyserlite.h" /out/libgeyserlite.h; \
+       else \
+         echo "WARN: libgeyserlite.h not generated — using graal_isolate.h passthrough" >&2; \
+         cp "$NC/graal_isolate.h" /out/libgeyserlite.h; \
+       fi
 
 # ── Output stage: scratch image with just the ELF + permissions.yml ──────────
 FROM scratch AS image
