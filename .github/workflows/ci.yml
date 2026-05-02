@@ -15,16 +15,16 @@ jobs:
   lint-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install dev tools (Go, Rust, Java/GraalVM, task, linters) via mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
         with:
           cache: true       # caches mise's tool installs
           experimental: true
 
       - name: Cache Go module + build cache, Cargo target
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .cache/go
