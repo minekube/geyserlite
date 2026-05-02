@@ -153,7 +153,7 @@ and memory budgets.
 ## Related projects
 
 - [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) — upstream Bedrock-Java translator (Java)
-- [`geyserite`](https://github.com/...) — Rust port of Geyser (a different effort, not us)
+- [`geyserite`](https://github.com/...) — Rust port of Geyser (different ambitious effort)
 - [`minekube/gate`](https://github.com/minekube/gate) — Go MC proxy (first Go consumer)
 - [`minekube/connect-java`](https://github.com/minekube/connect-java) — Connect plugin for backend MC servers
 - [valence-rs/valence](https://github.com/valence-rs/valence) — Rust MC server framework (potential Rust consumer)
