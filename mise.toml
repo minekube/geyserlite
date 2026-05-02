@@ -27,8 +27,11 @@ java = "graalvm-community-21"
 python = "3.12"
 
 # Linters / formatters used by CI and by `task lint`.
-"aqua:DavidAnson/markdownlint-cli2" = "latest"
-"aqua:adrienverge/yamllint" = "latest"
+# markdownlint-cli2 ships as a Node package; yamllint as a Python package;
+# both are installed via mise's npm/pipx backends so we don't depend on
+# host Node/Python being present.
+"npm:markdownlint-cli2" = "latest"
+"pipx:yamllint" = "latest"
 "aqua:golangci/golangci-lint" = "latest"
 
 [env]
