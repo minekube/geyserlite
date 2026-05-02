@@ -5,8 +5,16 @@
 #
 # Usage:
 #   source build/flags.sh
-#   native-image $NI_FLAGS_COMMON $NI_FLAGS_EXECUTABLE -o geyserlite -jar Geyser-Standalone.jar
-#   native-image $NI_FLAGS_COMMON $NI_FLAGS_SHARED -o libgeyserlite ...
+#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_EXECUTABLE[@]}" -o geyserlite -jar Geyser-Standalone.jar
+#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_SHARED[@]}" -o libgeyserlite ...
+
+# Architecture-specific march flag. Detected from `uname -m` so the same
+# flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
+case "$(uname -m)" in
+    x86_64|amd64) NI_MARCH="-march=x86-64-v2" ;;
+    aarch64|arm64) NI_MARCH="-march=armv8-a" ;;
+    *) NI_MARCH="-march=compatibility" ;;
+esac
 
 # Flags shared by both the ELF and the .so build.
 NI_FLAGS_COMMON=(
@@ -37,9 +45,10 @@ NI_FLAGS_COMMON=(
     # no separate .so dance for AWT/font/etc.
     --static --libc=musl
 
-    # x86-64-v2 baseline — supported by every Fly machine + most cheap VPSs.
-    # Going to v3 is faster but excludes some Atom-class hosts.
-    -march=x86-64-v2
+    # Architecture-specific baseline. x86-64-v2 covers every modern x86 host
+    # (Fly machines, most VPSs); on aarch64 we use armv8-a, the standard
+    # baseline. Using `compatibility` instead would be safer but ~10% slower.
+    "$NI_MARCH"
 
     -O2
 
