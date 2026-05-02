@@ -39,7 +39,7 @@ NI_FLAGS_COMMON=(
     # (and similar) because native-image discards classpath resources
     # by default. The patterns cover the YAML configs, JSON schemas,
     # mappings, language packs, and the embedded resource pack.
-    -H:IncludeResources=^(custom-skulls\\.yml|permissions\\.yml|.+\\.json|.+\\.properties|.+\\.lang|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\\.mcpack)$
+    '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$'
 
     # Don't fall back to bytecode at runtime if static analysis can't reach a method —
     # we want a true native binary, not a JVM wrapper.
