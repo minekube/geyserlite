@@ -1,0 +1,15 @@
+# We use Renovate for the project's substantive deps (Geyser ref,
+# GraalVM image, Go modules, Cargo crates) — see ../renovate.json.
+# Dependabot here only watches GitHub Actions versions, which is
+# Dependabot's strongest niche and complements Renovate without overlap.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"

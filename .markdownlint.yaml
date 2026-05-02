@@ -1,0 +1,20 @@
+# https://github.com/DavidAnson/markdownlint
+default: true
+
+# Allow longer lines — code blocks and table content benefit.
+MD013:
+  line_length: 180
+  code_block_line_length: 200
+  tables: false
+  headings: false
+
+# We use raw HTML for collapsible sections in issue templates.
+MD033: false
+
+# First line doesn't have to be a top-level heading (issue templates do
+# their own thing).
+MD041: false
+
+# Allow duplicate headings — useful in long docs with parallel sections.
+MD024:
+  siblings_only: true
