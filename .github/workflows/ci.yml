@@ -1,5 +1,8 @@
 name: CI
 
+# Local and CI run the same `task` targets so they can't diverge.
+# All tool versions come from mise.toml; mise-action installs them with caching.
+
 on:
   push:
     branches: [main]
@@ -9,58 +12,34 @@ permissions:
   contents: read
 
 jobs:
-  go:
-    name: go (lint + test)
+  lint-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: go
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
-      - run: go vet ./...
-      - run: go test -race ./...
-      - uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          working-directory: go
 
-  rust:
-    name: rust (fmt + clippy + test)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rust
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dev tools (Go, Rust, Java/GraalVM, task, linters) via mise
+        uses: jdx/mise-action@v2
         with:
-          components: rustfmt,clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+          cache: true       # caches mise's tool installs
+          experimental: true
 
-  lint:
-    name: lint (markdown + yaml)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: DavidAnson/markdownlint-cli2-action@v17
+      - name: Cache Go module + build cache, Cargo target
+        uses: actions/cache@v4
         with:
-          globs: '**/*.md'
-      - uses: ibiqlik/action-yamllint@v3
-        with:
-          file_or_dir: .
-          config_data: |
-            extends: default
-            rules:
-              line-length: { max: 200 }
-              comments: { min-spaces-from-content: 1 }
-              document-start: disable
-              truthy: { check-keys: false }
+          path: |
+            .cache/go
+            .cache/cargo-target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: dev-${{ runner.os }}-${{ hashFiles('go/go.sum', 'rust/Cargo.lock', 'mise.toml') }}
+          restore-keys: |
+            dev-${{ runner.os }}-
+
+      - name: Setup
+        run: task setup
+
+      - name: Lint
+        run: task lint
+
+      - name: Test
+        run: task test

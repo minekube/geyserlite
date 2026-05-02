@@ -9,10 +9,12 @@ on:
     branches: [main]
     paths:
       - 'build/**'
+      - 'mise.toml'
       - '.github/workflows/native-image.yml'
   pull_request:
     paths:
       - 'build/**'
+      - 'mise.toml'
       - '.github/workflows/native-image.yml'
   workflow_dispatch:
 
@@ -20,24 +22,37 @@ permissions:
   contents: write   # GH Release upload
   packages: write   # GHCR push
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/geyserlite
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
+      fail-fast: false
       matrix:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install dev tools via mise
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+          experimental: true
+
       - name: Read pinned versions
         id: pins
         run: |
-          GEYSER_REF=$(tr -d '[:space:]' < build/geyser.version)
+          REF=$(tr -d '[:space:]' < build/geyser.version)
           GRAALVM=$(tr -d '[:space:]' < build/graalvm.version)
-          echo "geyser_ref=$GEYSER_REF"   >> "$GITHUB_OUTPUT"
-          echo "geyser_short=${GEYSER_REF:0:12}" >> "$GITHUB_OUTPUT"
-          echo "graalvm=$GRAALVM" >> "$GITHUB_OUTPUT"
+          {
+            echo "geyser_ref=$REF"
+            echo "geyser_short=${REF:0:12}"
+            echo "graalvm=$GRAALVM"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
         if: matrix.arch == 'arm64'
@@ -47,11 +62,11 @@ jobs:
       - uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build (and push on main)
+      - name: Build image (and push on main)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -62,35 +77,84 @@ jobs:
             GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/geyserlite:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=image-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.arch }}
 
-      - name: Extract artifacts
+      - name: Build shared library (extract artifacts)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/Dockerfile
+          target: shared
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }}
+          outputs: type=local,dest=out
+          cache-from: type=gha,scope=shared-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=shared-${{ matrix.arch }}
+
+      - name: Stage release artifacts
         if: github.event_name != 'pull_request'
         run: |
-          mkdir -p out
-          docker buildx build \
-            --target shared \
-            --platform linux/${{ matrix.arch }} \
-            --build-arg GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }} \
-            --output type=local,dest=out \
-            -f build/Dockerfile .
-          mv out/libgeyserlite.so out/libgeyserlite-linux-${{ matrix.arch }}.so
+          mkdir -p artifacts
+          cp out/libgeyserlite.so artifacts/libgeyserlite-linux-${{ matrix.arch }}.so
+          cp out/libgeyserlite.h  artifacts/libgeyserlite.h
+
+          # Pull the ELF out of the image we just pushed.
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}
+          ID=$(docker create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }})
+          docker cp "$ID:/geyserlite" artifacts/geyserlite-linux-${{ matrix.arch }}
+          docker rm "$ID"
 
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
           name: geyserlite-${{ matrix.arch }}
-          path: out/
+          path: artifacts/
+          if-no-files-found: error
 
-  smoke:
+  # Multi-arch manifest + smoke
+  publish-manifest:
     needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v5
-      - name: Pull image
-        run: docker pull ghcr.io/${{ github.repository_owner }}/geyserlite:$(tr -d '[:space:]' < build/geyser.version | cut -c1-12)-amd64
-      - name: TODO synthetic Bedrock client probe
-        run: echo "TODO: implement in internal/synthetic"
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compose multi-arch manifest
+        run: |
+          REF=$(tr -d '[:space:]' < build/geyser.version)
+          SHORT="${REF:0:12}"
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT} \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-arm64
+
+  smoke:
+    needs: publish-manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - name: Pull and probe
+        run: |
+          REF=$(tr -d '[:space:]' < build/geyser.version)
+          SHORT="${REF:0:12}"
+          docker run -d --name geyser -p 19132:19132/udp \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}
+          # TODO: replace with internal/synthetic Bedrock client (see ROADMAP).
+          # For now, just assert UDP listener bound + container stays up 30s.
+          sleep 10
+          ss -ulnp | grep 19132 || (docker logs geyser; exit 1)
+          sleep 20
+          docker ps | grep -q geyser || (docker logs geyser; exit 1)
+          docker rm -f geyser

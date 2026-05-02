@@ -361,10 +361,22 @@ total                   : ~138 MB / 207 MB usable on a 256 MB Fly VM
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | every push/PR | Go: lint + test. Rust: `cargo fmt --check`, `cargo clippy`, `cargo test`. Markdown + YAML lint. |
-| `native-image.yml` | changes to `build/**` or daily Renovate PR | Run `apply-overlay.sh` + GraalVM build of ELF + `.so`; publish OCI + GH Release on main |
-| `release.yml` | tag push | Cut Go module version + publish Rust crate + mirror artifacts + cosign-sign + publish docs site |
-| `smoke.yml` (post-v0.1) | nightly + post-deploy | Synthetic Bedrock client probes the latest published image |
+| `ci.yml` | every push/PR | `mise install` → `task setup lint test`. Same exact commands run locally. |
+| `native-image.yml` | changes to `build/**` or daily Renovate PR | GraalVM build (Dockerfile target `image` + `shared`); multi-arch manifest; smoke probe |
+| `release.yml` | tag push | Pull native artifacts from native-image run + cosign-sign + GH Release + `cargo publish` |
+
+CI uses [`mise`](https://mise.jdx.dev) to install pinned tooling (same as
+local dev) and [`task`](https://taskfile.dev) as the entry point for lint
++ test (`task lint`, `task test`). Heavy paths (Docker buildx for the
+GraalVM build) drop down to the docker actions for native GHA cache
+integration; everything else routes through Taskfile so local and CI
+can't diverge.
+
+Caching:
+
+- mise tools (Go, Rust, Java, task, linters): `jdx/mise-action@v2 with: cache: true`
+- Go module + build cache, Cargo target: `actions/cache@v4` keyed on `go.sum` + `Cargo.lock` + `mise.toml`
+- Docker buildx layers: `cache-from: type=gha` / `cache-to: type=gha,mode=max`, scoped per arch + per build target
 
 ## Testing strategy
 
