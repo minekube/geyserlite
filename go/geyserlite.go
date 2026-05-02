@@ -1,19 +1,10 @@
 // SPDX-License-Identifier: MIT
 package geyserlite
 
-// Public-facing types and constants for the geyserlite Go library.
-//
-// The implementation (subprocess supervisor, purego dlopen, config rendering,
-// binary auto-location) is split across server.go, options.go, manage.go,
-// embed_*.go, locate.go.
-//
-// This file is a SCAFFOLDING placeholder for the v0.2 milestone. The signatures
-// are the intended public API; the bodies are TODO.
-
 import (
-	"context"
 	"errors"
 	"log/slog"
+	"time"
 )
 
 // AuthType controls how Geyser authenticates Bedrock players to the upstream
@@ -34,6 +25,20 @@ const (
 	Offline
 )
 
+// String renders the AuthType as the Geyser config.yml value.
+func (a AuthType) String() string {
+	switch a {
+	case Floodgate:
+		return "floodgate"
+	case Online:
+		return "online"
+	case Offline:
+		return "offline"
+	default:
+		return "floodgate"
+	}
+}
+
 // Mode selects how the Go library invokes Geyser.
 type Mode int
 
@@ -46,41 +51,52 @@ const (
 	ModeSubprocess
 )
 
-// Options configures a geyserlite Server.
+// Options configures a [Server].
 type Options struct {
 	// Listen address for incoming Bedrock UDP. Defaults to ":19132".
-	// Use FlyGlobalServices() on Fly.io.
+	// Use [FlyGlobalServices] on Fly.io.
 	Listen string
 
 	// Upstream Java MC address (e.g. "127.0.0.1:25567" for Gate's bedrock listener).
 	// Required.
 	Upstream string
 
-	// AuthType for forwarding to upstream. Default: Floodgate.
+	// AuthType for forwarding to upstream. Default: [Floodgate].
 	AuthType AuthType
 
-	// FloodgateKey is 16 raw bytes (AES-128). Required when AuthType == Floodgate.
-	// Generate via GenerateFloodgateKey.
+	// FloodgateKey is 16 raw bytes (AES-128). Required when AuthType == [Floodgate].
+	// Generate via [GenerateFloodgateKey].
 	FloodgateKey []byte
 
 	// MOTD shown to Bedrock clients.
 	MOTD MOTD
 
-	// Mode selects in-process vs subprocess. Default: ModeEmbedded.
+	// Mode selects in-process vs subprocess. Default: [ModeEmbedded].
 	Mode Mode
 
-	// LibraryPath overrides the auto-located libgeyserlite.so. ModeEmbedded only.
+	// LibraryPath overrides the auto-located libgeyserlite.so. [ModeEmbedded] only.
 	LibraryPath string
 
-	// BinaryPath overrides the auto-located geyserlite ELF. ModeSubprocess only.
+	// BinaryPath overrides the auto-located geyserlite ELF. [ModeSubprocess] only.
 	BinaryPath string
 
-	// JVMArgs overrides the default tuned JVM args. nil = use [DefaultJVMArgs].
-	// Has no effect in ModeEmbedded — the args are baked into libgeyserlite.so at build time.
+	// JVMArgs overrides the default tuned JVM args (see [DefaultJVMArgs]).
+	// nil = use the defaults. Has no effect in [ModeEmbedded] — those args
+	// are baked into libgeyserlite.so at build time.
 	JVMArgs []string
 
-	// Logger receives Geyser stdout/stderr as structured records. Defaults to slog.Default.
+	// Logger receives Geyser stdout/stderr as structured records.
+	// Defaults to [slog.Default].
 	Logger *slog.Logger
+
+	// RestartPolicy controls subprocess restart on crash.
+	// nil = exponential backoff 1s..60s, infinite retries.
+	// Has no effect in [ModeEmbedded].
+	RestartPolicy *RestartPolicy
+
+	// ShutdownTimeout is how long to wait for graceful shutdown after SIGTERM
+	// before SIGKILL. Defaults to 30s.
+	ShutdownTimeout time.Duration
 }
 
 // MOTD is the Bedrock client-visible server description (two lines).
@@ -88,70 +104,30 @@ type MOTD struct {
 	Line1, Line2 string
 }
 
-// Server is a managed geyserlite instance.
-type Server struct {
-	// unexported fields
+// RestartPolicy controls subprocess restart-on-crash behavior in [ModeSubprocess].
+type RestartPolicy struct {
+	// MinBackoff is the initial wait between restarts. Doubles up to MaxBackoff.
+	MinBackoff time.Duration
+	// MaxBackoff caps the wait between restarts.
+	MaxBackoff time.Duration
+	// MaxRetries limits total restarts (0 = infinite).
+	MaxRetries int
 }
 
-// New constructs a Server from Options. Does not start it.
-func New(opts Options) (*Server, error) {
-	return nil, errors.New("geyserlite: not implemented (v0.2 placeholder)")
-}
-
-// Start runs the server until ctx is cancelled or an unrecoverable error occurs.
-// In ModeEmbedded, this calls geyser_run via purego on a goroutine and blocks
-// until that returns. In ModeSubprocess, it manages the supervised lifecycle.
-func (s *Server) Start(ctx context.Context) error {
-	return errors.New("geyserlite: not implemented (v0.2 placeholder)")
-}
-
-// Stop requests a graceful shutdown.
-func (s *Server) Stop(ctx context.Context) error {
-	return errors.New("geyserlite: not implemented (v0.2 placeholder)")
-}
-
-// Healthy reports whether Geyser is currently accepting connections.
-func (s *Server) Healthy() bool {
-	return false
-}
-
-// Wait blocks until Start returns. Returns the same error.
-func (s *Server) Wait() error {
-	return errors.New("geyserlite: not implemented (v0.2 placeholder)")
-}
-
-// GenerateFloodgateKey returns 16 random bytes suitable as a Floodgate
-// AES-128 key. The upstream Geyser README's openssl example using
-// `genpkey -algorithm RSA` is wrong; that produces an RSA private key, but
-// Floodgate uses AES-128.
-func GenerateFloodgateKey() ([]byte, error) {
-	return nil, errors.New("geyserlite: not implemented (v0.2 placeholder)")
-}
-
-// FlyGlobalServices returns "fly-global-services" if running on a Fly.io
-// machine (Fly's UDP edge NATs external traffic to this hostname inside the
-// container). Returns "0.0.0.0" otherwise.
-func FlyGlobalServices() string {
-	return "0.0.0.0"
-}
-
-// DefaultJVMArgs returns the tuned argument list used by libgeyserlite.so
-// at build time (and applied to ModeSubprocess). Useful for Options.JVMArgs.
-func DefaultJVMArgs() []string {
-	return []string{
-		"-Xmx64m",
-		"-XX:MaxHeapFree=4m",
-		"-XX:+CollectYoungGenerationSeparately",
-		"-XX:ActiveProcessorCount=1",
-		"-Dio.netty.maxDirectMemory=16777216",
-		"-XX:MaxDirectMemorySize=16m",
-		"-Dio.netty.allocator.type=unpooled",
-		"-Dio.netty.allocator.numHeapArenas=1",
-		"-Dio.netty.allocator.numDirectArenas=1",
-		"-Dio.netty.eventLoopThreads=2",
-		"-Dio.netty.recycler.maxCapacityPerThread=0",
-		"-Dio.netty.leakDetection.level=disabled",
-		"-Djava.util.concurrent.ForkJoinPool.common.parallelism=1",
-		"-Dlog4j2.disableJmx=true",
-	}
-}
+// Sentinel errors returned by this package.
+var (
+	// ErrNotStarted is returned when Stop or Healthy is called before Start.
+	ErrNotStarted = errors.New("geyserlite: server not started")
+	// ErrAlreadyStarted is returned when Start is called twice.
+	ErrAlreadyStarted = errors.New("geyserlite: server already started")
+	// ErrNoBinary is returned when the geyserlite ELF can't be located.
+	ErrNoBinary = errors.New("geyserlite: ELF binary not found (set Options.BinaryPath, $GEYSERLITE_BINARY, or build with -tags geyserlite_embed)")
+	// ErrNoLibrary is returned when libgeyserlite.so can't be located.
+	ErrNoLibrary = errors.New("geyserlite: libgeyserlite.so not found (set Options.LibraryPath, $GEYSERLITE_LIBRARY, or build with -tags geyserlite_embed)")
+	// ErrInvalidFloodgateKey is returned when FloodgateKey is the wrong size.
+	// Floodgate uses AES-128 (16 raw bytes). The upstream README's openssl RSA
+	// example is wrong.
+	ErrInvalidFloodgateKey = errors.New("geyserlite: FloodgateKey must be 16 bytes (AES-128)")
+	// ErrUpstreamRequired is returned when Options.Upstream is empty.
+	ErrUpstreamRequired = errors.New("geyserlite: Options.Upstream is required")
+)
