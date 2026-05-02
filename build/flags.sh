@@ -55,7 +55,7 @@ NI_FLAGS_COMMON=(
     # console layer that log4j2 wires up for Geyser-Standalone), plus
     # snakeyaml whose dynamic constructor synthesis hits the same
     # "hidden classes at runtime" wall.
-    --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color
+    --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna
 
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
