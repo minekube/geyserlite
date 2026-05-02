@@ -38,7 +38,10 @@ jobs:
           mkdir -p artifacts
           # Last successful native-image build on this commit's history.
           RUN_ID=$(gh run list --workflow=native-image.yml --branch=main --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
-          gh run download "$RUN_ID" --dir artifacts
+          # Only download our own upload-artifact outputs; skip the
+          # docker/build-push-action build-summary blobs (which gh run
+          # download mistakes for zips and chokes on).
+          gh run download "$RUN_ID" --dir artifacts --pattern 'geyserlite-*'
           ls -la artifacts/
 
       - name: cosign sign release artifacts
