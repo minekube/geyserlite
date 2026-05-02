@@ -113,6 +113,36 @@ jobs:
           docker cp "$ID:/geyserlite" artifacts/geyserlite-linux-${{ matrix.arch }}
           docker rm "$ID"
 
+      - name: Assert C-ABI exports are reachable
+        if: github.event_name != 'pull_request'
+        # When @CEntryPoint discovery silently regresses (e.g. mainClass
+        # gets reset, the bridge class is renamed/removed, or the gradle
+        # plugin changes its analysis-root behavior), the build still
+        # succeeds — just with a stub libgeyserlite.so that exposes only
+        # graal_isolate_*. The Dockerfile then falls back to copying
+        # graal_isolate.h into the position of libgeyserlite.h, so the
+        # release looks fine on the surface. This guard makes that
+        # regression a hard CI failure instead.
+        run: |
+          set -eu
+          h="artifacts/libgeyserlite.h"
+          required="geyser_init geyser_run geyser_shutdown geyser_status geyser_create_isolate geyser_tear_down_isolate"
+          missing=""
+          for sym in $required; do
+            if ! grep -qE "\b${sym}\b" "$h"; then
+              missing="$missing $sym"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error file=$h::libgeyserlite.h is missing C-ABI exports:$missing"
+            echo "::error::GeyserBridge's @CEntryPoint methods aren't reachable from the native-image analysis root."
+            echo "::error::Check mainClass in build/overlay/geyserlite-native/build.gradle.kts."
+            echo "--- header dump ---"
+            cat "$h"
+            exit 1
+          fi
+          echo "OK: all $(echo $required | wc -w) required exports declared in libgeyserlite.h"
+
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
@@ -141,6 +171,93 @@ jobs:
             --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-arm64
+
+  # End-to-end embed test: pull the just-built libgeyserlite-linux-amd64.so,
+  # have the Go library load it via purego, and confirm the Bedrock UDP
+  # listener actually binds. This is the test that catches "the .so was
+  # built fine but our Go bindings can't actually use it" — a class of
+  # regression neither unit tests nor the docker smoke test can see.
+  #
+  # continue-on-error stays on until the @CEntryPoint reachability fix
+  # has landed and is proven; without it the .so exports only
+  # graal_isolate_* and Go's library can't resolve geyser_init.
+  go-integration:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+          experimental: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: geyserlite-amd64
+          path: /tmp/artifacts
+      - name: Run Go library against just-built .so
+        env:
+          GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
+          # Stay off 19132 to avoid stomping anything else on the runner.
+          LISTEN: 127.0.0.1:19133
+        run: |
+          ls -la /tmp/artifacts/
+          # Tiny TCP stub on the upstream port so Geyser's connection
+          # attempts log politely instead of crash-spinning.
+          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
+          STUB=$!
+          # Bind probe: integration-test exits 0 once Geyser binds the UDP socket.
+          ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 60s ) &
+          IT=$!
+          # Race: bedrock-probe sends the RakNet ping, integration-test
+          # sees the bind. Both must succeed.
+          ( cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN" ) || PROBE=$?
+          wait $IT || IT_RC=$?
+          kill $STUB 2>/dev/null || true
+          if [ -n "${PROBE:-}" ]; then
+            echo "::error::bedrock-probe failed (rc=$PROBE)"; exit "$PROBE"
+          fi
+          if [ -n "${IT_RC:-}" ]; then
+            echo "::error::integration-test failed (rc=$IT_RC)"; exit "$IT_RC"
+          fi
+
+  # Mirror of go-integration for the Rust crate. Same gating semantics
+  # (continue-on-error until @CEntryPoint reachability is proven).
+  rust-integration:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+          experimental: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: geyserlite-amd64
+          path: /tmp/artifacts
+      - name: Run Rust crate against just-built .so
+        env:
+          GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
+          LISTEN: 127.0.0.1:19134
+        run: |
+          ls -la /tmp/artifacts/
+          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
+          STUB=$!
+          ( cd rust && cargo run --example integration_test -- --listen "$LISTEN" --timeout 60 ) &
+          IT=$!
+          ( cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN" ) || PROBE=$?
+          wait $IT || IT_RC=$?
+          kill $STUB 2>/dev/null || true
+          if [ -n "${PROBE:-}" ]; then
+            echo "::error::bedrock-probe failed (rc=$PROBE)"; exit "$PROBE"
+          fi
+          if [ -n "${IT_RC:-}" ]; then
+            echo "::error::integration-test failed (rc=$IT_RC)"; exit "$IT_RC"
+          fi
 
   smoke:
     needs: publish-manifest

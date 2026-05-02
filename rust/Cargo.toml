@@ -60,3 +60,7 @@ path = "examples/healthcheck.rs"
 [[example]]
 name = "custom_config"
 path = "examples/custom_config.rs"
+
+[[example]]
+name = "integration_test"
+path = "examples/integration_test.rs"

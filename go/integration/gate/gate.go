@@ -9,13 +9,35 @@ import (
 	geyserlite "go.minekube.com/geyserlite"
 )
 
+// server is the subset of [geyserlite.Server] the adapter actually
+// uses. Defined as an interface so tests can substitute a fake without
+// requiring a real libgeyserlite.so on the test machine. The concrete
+// [*geyserlite.Server] satisfies this directly.
+type server interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+	Healthy() bool
+}
+
 // Bedrock is a Gate-shaped wrapper around a [geyserlite.Server]. It
 // exposes the lifecycle Gate's runtime expects (Start in a goroutine,
 // Stop on shutdown, Healthy for health checks) while keeping all of
 // geyserlite's optionality reachable through [Config].
 type Bedrock struct {
-	server *geyserlite.Server
+	server server
 	logger *slog.Logger
+}
+
+// newSrv is the factory the adapter uses to build the underlying
+// server. Production points it at [geyserlite.New]; tests swap it for
+// a fake-server constructor. Set as a package var instead of an
+// argument so the public [New] keeps a flat signature.
+var newSrv = func(opts geyserlite.Options) (server, error) {
+	s, err := geyserlite.New(opts)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // New constructs a [Bedrock] from a [Config]. When cfg.Enabled is
@@ -36,12 +58,12 @@ func New(cfg Config, logger *slog.Logger) (*Bedrock, error) {
 		return nil, err
 	}
 
-	server, err := geyserlite.New(opts)
+	srv, err := newSrv(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Bedrock{server: server, logger: logger}, nil
+	return &Bedrock{server: srv, logger: logger}, nil
 }
 
 // Start runs the bedrock listener until ctx is canceled or the
@@ -56,8 +78,9 @@ func (b *Bedrock) Start(ctx context.Context) error {
 		return nil
 	}
 	err := b.server.Start(ctx)
-	// Gate's lifecycle treats ctx.Cancel as a clean stop, not an error.
-	if errors.Is(err, context.Canceled) {
+	// Gate's lifecycle treats ctx.Canceled / DeadlineExceeded as clean
+	// stops — they're how the host signals shutdown, not actual failures.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return nil
 	}
 	return err
