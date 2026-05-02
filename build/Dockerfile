@@ -110,7 +110,9 @@ RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
 # ── Output stage: scratch image with just the ELF + permissions.yml ──────────
 FROM scratch AS image
 COPY --from=builder /out/geyserlite /geyserlite
-COPY --from=builder /work/build/.work/Geyser/bootstrap/standalone/src/main/resources/permissions.yml /permissions.yml
+# permissions.yml moved upstream from bootstrap/standalone to core/
+# (see GeyserMC/Geyser commit history). Pinning to the new location.
+COPY --from=builder /work/build/.work/Geyser/core/src/main/resources/permissions.yml /permissions.yml
 LABEL org.opencontainers.image.source="https://github.com/minekube/geyserlite"
 LABEL org.opencontainers.image.description="GeyserMC built with GraalVM native-image — small, fast, embeddable"
 ENTRYPOINT ["/geyserlite", "--nogui"]
