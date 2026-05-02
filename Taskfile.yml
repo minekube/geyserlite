@@ -81,7 +81,10 @@ tasks:
     desc: Rust tests
     dir: rust
     cmds:
-      - cargo test --all-features
+      # The `embed` feature requires assets/* (downloaded blobs not committed
+      # to git), so we exclude it from default CI test runs. Embed is
+      # exercised by the dedicated `embed:fetch` workflow + a manual run.
+      - cargo test --features download
 
   test:
     desc: all tests
