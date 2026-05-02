@@ -13,7 +13,11 @@ ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:21-ol9
 FROM ${GRAALVM_IMAGE} AS builder
 
 # musl + static zlib for --libc=musl static linking.
-RUN microdnf install -y --setopt=install_weak_deps=0 \
+# `microdnf update` first resolves the glibc/libstdc++ pin drift between
+# the @System packages baked into the GraalVM image and ol9_appstream;
+# without it microdnf 277s its way to "cannot install both glibc-2.34-..."
+# depsolve failures on aarch64.
+RUN microdnf update -y && microdnf install -y --setopt=install_weak_deps=0 \
       git curl tar gzip findutils python3 \
       gcc gcc-c++ glibc-static zlib-static \
     && microdnf clean all
