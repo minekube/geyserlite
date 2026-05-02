@@ -6,13 +6,19 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
-  packages: write
-  id-token: write   # cosign keyless signing
+  contents: write    # GitHub Release upload
+  packages: write    # GHCR (if we ever sign the OCI image at release time)
+  id-token: write    # cosign keyless + crates.io Trusted Publishing OIDC
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    # crates.io's Trusted Publisher binds to a (repository, workflow,
+    # environment) triple. Naming the env "release" + matching it on the
+    # crates.io side prevents tag-pushers from publishing if they're
+    # somehow able to bypass branch protection on this workflow.
+    environment: release
+
     steps:
       - uses: actions/checkout@v5
         with:
@@ -42,7 +48,7 @@ jobs:
             cosign sign-blob --yes --output-signature "${f}.sig" "$f"
           done
 
-      - name: Generate SBOM
+      - name: Generate SBOM attestations
         run: |
           for f in artifacts/**/*.so artifacts/**/geyserlite-*; do
             [ -f "$f" ] || continue
@@ -56,10 +62,19 @@ jobs:
           files: |
             artifacts/**/*
 
+      # crates.io Trusted Publishing — no CARGO_REGISTRY_TOKEN secret needed.
+      # See https://crates.io/docs/trusted-publishing
+      # First-time setup: publish v0.0.0 manually with a temporary token,
+      # then on crates.io go to "Settings → Trusted Publishing" for the
+      # `geyserlite` crate and add a GitHub publisher with:
+      #   repository:    minekube/geyserlite
+      #   workflow file: release.yml
+      #   environment:   release
+      - name: Get a short-lived crates.io token via OIDC
+        id: cargo-auth
+        uses: rust-lang/crates-io-auth-action@v1
+
       - name: Publish Rust crate
-        if: secrets.CRATES_IO_TOKEN != ''
+        run: cargo publish --manifest-path rust/Cargo.toml --no-verify
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: |
-          cd rust
-          cargo publish --no-verify
+          CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}

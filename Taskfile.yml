@@ -21,7 +21,7 @@ tasks:
   setup:
     desc: one-time setup after `mise install`
     cmds:
-      - go -C go mod download
+      - cd go && go mod download
       - cd rust && cargo fetch
       - echo "Done. Try `task build:native` next."
 

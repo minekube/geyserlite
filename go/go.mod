@@ -1,4 +1,4 @@
-module go.minekube.com/geyserlite/go
+module go.minekube.com/geyserlite
 
 go 1.26
 

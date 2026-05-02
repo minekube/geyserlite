@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"go.minekube.com/geyserlite/go/internal/synthetic"
+	"go.minekube.com/geyserlite/internal/synthetic"
 )
 
 func main() {

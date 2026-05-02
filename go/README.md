@@ -1,15 +1,19 @@
-# `go.minekube.com/geyserlite/go`
+# `go.minekube.com/geyserlite`
 
 Go library for embedding [geyserlite](../README.md) in your Go MC proxy.
 
 > **Status**: pre-v0.2 scaffolding. Public API in `geyserlite.go` is the
-> intended shape; bodies return `not implemented`. See [../ROADMAP.md](../ROADMAP.md).
+> intended shape; some bodies are still TODO. See [../ROADMAP.md](../ROADMAP.md).
 
 ## Install
 
 ```sh
-go get go.minekube.com/geyserlite/go
+go get go.minekube.com/geyserlite
 ```
+
+The import path stays `go.minekube.com/geyserlite` even though the source
+lives in this subdirectory; `go.minekube.com`'s vanity-URL server maps
+the path to the right repo + subdir.
 
 ## Modes
 
@@ -32,7 +36,7 @@ import (
     "os/signal"
     "syscall"
 
-    "go.minekube.com/geyserlite/go"
+    "go.minekube.com/geyserlite"
 )
 
 func main() {
@@ -62,10 +66,9 @@ The default mode needs `libgeyserlite.so` available at runtime. Resolution order
 1. `Options.LibraryPath` — explicit override.
 2. `$GEYSERLITE_LIBRARY` — env override.
 3. Embedded — if built with `-tags geyserlite_embed`, the `.so` is `//go:embed`'d
-   and self-extracts to `os.UserCacheDir/geyserlite/<sha>/libgeyserlite.so` on
-   first start.
+   and self-extracts to `os.UserCacheDir/geyserlite/<sha>/libgeyserlite.so`.
 4. System search paths (`/usr/lib`, `LD_LIBRARY_PATH`).
-5. Auto-download from GitHub Release with checksum verification (v0.5+).
+5. Auto-download from GitHub Release with checksum verification (skipped if `Options.Offline`).
 
 Recommendation for production builds: `go build -tags geyserlite_embed`.
 
@@ -74,3 +77,4 @@ Recommendation for production builds: `go build -tags geyserlite_embed`.
 - [`../ROADMAP.md`](../ROADMAP.md) — full plan
 - [`../docs/architecture.md`](../docs/architecture.md) — architecture overview
 - [`../docs/floodgate.md`](../docs/floodgate.md) — Floodgate key gotchas
+- [`./examples/`](./examples/) — runnable usage examples

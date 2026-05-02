@@ -17,7 +17,7 @@ support for both Go and Rust**:
 2. **Shared library** (`libgeyserlite.so`) — what the Go and Rust libraries
    `dlopen` for in-process embedding. **This is the headline mode.**
 3. **Container image** — `FROM scratch` + binary, for Docker users.
-4. **Go library** — `go.minekube.com/geyserlite/go`, in-process default.
+4. **Go library** — `go.minekube.com/geyserlite`, in-process default.
 5. **Rust crate** — `geyserlite` on crates.io, in-process default.
 
 The Go and Rust libraries are peers, not first-class/second-class. Both
@@ -105,10 +105,10 @@ day 1.
 | Native binary | static ELF (linux/amd64, linux/arm64) | GitHub Release, sha256 + cosign | self-hosters, package builders |
 | Shared library | `.so` (linux/amd64, linux/arm64) + `.h` header | GitHub Release | language bindings (Go, Rust, anyone) |
 | OCI image | `ghcr.io/minekube/geyserlite:<tag>` | `docker pull` | Docker users |
-| Go module | `go.minekube.com/geyserlite/go` | `go get` | Go MC proxy authors |
+| Go module | `go.minekube.com/geyserlite` | `go get` | Go MC proxy authors |
 | Rust crate | `geyserlite` | `cargo add geyserlite` | Rust MC server/proxy authors |
 | Compose example | `deploy/compose/docker-compose.yml` | `git clone && docker compose up` | local dev / VPS users |
-| Gate adapter | `go.minekube.com/geyserlite/go/integration/gate` | `go get` | Gate operators |
+| Gate adapter | `go.minekube.com/geyserlite/integration/gate` | `go get` | Gate operators |
 
 Deliberately not shipped: Helm charts, Fly templates, Kubernetes operators,
 APT/RPM packages, language bindings beyond Go/Rust. Out of scope; users wrap
@@ -164,7 +164,7 @@ built from day 1 — no separate "subprocess first, embed later" phase.
 Wrap the shared library as the primary embedding form. Subprocess mode
 exists as an opt-in fallback.
 
-- [ ] `go/` module: `go.minekube.com/geyserlite/go`
+- [ ] `go/` module: `go.minekube.com/geyserlite`
 - [ ] Public API: `geyserlite.New(Options) (*Server, error)` and `*Server.Start/Stop/Healthy/Wait`
 - [ ] Functional options for `Listen`, `Upstream`, `AuthType`, `FloodgateKey`, `MOTD`, `JVMArgs`, `Logger`, `Mode`
 - [ ] **In-process mode (default)**:

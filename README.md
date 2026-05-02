@@ -24,7 +24,7 @@ language wrapper at all.
 |---|---|
 | **Native binary** ([releases](https://github.com/minekube/geyserlite/releases)) | Drop-in replacement for `Geyser-Standalone.jar`. ~107 MB, no JVM, no deps. |
 | **Container image** (`ghcr.io/minekube/geyserlite`) | `docker run ghcr.io/minekube/geyserlite`. `FROM scratch`-based. |
-| **Go library** (`go.minekube.com/geyserlite/go`) | Embed Geyser in your Go MC proxy in 5 lines. |
+| **Go library** (`go.minekube.com/geyserlite`) | Embed Geyser in your Go MC proxy in 5 lines. |
 | **Rust crate** (`geyserlite` on [crates.io](https://crates.io/crates/geyserlite)) | Embed Geyser in your Rust MC server in 5 lines. |
 | **Compose example** (`deploy/compose/`) | Cross-play stack: Geyser + Paper, in 60 seconds. |
 
@@ -64,7 +64,7 @@ docker run --rm -p 19132:19132/udp -v ./config.yml:/config.yml \
 ### Go
 
 ```go
-import "go.minekube.com/geyserlite/go"
+import "go.minekube.com/geyserlite"
 
 key, _ := geyserlite.GenerateFloodgateKey()
 srv, _ := geyserlite.New(geyserlite.Options{
@@ -130,13 +130,17 @@ See [docs/architecture.md](./docs/architecture.md) for details.
 geyserlite/
 ├── README.md
 ├── ROADMAP.md          ← what's planned
-├── build/              ← shared native-image build pipeline
-├── go/                 ← Go module: go.minekube.com/geyserlite/go
+├── go/                 ← Go module: go.minekube.com/geyserlite
 ├── rust/               ← Rust crate: geyserlite (crates.io)
+├── build/              ← shared native-image build pipeline
 ├── deploy/compose/     ← docker-compose self-host example
 ├── docs/
 └── .github/workflows/
 ```
+
+The Go module imports as `go.minekube.com/geyserlite`; the source lives
+in `go/`. The vanity-URL server at `go.minekube.com` maps the import to
+the `go/` subdirectory of `github.com/minekube/geyserlite`.
 
 ## Project status & roadmap
 

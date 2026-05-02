@@ -12,7 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	geyserlite "go.minekube.com/geyserlite/go"
+	geyserlite "go.minekube.com/geyserlite"
 )
 
 func main() {

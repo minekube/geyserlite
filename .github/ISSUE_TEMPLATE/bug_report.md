@@ -21,7 +21,7 @@ labels: bug
 
 ## Environment
 
-- geyserlite version (`go.minekube.com/geyserlite/go` or `geyserlite` crate):
+- geyserlite version (`go.minekube.com/geyserlite` or `geyserlite` crate):
 - mode: `Embedded` / `Subprocess` / running the ELF directly
 - OS / arch: e.g. `linux/amd64`, kernel `6.1`
 - Where it's running: bare metal / Fly / Docker / Kubernetes / other
@@ -50,7 +50,7 @@ paste here — redact Floodgate keys, IPs, player names if sensitive
 ## Synthetic probe output
 
 ```sh
-go run go.minekube.com/geyserlite/go/cmd/bedrock-probe -json <addr>
+go run go.minekube.com/geyserlite/cmd/bedrock-probe -json <addr>
 ```
 
 ```

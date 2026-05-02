@@ -20,7 +20,8 @@ If `task lint test` is green you're 95% of the way through code review.
 - `build/` — GraalVM native-image pipeline. Slow (~3 min). **Don't touch
   unless you know what you're doing.** See [build/README.md](./build/README.md)
   and the soft-fork section of the [ROADMAP](./ROADMAP.md).
-- `go/` — Go module (`go.minekube.com/geyserlite/go`).
+- `go/` — Go module (`go.minekube.com/geyserlite`). Source lives in this
+  subdir; the vanity-URL server maps the import path → subdir.
 - `rust/` — Rust crate (`geyserlite` on crates.io).
 - `docs/` — architecture + tuning + troubleshooting + Floodgate docs.
 - `deploy/compose/` — runnable docker-compose example.

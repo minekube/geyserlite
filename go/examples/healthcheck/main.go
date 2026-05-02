@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	geyserlite "go.minekube.com/geyserlite/go"
+	geyserlite "go.minekube.com/geyserlite"
 )
 
 func main() {
