@@ -138,6 +138,18 @@ tasks:
         echo "bumped to {{.CLI_ARGS}}; verify with: task overlay:apply"
 
   # ─── Local utilities ────────────────────────────────────────────────────
+  probe:
+    desc: |
+      probe a Bedrock server for its MOTD using the synthetic RakNet client.
+      usage: task probe -- 127.0.0.1:19132   (or any host:port)
+    dir: go
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "usage: task probe -- <host:port>" >&2; exit 1
+        fi
+        go run ./cmd/bedrock-probe {{.CLI_ARGS}}
+
   floodgate:keygen:
     desc: generate a 16-byte AES-128 Floodgate key
     cmds:

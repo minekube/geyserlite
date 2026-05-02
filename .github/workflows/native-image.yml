@@ -145,16 +145,16 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           cache: true
-      - name: Pull and probe
+      - name: Start container
         run: |
           REF=$(tr -d '[:space:]' < build/geyser.version)
           SHORT="${REF:0:12}"
           docker run -d --name geyser -p 19132:19132/udp \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}
-          # TODO: replace with internal/synthetic Bedrock client (see ROADMAP).
-          # For now, just assert UDP listener bound + container stays up 30s.
-          sleep 10
-          ss -ulnp | grep 19132 || (docker logs geyser; exit 1)
-          sleep 20
-          docker ps | grep -q geyser || (docker logs geyser; exit 1)
-          docker rm -f geyser
+      - name: Probe Bedrock listener (synthetic RakNet client)
+        run: |
+          # Wait up to 30s for boot + bind, then verify MOTD round-trips.
+          go -C go run ./cmd/bedrock-probe -wait=30s 127.0.0.1:19132 || (docker logs geyser; exit 1)
+      - name: Tear down
+        if: always()
+        run: docker rm -f geyser || true
