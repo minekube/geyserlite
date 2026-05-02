@@ -13,13 +13,17 @@ ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:21-ol9
 FROM ${GRAALVM_IMAGE} AS builder
 
 # musl + static zlib for --libc=musl static linking.
-# `microdnf update` first resolves the glibc/libstdc++ pin drift between
-# the @System packages baked into the GraalVM image and ol9_appstream;
-# without it microdnf 277s its way to "cannot install both glibc-2.34-..."
-# depsolve failures on aarch64.
-RUN microdnf update -y && microdnf install -y --setopt=install_weak_deps=0 \
+#
+# The GraalVM 21-ol9 image baked-in glibc-static 2.34-83 from @System,
+# which depsolves against glibc-devel 2.34-83 only — but ol9_appstream
+# has moved on to 2.34-231 and refuses to coexist. --allowerasing lets
+# microdnf evict the older @System pieces and pick up the appstream
+# versions, which the rest of the build resolves cleanly against.
+# We also drop glibc-static from the install list: the static-link
+# target uses musl (built below from source), not glibc.
+RUN microdnf install -y --allowerasing --setopt=install_weak_deps=0 \
       git curl tar gzip findutils python3 \
-      gcc gcc-c++ glibc-static zlib-static \
+      gcc gcc-c++ zlib-static \
     && microdnf clean all
 
 # Build a static zlib against musl (the system zlib is glibc).
