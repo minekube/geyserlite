@@ -44,6 +44,25 @@ jobs:
           gh run download "$RUN_ID" --dir artifacts --pattern 'geyserlite-*'
           ls -la artifacts/
 
+      - name: Generate checksums.txt
+        # The auto-download path in go/ and rust/ resolves asset SHAs
+        # against this file at <download-base>/<tag>/checksums.txt.
+        # Format: "<sha256>  <filename>" — one per line, sha256sum-compatible.
+        run: |
+          ( cd artifacts
+            shopt -s globstar nullglob
+            for f in **/*; do
+              [ -f "$f" ] || continue
+              # Strip the upload-artifact subdir prefix so the file name
+              # in checksums.txt matches the released asset name.
+              base="$(basename "$f")"
+              case "$base" in *.sig|*.attest.spdx.json|checksums.txt) continue;; esac
+              sha256sum "$f" | awk -v b="$base" '{ print $1 "  " b }'
+            done | sort -k2 > /tmp/checksums.txt
+          )
+          mv /tmp/checksums.txt artifacts/checksums.txt
+          cat artifacts/checksums.txt
+
       - name: cosign sign release artifacts
         run: |
           for f in artifacts/**/*; do
