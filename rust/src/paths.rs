@@ -18,5 +18,7 @@ pub(crate) fn cache_root() -> Result<PathBuf> {
         p.push(".cache");
         return Ok(p);
     }
-    Err(Error::Io(std::io::Error::other("cannot determine user cache dir")))
+    Err(Error::Io(std::io::Error::other(
+        "cannot determine user cache dir",
+    )))
 }

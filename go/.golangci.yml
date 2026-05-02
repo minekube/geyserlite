@@ -1,0 +1,11 @@
+version: "2"
+
+linters:
+  default: standard
+  exclusions:
+    rules:
+      # The deferred-Close / RemoveAll / Chdir idiom is intentionally
+      # fire-and-forget for cleanup paths.
+      - linters: [errcheck]
+        path: '\.go$'
+        text: 'Error return value of .+(Close|RemoveAll|Chdir).+ is not checked'

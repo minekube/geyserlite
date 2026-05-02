@@ -39,7 +39,11 @@ async fn main() -> anyhow::Result<()> {
             };
             let healthy = s.healthy();
             let body = if healthy { "ok\n" } else { "not ready\n" };
-            let status = if healthy { "200 OK" } else { "503 Service Unavailable" };
+            let status = if healthy {
+                "200 OK"
+            } else {
+                "503 Service Unavailable"
+            };
             let resp = format!(
                 "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: text/plain\r\n\r\n{body}",
                 body.len()

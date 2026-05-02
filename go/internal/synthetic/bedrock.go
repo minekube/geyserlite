@@ -135,10 +135,8 @@ func parsePong(data []byte) (*MOTD, error) {
 	if len(parts) > 5 {
 		m.MaxPlayers, _ = strconv.Atoi(parts[5])
 	}
-	if len(parts) > 6 {
-		// parts[6] is the server GUID per the protocol; we already have it
-		// from the binary header — keep the binary one (more reliable).
-	}
+	// parts[6] is the server GUID per the protocol; the binary header
+	// already gave us a more reliable copy, so we skip parts[6] entirely.
 	if len(parts) > 7 {
 		m.Line2 = parts[7]
 	}

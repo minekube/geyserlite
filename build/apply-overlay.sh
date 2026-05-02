@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Clones Geyser at the pinned ref, applies our overlay + patches.
+# Clones Geyser at the pinned ref, applies our overlay + mutations.
 # Run from repo root. Idempotent; cleans up on rerun.
+#
+# Why no .patch files: line-based patches break on every upstream
+# settings.gradle.kts edit. We instead apply mutations by *intent* —
+# "ensure the include line is present" — which survives drift.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,11 +27,25 @@ git clone --quiet https://github.com/GeyserMC/Geyser.git "${GEYSER_DIR}"
 echo "▸ Copying overlay/ into Geyser tree"
 cp -R "${REPO_ROOT}/build/overlay/." "${GEYSER_DIR}/"
 
-echo "▸ Applying patches/"
-shopt -s nullglob
-for p in "${REPO_ROOT}"/build/patches/*.patch; do
-  echo "  - $(basename "${p}")"
-  ( cd "${GEYSER_DIR}" && git apply --3way "${p}" )
-done
+echo "▸ Registering :geyserlite-native subproject"
+SETTINGS="${GEYSER_DIR}/settings.gradle.kts"
+INCLUDE_LINE='include(":geyserlite-native")'
+if grep -qF "${INCLUDE_LINE}" "${SETTINGS}"; then
+  echo "  already registered; skipping"
+else
+  printf '\n// geyserlite overlay (added by https://github.com/minekube/geyserlite)\n%s\n' "${INCLUDE_LINE}" >> "${SETTINGS}"
+  echo "  appended to settings.gradle.kts"
+fi
 
-echo "✓ Overlay + patches applied; tree at ${GEYSER_DIR}"
+# Optional .patch files for anything that genuinely needs a contextual diff.
+shopt -s nullglob
+patches=( "${REPO_ROOT}"/build/patches/*.patch )
+if [ ${#patches[@]} -gt 0 ]; then
+  echo "▸ Applying patches/"
+  for p in "${patches[@]}"; do
+    echo "  - $(basename "${p}")"
+    ( cd "${GEYSER_DIR}" && git apply --3way "${p}" )
+  done
+fi
+
+echo "✓ Overlay applied; tree at ${GEYSER_DIR}"

@@ -1,4 +1,12 @@
 extends: default
+
+ignore: |
+  build/.work/
+  node_modules/
+  .cache/
+  rust/target/
+  go/.cache/
+
 rules:
   line-length:
     max: 200

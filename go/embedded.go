@@ -3,7 +3,6 @@ package geyserlite
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -178,6 +177,3 @@ func cString(s string) (uintptr, func()) {
 	return ptrOf(b), func() { _ = b }
 }
 
-var (
-	errAPIBindingMissing = errors.New("geyserlite: libgeyserlite.so missing required @CEntryPoint export")
-)

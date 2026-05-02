@@ -17,10 +17,9 @@ type Server struct {
 	started atomic.Bool // read by Healthy without the lock; set by Start under mu
 
 	// Set when Start runs.
-	healthy atomic.Bool
-	cancel  context.CancelFunc
-	done    chan struct{}
-	runErr  atomic.Pointer[error]
+	cancel context.CancelFunc
+	done   chan struct{}
+	runErr atomic.Pointer[error]
 
 	runner runner
 }

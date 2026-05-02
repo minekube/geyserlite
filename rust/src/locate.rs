@@ -72,11 +72,17 @@ pub(crate) async fn locate_library(opts: &Options) -> Result<PathBuf> {
 }
 
 #[cfg(target_os = "linux")]
-fn library_name() -> &'static str { "libgeyserlite.so" }
+fn library_name() -> &'static str {
+    "libgeyserlite.so"
+}
 #[cfg(target_os = "macos")]
-fn library_name() -> &'static str { "libgeyserlite.dylib" }
+fn library_name() -> &'static str {
+    "libgeyserlite.dylib"
+}
 #[cfg(target_os = "windows")]
-fn library_name() -> &'static str { "geyserlite.dll" }
+fn library_name() -> &'static str {
+    "geyserlite.dll"
+}
 
 fn system_lib_dirs() -> Vec<PathBuf> {
     let mut dirs = vec![PathBuf::from("/usr/local/lib"), PathBuf::from("/usr/lib")];
@@ -91,13 +97,19 @@ fn system_lib_dirs() -> Vec<PathBuf> {
 fn ensure_executable(p: &Path) -> Result<()> {
     let meta = std::fs::metadata(p)?;
     if !meta.is_file() {
-        return Err(Error::Io(std::io::Error::other(format!("not a regular file: {}", p.display()))));
+        return Err(Error::Io(std::io::Error::other(format!(
+            "not a regular file: {}",
+            p.display()
+        ))));
     }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         if meta.permissions().mode() & 0o111 == 0 {
-            return Err(Error::Io(std::io::Error::other(format!("not executable: {}", p.display()))));
+            return Err(Error::Io(std::io::Error::other(format!(
+                "not executable: {}",
+                p.display()
+            ))));
         }
     }
     Ok(())
@@ -106,7 +118,10 @@ fn ensure_executable(p: &Path) -> Result<()> {
 fn ensure_file(p: &Path) -> Result<()> {
     let meta = std::fs::metadata(p)?;
     if !meta.is_file() {
-        return Err(Error::Io(std::io::Error::other(format!("not a regular file: {}", p.display()))));
+        return Err(Error::Io(std::io::Error::other(format!(
+            "not a regular file: {}",
+            p.display()
+        ))));
     }
     Ok(())
 }
@@ -123,9 +138,13 @@ fn which(name: &str) -> Result<PathBuf> {
 }
 
 #[cfg(not(feature = "embed"))]
-fn extract_embedded_binary() -> Result<Option<PathBuf>> { Ok(None) }
+fn extract_embedded_binary() -> Result<Option<PathBuf>> {
+    Ok(None)
+}
 #[cfg(not(feature = "embed"))]
-fn extract_embedded_library() -> Result<Option<PathBuf>> { Ok(None) }
+fn extract_embedded_library() -> Result<Option<PathBuf>> {
+    Ok(None)
+}
 
 #[cfg(feature = "embed")]
 fn extract_embedded_binary() -> Result<Option<PathBuf>> {
@@ -145,6 +164,10 @@ async fn try_download_library(opts: &Options) -> Result<PathBuf> {
     crate::download::download_asset(opts, crate::download::AssetKind::Library).await
 }
 #[cfg(not(feature = "download"))]
-async fn try_download_binary(_opts: &Options) -> Result<PathBuf> { Err(Error::NoBinary) }
+async fn try_download_binary(_opts: &Options) -> Result<PathBuf> {
+    Err(Error::NoBinary)
+}
 #[cfg(not(feature = "download"))]
-async fn try_download_library(_opts: &Options) -> Result<PathBuf> { Err(Error::NoLibrary) }
+async fn try_download_library(_opts: &Options) -> Result<PathBuf> {
+    Err(Error::NoLibrary)
+}

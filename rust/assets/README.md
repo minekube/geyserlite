@@ -8,7 +8,7 @@ These files are **never committed**. Run `task embed:fetch` (or
 
 ## Expected layout
 
-```
+```text
 rust/assets/
 ├── geyserlite-linux-amd64           ELF binary (subprocess mode)
 ├── geyserlite-linux-arm64

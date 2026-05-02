@@ -20,11 +20,15 @@ pub enum Error {
     AlreadyStarted,
 
     /// The native ELF binary couldn't be located for [`super::Mode::Subprocess`].
-    #[error("geyserlite: ELF binary not found (set Options.binary_path, $GEYSERLITE_BINARY, or build with --features embed)")]
+    #[error(
+        "geyserlite: ELF binary not found (set Options.binary_path, $GEYSERLITE_BINARY, or build with --features embed)"
+    )]
     NoBinary,
 
     /// `libgeyserlite.so` couldn't be located for [`super::Mode::Embedded`].
-    #[error("geyserlite: libgeyserlite.so not found (set Options.library_path, $GEYSERLITE_LIBRARY, or build with --features embed)")]
+    #[error(
+        "geyserlite: libgeyserlite.so not found (set Options.library_path, $GEYSERLITE_LIBRARY, or build with --features embed)"
+    )]
     NoLibrary,
 
     /// libloading or @CEntryPoint resolution failed.
@@ -49,10 +53,16 @@ pub enum Error {
 
     /// Downloaded asset's sha256 didn't match the manifest.
     #[error("geyserlite: sha256 mismatch for {asset}: got {got}, want {want}")]
-    ChecksumMismatch { asset: String, got: String, want: String },
+    ChecksumMismatch {
+        asset: String,
+        got: String,
+        want: String,
+    },
 
     /// Auto-download isn't supported on this build target.
-    #[error("geyserlite: auto-download supports linux amd64/arm64 only; set Options.binary_path or Options.library_path")]
+    #[error(
+        "geyserlite: auto-download supports linux amd64/arm64 only; set Options.binary_path or Options.library_path"
+    )]
     UnsupportedTarget,
 
     /// Generic IO failure.

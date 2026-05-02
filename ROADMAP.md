@@ -366,8 +366,8 @@ total                   : ~138 MB / 207 MB usable on a 256 MB Fly VM
 | `release.yml` | tag push | Pull native artifacts from native-image run + cosign-sign + GH Release + `cargo publish` |
 
 CI uses [`mise`](https://mise.jdx.dev) to install pinned tooling (same as
-local dev) and [`task`](https://taskfile.dev) as the entry point for lint
-+ test (`task lint`, `task test`). Heavy paths (Docker buildx for the
+local dev) and [`task`](https://taskfile.dev) as the entry point for
+lint and test (`task lint`, `task test`). Heavy paths (Docker buildx for the
 GraalVM build) drop down to the docker actions for native GHA cache
 integration; everything else routes through Taskfile so local and CI
 can't diverge.
@@ -383,7 +383,12 @@ Caching:
 - **Unit (each language)**: pure logic in supervisor, options validation, config rendering, Floodgate key encoding.
 - **Integration in-process (each language)**: load `libgeyserlite.so`, exercise lifecycle, verify clean shutdown.
 - **Integration subprocess (each language)**: launch the ELF against a fake Java upstream (TCP listener accepting Floodgate-formatted handshakes), assert lifecycle.
-- **Synthetic Bedrock client**: tiny Go-side RakNet implementation that sends Unconnected Ping and parses the Pong descriptor. Lives in `go/internal/synthetic/` with a CLI wrapper at `go/cmd/bedrock-probe/`. Run via `task probe -- host:port`, used by both Go and Rust CI as a subprocess. **Implemented in v0.1**, before any Geyser-specific phase. Verified against the production fra deployment as a sanity check.
+- **Synthetic Bedrock client**: tiny Go-side RakNet implementation that
+  sends Unconnected Ping and parses the Pong descriptor. Lives in
+  `go/internal/synthetic/` with a CLI wrapper at `go/cmd/bedrock-probe/`.
+  Run via `task probe -- host:port`, used by both Go and Rust CI as a
+  subprocess. **Implemented in v0.1**, before any Geyser-specific phase.
+  Verified against the production fra deployment as a sanity check.
 - **Memory regression**: CI runs the binary, samples RSS at 5-second intervals for 60 seconds, asserts thresholds. Run from the Go test suite for now; Rust shells out to the same harness.
 - **Crash isolation test**: deliberately segfault inside Geyser; assert that in-process mode kills the host (intended) and subprocess mode auto-restarts.
 

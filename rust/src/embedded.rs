@@ -95,14 +95,20 @@ impl EmbeddedRunner {
             let mut thread: IsolateThreadPtr = std::ptr::null_mut();
             let rc = unsafe { create_ptr(&mut thread as *mut _) };
             if rc != 0 {
-                return Err(Error::NativeCall { call: "geyser_create_isolate", rc });
+                return Err(Error::NativeCall {
+                    call: "geyser_create_isolate",
+                    rc,
+                });
             }
             let handle = ThreadHandle(thread as usize);
 
             let rc = unsafe { init_ptr(handle.ptr(), cstr.as_ptr()) };
             if rc != 0 {
                 unsafe { tear_down_ptr(handle.ptr()) };
-                return Err(Error::NativeCall { call: "geyser_init", rc });
+                return Err(Error::NativeCall {
+                    call: "geyser_init",
+                    rc,
+                });
             }
 
             // Best-effort liveness signal: we know the bedrock listener is
@@ -115,7 +121,10 @@ impl EmbeddedRunner {
 
             unsafe { tear_down_ptr(handle.ptr()) };
             if rc != 0 {
-                Err(Error::NativeCall { call: "geyser_run", rc })
+                Err(Error::NativeCall {
+                    call: "geyser_run",
+                    rc,
+                })
             } else {
                 Ok(())
             }

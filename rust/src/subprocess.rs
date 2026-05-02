@@ -53,7 +53,12 @@ impl SubprocessRunner {
                         backoff.reset();
                     }
                     let wait = backoff.next();
-                    warn!(?e, ?wait, attempt = total_runs, "geyser exited; restarting after backoff");
+                    warn!(
+                        ?e,
+                        ?wait,
+                        attempt = total_runs,
+                        "geyser exited; restarting after backoff"
+                    );
                     tokio::select! {
                         _ = sleep(wait) => {},
                         _ = srv.cancel.cancelled() => return Ok(()),
@@ -85,7 +90,12 @@ async fn run_once(srv: &Server, binary: &std::path::Path, workdir: &std::path::P
     let stderr = child.stderr.take().expect("stderr piped");
 
     let healthy = srv.healthy.clone();
-    let stdout_task = tokio::spawn(forward_lines(stdout, Level::INFO, "stdout", Some(healthy.clone())));
+    let stdout_task = tokio::spawn(forward_lines(
+        stdout,
+        Level::INFO,
+        "stdout",
+        Some(healthy.clone()),
+    ));
     let stderr_task = tokio::spawn(forward_lines(stderr, Level::WARN, "stderr", None));
 
     let cancel = srv.cancel.clone();
@@ -168,7 +178,11 @@ fn strip_ansi(s: &str) -> String {
 fn send_sigterm(pid: u32) -> std::io::Result<()> {
     // SAFETY: kill(2) is signal-safe and doesn't dereference user pointers.
     let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
-    if rc == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 #[cfg(test)]
@@ -177,7 +191,9 @@ mod tests {
 
     #[test]
     fn detects_done_with_ansi() {
-        assert!(line_is_done("\x1b[36;1mINFO\x1b[m Done (1.234s)! Run /geyser help"));
+        assert!(line_is_done(
+            "\x1b[36;1mINFO\x1b[m Done (1.234s)! Run /geyser help"
+        ));
         assert!(line_is_done("[INFO] Done (1.0s)!"));
         assert!(!line_is_done("Loading extensions..."));
     }

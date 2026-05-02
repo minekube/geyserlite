@@ -10,8 +10,16 @@ pub(crate) struct Backoff {
 
 impl Backoff {
     pub fn new(min: Duration, max: Duration) -> Self {
-        let min = if min.is_zero() { Duration::from_secs(1) } else { min };
-        let max = if max < min { Duration::from_secs(60) } else { max };
+        let min = if min.is_zero() {
+            Duration::from_secs(1)
+        } else {
+            min
+        };
+        let max = if max < min {
+            Duration::from_secs(60)
+        } else {
+            max
+        };
         Self { min, max, cur: min }
     }
     pub fn next(&mut self) -> Duration {

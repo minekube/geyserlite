@@ -2,9 +2,10 @@
 default: true
 
 # Allow longer lines — code blocks and table content benefit.
+# Bumped from 180 → 220 so legitimate diagrams in fenced blocks don't trip.
 MD013:
-  line_length: 180
-  code_block_line_length: 200
+  line_length: 220
+  code_block_line_length: 400
   tables: false
   headings: false
 
@@ -18,3 +19,14 @@ MD041: false
 # Allow duplicate headings — useful in long docs with parallel sections.
 MD024:
   siblings_only: true
+
+# Table column style — we don't need cells aligned with extra padding.
+# (markdownlint's "compact" rule complains about valid GFM tables.)
+MD060: false
+
+# Mixed list markers (- vs +) are fine — we use + occasionally for emphasis.
+MD004: false
+
+# Fence language not required: many of our code fences are diagrams/trees
+# rather than executable snippets.
+MD040: false

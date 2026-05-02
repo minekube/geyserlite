@@ -12,8 +12,8 @@ mod download;
 mod embed;
 mod embedded;
 mod error;
-mod fly;
 mod floodgate;
+mod fly;
 mod locate;
 mod options;
 #[cfg(any(feature = "embed", feature = "download"))]

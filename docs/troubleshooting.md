@@ -78,6 +78,7 @@ failed to connect player to endpoint, falling back to browser
 
 Means the named endpoint either doesn't exist or rejected the player. The
 fallback is Connect's hub server, not your Paper. Check:
+
 - Endpoint name is exactly correct (no typos, hyphens included).
 - The Connect plugin on Paper has `allow-offline-mode-players: true` if
   Paper itself is in offline mode.
@@ -88,6 +89,7 @@ fallback is Connect's hub server, not your Paper. Check:
 ### `dlopen failed: libgeyserlite.so: cannot open shared object file`
 
 The library can't find the `.so`. In order:
+
 1. Set `Options.LibraryPath` / `Options::library_path` to the absolute path.
 2. Set `$GEYSERLITE_LIBRARY` environment variable.
 3. Build with the `embed` build tag / feature so the `.so` is bundled.

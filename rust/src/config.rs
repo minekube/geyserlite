@@ -12,8 +12,16 @@ use crate::options::{AuthType, Options};
 pub(crate) fn render_config(workdir: &Path, opts: &Options) -> Result<()> {
     let (bedrock_addr, bedrock_port) = split_host_port(&opts.listen, "0.0.0.0", "19132");
     let (upstream_addr, upstream_port) = split_host_port(&opts.upstream, "127.0.0.1", "25565");
-    let motd1 = if opts.motd.line1.is_empty() { "geyserlite".into() } else { opts.motd.line1.clone() };
-    let motd2 = if opts.motd.line2.is_empty() { "cross-play".into() } else { opts.motd.line2.clone() };
+    let motd1 = if opts.motd.line1.is_empty() {
+        "geyserlite".into()
+    } else {
+        opts.motd.line1.clone()
+    };
+    let motd2 = if opts.motd.line2.is_empty() {
+        "cross-play".into()
+    } else {
+        opts.motd.line2.clone()
+    };
     let floodgate_line = if opts.auth_type == AuthType::Floodgate {
         "floodgate-key-file: key.bin\n"
     } else {
@@ -102,7 +110,11 @@ pub(crate) fn write_permissions_yml(workdir: &Path) -> Result<()> {
 }
 
 /// Split "host:port" with defaults for missing pieces. Handles IPv6 in brackets.
-pub(crate) fn split_host_port<'a>(s: &'a str, default_host: &'a str, default_port: &'a str) -> (String, String) {
+pub(crate) fn split_host_port<'a>(
+    s: &'a str,
+    default_host: &'a str,
+    default_port: &'a str,
+) -> (String, String) {
     if s.is_empty() {
         return (default_host.into(), default_port.into());
     }
@@ -115,7 +127,11 @@ pub(crate) fn split_host_port<'a>(s: &'a str, default_host: &'a str, default_por
         }
     }
     if let Some(idx) = s.rfind(':') {
-        let host = if idx == 0 { default_host.to_string() } else { s[..idx].to_string() };
+        let host = if idx == 0 {
+            default_host.to_string()
+        } else {
+            s[..idx].to_string()
+        };
         return (host, s[idx + 1..].to_string());
     }
     (s.into(), default_port.into())
@@ -127,15 +143,24 @@ mod tests {
 
     #[test]
     fn split_simple() {
-        assert_eq!(split_host_port("127.0.0.1:25567", "0.0.0.0", "19132"), ("127.0.0.1".into(), "25567".into()));
+        assert_eq!(
+            split_host_port("127.0.0.1:25567", "0.0.0.0", "19132"),
+            ("127.0.0.1".into(), "25567".into())
+        );
     }
     #[test]
     fn split_default_host() {
-        assert_eq!(split_host_port(":19132", "0.0.0.0", "19132"), ("0.0.0.0".into(), "19132".into()));
+        assert_eq!(
+            split_host_port(":19132", "0.0.0.0", "19132"),
+            ("0.0.0.0".into(), "19132".into())
+        );
     }
     #[test]
     fn split_ipv6() {
-        assert_eq!(split_host_port("[::1]:25567", "0.0.0.0", "19132"), ("::1".into(), "25567".into()));
+        assert_eq!(
+            split_host_port("[::1]:25567", "0.0.0.0", "19132"),
+            ("::1".into(), "25567".into())
+        );
     }
     #[test]
     fn split_fly() {

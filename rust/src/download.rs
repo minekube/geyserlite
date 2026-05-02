@@ -25,7 +25,11 @@ pub(crate) enum AssetKind {
 
 pub(crate) async fn download_asset(opts: &Options, kind: AssetKind) -> Result<PathBuf> {
     let version = opts.version.as_deref().unwrap_or(DEFAULT_VERSION);
-    let base = opts.mirror.as_deref().unwrap_or(DEFAULT_DOWNLOAD_BASE).trim_end_matches('/');
+    let base = opts
+        .mirror
+        .as_deref()
+        .unwrap_or(DEFAULT_DOWNLOAD_BASE)
+        .trim_end_matches('/');
     let asset_name = asset_for_target(kind)?;
 
     let cache_dir = cache_root()?.join("geyserlite").join(version);
@@ -82,7 +86,10 @@ fn asset_for_target(kind: AssetKind) -> Result<&'static str> {
     })
 }
 
-#[cfg(not(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))]
+#[cfg(not(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+)))]
 fn asset_for_target(_kind: AssetKind) -> Result<&'static str> {
     Err(Error::UnsupportedTarget)
 }
@@ -92,7 +99,9 @@ async fn fetch_expected_sha(base: &str, version: &str, asset_name: &str) -> Resu
     let body = http_get_text(&url).await?;
     for line in body.lines() {
         let mut fields = line.split_whitespace();
-        let (Some(sha), Some(name)) = (fields.next(), fields.next()) else { continue };
+        let (Some(sha), Some(name)) = (fields.next(), fields.next()) else {
+            continue;
+        };
         // sha256sum -b emits "*<filename>"
         let name = name.strip_prefix('*').unwrap_or(name);
         if name == asset_name || name.ends_with(&format!("/{asset_name}")) {

@@ -28,7 +28,10 @@ async fn main() -> anyhow::Result<()> {
         upstream: "gate.internal:25567".into(),
         auth_type: AuthType::Floodgate,
         floodgate_key: key,
-        motd: Motd { line1: "minekube".into(), line2: "cross-play".into() },
+        motd: Motd {
+            line1: "minekube".into(),
+            line2: "cross-play".into(),
+        },
         ..Default::default()
     })?
     .start()
