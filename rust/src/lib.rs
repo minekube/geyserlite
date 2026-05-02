@@ -6,6 +6,8 @@
 
 mod backoff;
 mod config;
+#[cfg(feature = "embed")]
+mod embed;
 mod embedded;
 mod error;
 mod fly;

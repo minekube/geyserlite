@@ -104,7 +104,6 @@ fn which(name: &str) -> Result<PathBuf> {
     Err(Error::NoBinary)
 }
 
-// embed mode (cargo feature `embed`) — stubs for now; v0.4 lands real impls.
 #[cfg(not(feature = "embed"))]
 fn extract_embedded_binary() -> Result<Option<PathBuf>> { Ok(None) }
 #[cfg(not(feature = "embed"))]
@@ -112,11 +111,10 @@ fn extract_embedded_library() -> Result<Option<PathBuf>> { Ok(None) }
 
 #[cfg(feature = "embed")]
 fn extract_embedded_binary() -> Result<Option<PathBuf>> {
-    // TODO v0.4: include_bytes! per-arch + extract to dirs::cache_dir().
-    Ok(None)
+    crate::embed::extract_asset(crate::embed::EMBEDDED_BINARY, "geyserlite", true)
 }
+
 #[cfg(feature = "embed")]
 fn extract_embedded_library() -> Result<Option<PathBuf>> {
-    // TODO v0.4: include_bytes! per-arch + extract to dirs::cache_dir().
-    Ok(None)
+    crate::embed::extract_asset(crate::embed::EMBEDDED_LIBRARY, "libgeyserlite.so", false)
 }

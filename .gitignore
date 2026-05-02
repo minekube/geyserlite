@@ -4,9 +4,12 @@ libgeyserlite.so
 libgeyserlite.h
 *.iprof
 
-# Per-target embed assets (downloaded by `make embed-blobs`, never committed)
-go/embed/assets/
-rust/assets/
+# Per-target embed assets (downloaded by `task embed:fetch`, never committed).
+# README.md inside these dirs IS committed.
+go/assets/*
+!go/assets/README.md
+rust/assets/*
+!rust/assets/README.md
 
 # Fetched Geyser source tree during local builds
 build/.work/

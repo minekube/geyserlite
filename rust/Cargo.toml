@@ -15,7 +15,7 @@ readme = "README.md"
 default = []
 
 # Embed libgeyserlite.so via include_bytes! and self-extract on first start.
-embed = []
+embed = ["dep:sha2"]
 
 # Auto-download libgeyserlite.so from GitHub Release with checksum verification.
 download = ["dep:reqwest", "dep:sha2"]
@@ -29,9 +29,10 @@ thiserror = "2"
 rand = "0.9"
 tempfile = "3"
 
+# embed + download features
+sha2 = { version = "0.10", optional = true }
 # download feature
 reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false, optional = true }
-sha2 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
