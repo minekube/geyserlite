@@ -54,7 +54,7 @@ type StatusFn = unsafe extern "C" fn(IsolateThreadPtr) -> i32;
 
 impl EmbeddedRunner {
     pub async fn run(self, srv: &Server) -> Result<()> {
-        let libpath = locate_library(&srv.opts)?;
+        let libpath = locate_library(&srv.opts).await?;
         info!(path = %libpath.display(), "loading libgeyserlite");
 
         // SAFETY: dlopen + dlsym; we trust the C ABI matches libgeyserlite.h

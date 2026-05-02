@@ -89,6 +89,19 @@ pub struct Options {
     pub restart_policy: Option<RestartPolicy>,
     /// Time to wait for graceful shutdown before SIGKILL. Default 30s.
     pub shutdown_timeout: Option<Duration>,
+
+    /// Geyserlite release tag (e.g. `"v0.5.0"`) to fetch in the
+    /// auto-download path. `None` = [`crate::DEFAULT_VERSION`]. Ignored
+    /// if a binary or library is supplied via path / env / embed.
+    pub version: Option<String>,
+
+    /// Override the GitHub Release base URL. Useful for air-gapped /
+    /// regulated environments. `None` = [`crate::DEFAULT_DOWNLOAD_BASE`].
+    pub mirror: Option<String>,
+
+    /// Disable the auto-download path. With `offline = true` the locator
+    /// must succeed via path / env / embed / system search.
+    pub offline: bool,
 }
 
 impl Options {

@@ -97,6 +97,20 @@ type Options struct {
 	// ShutdownTimeout is how long to wait for graceful shutdown after SIGTERM
 	// before SIGKILL. Defaults to 30s.
 	ShutdownTimeout time.Duration
+
+	// Version is the geyserlite release tag (e.g. "v0.5.0") to fetch in the
+	// auto-download path. Empty = [DefaultVersion]. Ignored if a binary or
+	// library is supplied via path / env / embed.
+	Version string
+
+	// Mirror overrides the GitHub Release base URL (handy for air-gapped /
+	// regulated environments). Empty = [DefaultDownloadBase].
+	Mirror string
+
+	// Offline disables the auto-download path. With Offline=true the locator
+	// must succeed via path / env / embed / system search, or [Start] returns
+	// an error.
+	Offline bool
 }
 
 // MOTD is the Bedrock client-visible server description (two lines).

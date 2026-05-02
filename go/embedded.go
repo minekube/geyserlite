@@ -38,7 +38,7 @@ type geyserAPI struct {
 func (r *embeddedRunner) healthy() bool { return r.healthyFlag.Load() }
 
 func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
-	libpath, err := locateLibrary(s.opts)
+	libpath, err := locateLibrary(ctx, s.opts)
 	if err != nil {
 		return err
 	}

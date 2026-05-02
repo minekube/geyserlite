@@ -6,6 +6,8 @@
 
 mod backoff;
 mod config;
+#[cfg(feature = "download")]
+mod download;
 #[cfg(feature = "embed")]
 mod embed;
 mod embedded;
@@ -16,9 +18,11 @@ mod locate;
 mod options;
 mod server;
 mod subprocess;
+mod version;
 
 pub use error::{Error, Result};
 pub use floodgate::generate_floodgate_key;
 pub use fly::{default_jvm_args, fly_global_services};
 pub use options::{AuthType, Mode, Motd, Options, RestartPolicy};
 pub use server::Server;
+pub use version::{DEFAULT_DOWNLOAD_BASE, DEFAULT_VERSION};

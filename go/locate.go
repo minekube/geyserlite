@@ -2,6 +2,7 @@
 package geyserlite
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -17,8 +18,9 @@ import (
 //  2. $GEYSERLITE_BINARY env var
 //  3. embedded blob (when built with -tags geyserlite_embed)
 //  4. $PATH lookup for "geyserlite"
-//  5. ErrNoBinary
-func locateBinary(opts Options) (string, error) {
+//  5. auto-download from GitHub Release (skipped if Options.Offline)
+//  6. ErrNoBinary
+func locateBinary(ctx context.Context, opts Options) (string, error) {
 	if opts.BinaryPath != "" {
 		if err := executableAt(opts.BinaryPath); err != nil {
 			return "", fmt.Errorf("geyserlite: BinaryPath %q: %w", opts.BinaryPath, err)
@@ -39,6 +41,11 @@ func locateBinary(opts Options) (string, error) {
 	if path, err := exec.LookPath("geyserlite"); err == nil {
 		return path, nil
 	}
+	if !opts.Offline {
+		if path, err := downloadAsset(ctx, opts, assetKindBinary); err == nil {
+			return path, nil
+		}
+	}
 	return "", ErrNoBinary
 }
 
@@ -49,8 +56,9 @@ func locateBinary(opts Options) (string, error) {
 //  2. $GEYSERLITE_LIBRARY env var
 //  3. embedded blob (when built with -tags geyserlite_embed)
 //  4. system search: /usr/lib, /usr/local/lib, $LD_LIBRARY_PATH
-//  5. ErrNoLibrary
-func locateLibrary(opts Options) (string, error) {
+//  5. auto-download from GitHub Release (skipped if Options.Offline)
+//  6. ErrNoLibrary
+func locateLibrary(ctx context.Context, opts Options) (string, error) {
 	if opts.LibraryPath != "" {
 		if err := fileAt(opts.LibraryPath); err != nil {
 			return "", fmt.Errorf("geyserlite: LibraryPath %q: %w", opts.LibraryPath, err)
@@ -72,6 +80,11 @@ func locateLibrary(opts Options) (string, error) {
 		p := filepath.Join(dir, libraryName())
 		if fileAt(p) == nil {
 			return p, nil
+		}
+	}
+	if !opts.Offline {
+		if path, err := downloadAsset(ctx, opts, assetKindLibrary); err == nil {
+			return path, nil
 		}
 	}
 	return "", ErrNoLibrary

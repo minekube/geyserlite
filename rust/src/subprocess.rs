@@ -18,7 +18,7 @@ pub(crate) struct SubprocessRunner;
 
 impl SubprocessRunner {
     pub async fn run(self, srv: &Server) -> Result<()> {
-        let binary = locate_binary(&srv.opts)?;
+        let binary = locate_binary(&srv.opts).await?;
         info!(path = %binary.display(), "located geyserlite binary");
 
         let workdir = TempDir::new()?;

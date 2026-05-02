@@ -25,7 +25,7 @@ type subprocessRunner struct {
 func (r *subprocessRunner) healthy() bool { return r.healthyFlag.Load() }
 
 func (r *subprocessRunner) run(ctx context.Context, s *Server) error {
-	binary, err := locateBinary(s.opts)
+	binary, err := locateBinary(ctx, s.opts)
 	if err != nil {
 		return err
 	}

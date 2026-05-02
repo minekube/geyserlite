@@ -6,7 +6,13 @@ use std::path::{Path, PathBuf};
 use crate::error::{Error, Result};
 use crate::options::Options;
 
-pub(crate) fn locate_binary(opts: &Options) -> Result<PathBuf> {
+/// Resolution order:
+///   1. opts.binary_path
+///   2. $GEYSERLITE_BINARY
+///   3. embedded blob (with --features embed)
+///   4. $PATH lookup
+///   5. auto-download (with --features download, opts.offline=false)
+pub(crate) async fn locate_binary(opts: &Options) -> Result<PathBuf> {
     if let Some(p) = &opts.binary_path {
         let p = PathBuf::from(p);
         ensure_executable(&p)?;
@@ -25,10 +31,17 @@ pub(crate) fn locate_binary(opts: &Options) -> Result<PathBuf> {
     if let Ok(p) = which("geyserlite") {
         return Ok(p);
     }
+    if !opts.offline {
+        if let Ok(p) = try_download_binary(opts).await {
+            return Ok(p);
+        }
+    }
     Err(Error::NoBinary)
 }
 
-pub(crate) fn locate_library(opts: &Options) -> Result<PathBuf> {
+/// Resolution order mirrors [`locate_binary`] with system lib dirs in
+/// place of `$PATH`.
+pub(crate) async fn locate_library(opts: &Options) -> Result<PathBuf> {
     if let Some(p) = &opts.library_path {
         let p = PathBuf::from(p);
         ensure_file(&p)?;
@@ -47,6 +60,11 @@ pub(crate) fn locate_library(opts: &Options) -> Result<PathBuf> {
     for dir in system_lib_dirs() {
         let p = dir.join(library_name());
         if p.is_file() {
+            return Ok(p);
+        }
+    }
+    if !opts.offline {
+        if let Ok(p) = try_download_library(opts).await {
             return Ok(p);
         }
     }
@@ -113,8 +131,20 @@ fn extract_embedded_library() -> Result<Option<PathBuf>> { Ok(None) }
 fn extract_embedded_binary() -> Result<Option<PathBuf>> {
     crate::embed::extract_asset(crate::embed::EMBEDDED_BINARY, "geyserlite", true)
 }
-
 #[cfg(feature = "embed")]
 fn extract_embedded_library() -> Result<Option<PathBuf>> {
     crate::embed::extract_asset(crate::embed::EMBEDDED_LIBRARY, "libgeyserlite.so", false)
 }
+
+#[cfg(feature = "download")]
+async fn try_download_binary(opts: &Options) -> Result<PathBuf> {
+    crate::download::download_asset(opts, crate::download::AssetKind::Binary).await
+}
+#[cfg(feature = "download")]
+async fn try_download_library(opts: &Options) -> Result<PathBuf> {
+    crate::download::download_asset(opts, crate::download::AssetKind::Library).await
+}
+#[cfg(not(feature = "download"))]
+async fn try_download_binary(_opts: &Options) -> Result<PathBuf> { Err(Error::NoBinary) }
+#[cfg(not(feature = "download"))]
+async fn try_download_library(_opts: &Options) -> Result<PathBuf> { Err(Error::NoLibrary) }
