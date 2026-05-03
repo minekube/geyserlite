@@ -24,6 +24,20 @@ dependencies {
 }
 
 graalvmNative {
+    // The GraalVM Reachability Metadata Repository ships hand-curated
+    // reflect-config / resource-config / serialization-config entries
+    // for popular libraries (log4j2, netty, jackson, …). Without it,
+    // log4j2 plugin discovery fails at .so init with NoSuchMethodError
+    // around ServiceLoader.load(Class, ClassLoader) and pattern
+    // converters can't find their newInstance(...) factories.
+    // The ELF build picks this up implicitly because its agent-config
+    // captured the right reflection metadata from a real run; the .so
+    // analysis tree differs and needs the curated repo.
+    // Docs: https://graalvm.github.io/native-build-tools/latest/end-to-end-maven-guide.html#metadata-repo
+    metadataRepository {
+        enabled.set(true)
+    }
+
     binaries {
         named("main") {
             imageName.set("libgeyserlite")
@@ -68,7 +82,13 @@ graalvmNative {
             buildArgs.addAll(
                 "-H:ConfigurationFileDirectories=${rootProject.projectDir}/agent-config",
                 "-H:Features=com.minekube.geyserlite.bridge.GeyserBridgeFeature",
-                """-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$""",
+                // .dat and META-INF/services/ are essential for log4j2:
+                // Log4j2Plugins.dat encodes the plugin registry, and the
+                // services manifests drive ServiceLoader-based discovery.
+                // Without those the .so loads fine but log4j's static
+                // init chain trips on UpperLookup / ReusableMessageFactory
+                // construction and the whole isolate is poisoned.
+                """-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$""",
                 "--no-fallback",
                 "--enable-url-protocols=https,http",
                 "--initialize-at-build-time=" + listOf(

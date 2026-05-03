@@ -27,6 +27,17 @@ git clone --quiet https://github.com/GeyserMC/Geyser.git "${GEYSER_DIR}"
 echo "▸ Copying overlay/ into Geyser tree"
 cp -R "${REPO_ROOT}/build/overlay/." "${GEYSER_DIR}/"
 
+# The .so build's gradle config points at ${rootProject.projectDir}/agent-config
+# (i.e. <Geyser-root>/agent-config) for reflection metadata. The reflect-config
+# patcher (run later by Dockerfile) reads from /tmp/agent-config; the
+# committed source-of-truth lives at REPO_ROOT/build/agent-config. Stage a
+# copy at the Geyser root so the gradle build sees it. Without this, the
+# .so silently builds with NO reflection metadata — log4j2 plugin discovery
+# implodes at runtime ("ServiceLoader.load(Class,ClassLoader)" /
+# "NoSuchMethodException: <init>()").
+echo "▸ Staging agent-config at Geyser root for the .so build"
+cp -R "${REPO_ROOT}/build/agent-config" "${GEYSER_DIR}/agent-config"
+
 echo "▸ Registering :geyserlite-native subproject"
 SETTINGS="${GEYSER_DIR}/settings.gradle.kts"
 INCLUDE_LINE='include(":geyserlite-native")'
