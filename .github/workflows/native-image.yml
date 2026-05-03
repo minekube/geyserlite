@@ -188,19 +188,15 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-arm64
 
   # End-to-end embed test: pull the just-built libgeyserlite-linux-amd64.so,
-  # have the Go library load it via purego, and confirm the Bedrock UDP
-  # listener actually binds. This is the test that catches "the .so was
-  # built fine but our Go bindings can't actually use it" — a class of
-  # regression neither unit tests nor the docker smoke test can see.
-  #
-  # continue-on-error stays on until the @CEntryPoint reachability fix
-  # has landed and is proven; without it the .so exports only
-  # graal_isolate_* and Go's library can't resolve geyser_init.
+  # have the Go library load it via purego, run a real Bedrock RakNet
+  # ping through bedrock-probe, and assert the MOTD round-trips. This
+  # is the test that catches "the .so was built fine but the embed
+  # path doesn't actually work" — a class of regression neither unit
+  # tests nor the docker container smoke test (which uses the ELF) can see.
   go-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v2
@@ -234,13 +230,11 @@ jobs:
           # Unconnected Ping → Pong round-trip with the configured MOTD.
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
 
-  # Mirror of go-integration for the Rust crate. Same gating semantics
-  # (continue-on-error until @CEntryPoint reachability is proven).
+  # Mirror of go-integration for the Rust crate.
   rust-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v2
