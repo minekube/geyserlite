@@ -1,5 +1,10 @@
-# Local build artifacts (binaries are produced by CI; never committed)
-geyserlite
+# Local build artifacts (binaries are produced by CI; never committed).
+# Anchor with leading slash — without it, gitignore matches the
+# substring `geyserlite` anywhere in the tree, including the Java
+# package path com/minekube/geyserlite/, which silently dropped
+# GeyserBridge*.java on every checkout. THE BRIDGE WAS NEVER COMMITTED
+# until 2026-05-03 because of this.
+/geyserlite
 libgeyserlite.so
 libgeyserlite.h
 *.iprof
