@@ -7,7 +7,7 @@ package geyserlite
 // pinned `go.mod` always corresponds to a deterministic native asset.
 //
 // Override via [Options.Version] for explicit pinning.
-const DefaultVersion = "v0.1.1"
+const DefaultVersion = "v0.1.2"
 
 // DefaultDownloadBase is the URL prefix the auto-download path resolves
 // asset names against. Overrideable via [Options.Mirror].
