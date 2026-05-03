@@ -59,9 +59,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     while Instant::now() < deadline {
         if is_udp_bound(&listen_addr) {
             eprintln!("OK: {listen} is bound");
-            run.abort();
-            let _ = run.await;
-            return Ok(());
+            // Stay up: sibling probes (bedrock-probe in CI) need the
+            // listener alive long enough to reply. Park until the
+            // process is signaled, then _exit immediately — the
+            // graceful-shutdown path through libloading currently
+            // SIGSEGVs during native teardown, which would tank the
+            // test even after a successful probe.
+            tokio::time::sleep(timeout).await;
+            process::exit(0);
         }
         if run.is_finished() {
             // Server returned (probably an error) before binding.

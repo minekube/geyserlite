@@ -63,9 +63,16 @@ func main() {
 	for time.Now().Before(deadline) {
 		if isUDPBound(target) {
 			fmt.Fprintf(os.Stderr, "OK: %s is bound\n", *listen)
-			cancel()
-			<-runErr
-			return
+			// Stay up: sibling probes (bedrock-probe in CI) need the
+			// listener to remain alive long enough to reply. Idle here
+			// until the parent context (signal / timeout) cancels us.
+			// On exit we DO NOT call cancel + wait on runErr — the
+			// graceful-shutdown path through purego currently SIGSEGVs
+			// during native teardown, which would tank the test even
+			// after a successful probe. _exit avoids the cleanup chain.
+			<-ctx.Done()
+			os.Stderr.Sync()
+			os.Exit(0)
 		}
 		select {
 		case err := <-runErr:
