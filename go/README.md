@@ -1,9 +1,11 @@
 # `go.minekube.com/geyserlite`
 
-Go library for embedding [geyserlite](../README.md) in your Go MC proxy.
+[![Go Reference](https://pkg.go.dev/badge/go.minekube.com/geyserlite.svg)](https://pkg.go.dev/go.minekube.com/geyserlite)
 
-> **Status**: pre-v0.2 scaffolding. Public API in `geyserlite.go` is the
-> intended shape; some bodies are still TODO. See [../ROADMAP.md](../ROADMAP.md).
+Go library for embedding [geyserlite](../README.md) in your Go MC proxy.
+The library `dlopen`s `libgeyserlite.so` and runs Geyser in the same
+address space as your proxy — no separate process, no JVM, ~110 MB idle
+RSS for the bedrock side.
 
 ## Install
 
@@ -11,18 +13,17 @@ Go library for embedding [geyserlite](../README.md) in your Go MC proxy.
 go get go.minekube.com/geyserlite
 ```
 
-The import path stays `go.minekube.com/geyserlite` even though the source
-lives in this subdirectory; `go.minekube.com`'s vanity-URL server maps
-the path to the right repo + subdir.
+Resolves through `go.minekube.com`'s Cloudflare Worker module proxy to
+`github.com/minekube/geyserlite`'s `go/` subdirectory.
 
 ## Modes
 
-| Mode | How | Crash isolation | When to pick |
+| Mode | How | Crash isolation | Pick when |
 |---|---|---|---|
-| `ModeEmbedded` (default) | `purego.Dlopen("libgeyserlite.so")` | ❌ shared address space | production after validation |
-| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | ✅ separate process | dev, untrusted Geyser builds, hard isolation requirements |
+| `ModeEmbedded` *(default)* | `purego.Dlopen("libgeyserlite.so")` | ❌ shared address space | normal use; lowest overhead |
+| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | ✅ separate process | hard isolation, dev, debugging |
 
-Both expose the same `Server` API; switch via `Options.Mode`.
+Same `Server` API across both — switch with `Options.Mode`.
 
 ## Quick start
 
@@ -59,22 +60,45 @@ func main() {
 }
 ```
 
+More patterns under [`./examples/`](./examples/) — Floodgate keying, custom
+config rendering, Fly.io UDP NAT helper, healthcheck integration.
+
 ## Library acquisition (`ModeEmbedded`)
 
-The default mode needs `libgeyserlite.so` available at runtime. Resolution order:
+`libgeyserlite.so` resolution order:
 
 1. `Options.LibraryPath` — explicit override.
-2. `$GEYSERLITE_LIBRARY` — env override.
-3. Embedded — if built with `-tags geyserlite_embed`, the `.so` is `//go:embed`'d
-   and self-extracts to `os.UserCacheDir/geyserlite/<sha>/libgeyserlite.so`.
-4. System search paths (`/usr/lib`, `LD_LIBRARY_PATH`).
-5. Auto-download from GitHub Release with checksum verification (skipped if `Options.Offline`).
+2. `$GEYSERLITE_LIBRARY` env var.
+3. Embedded blob — built with `-tags geyserlite_embed`, `//go:embed`'d
+   and self-extracted to `os.UserCacheDir/geyserlite/<sha>/`.
+4. System paths (`/usr/lib`, `LD_LIBRARY_PATH`).
+5. Auto-download from the matching GitHub Release with sha256 verify
+   against `checksums.txt` (skipped when `Options.Offline`).
 
-Recommendation for production builds: `go build -tags geyserlite_embed`.
+Production recipe: `go build -tags geyserlite_embed`. Ships a single
+self-contained binary with no runtime acquisition step.
+
+## Crash boundary (read this)
+
+`ModeEmbedded` shares an address space with your host process. A native
+segfault in `libgeyserlite.so` kills the entire process. Go's `recover()`
+does not save you — it can't catch `SIGSEGV` from native code.
+`ModeSubprocess` is the answer when you need OS-level isolation; the
+process supervisor restarts on crash with exponential backoff and pipes
+stdout/stderr through your `slog.Logger`.
+
+[`../docs/troubleshooting.md`](../docs/troubleshooting.md) has the
+common "things go wrong" recipes.
+
+## Gate integration
+
+`go.minekube.com/geyserlite/integration/gate` adapts `geyserlite.Server`
+to the lifecycle Gate expects from a managed bedrock subsystem.
+Config-driven, nil-receiver-safe lifecycle, hex floodgate-key parsing.
 
 ## See also
 
-- [`../ROADMAP.md`](../ROADMAP.md) — full plan
-- [`../docs/architecture.md`](../docs/architecture.md) — architecture overview
-- [`../docs/floodgate.md`](../docs/floodgate.md) — Floodgate key gotchas
+- [`../ROADMAP.md`](../ROADMAP.md) — phases, decisions, memory budgets
+- [`../docs/architecture.md`](../docs/architecture.md) — how the C-ABI bridge works
+- [`../docs/floodgate.md`](../docs/floodgate.md) — Floodgate key gotchas (it's AES-128, not RSA)
 - [`./examples/`](./examples/) — runnable usage examples

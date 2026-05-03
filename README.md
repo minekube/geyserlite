@@ -1,55 +1,57 @@
 <!-- markdownlint-disable MD041 -->
 
+<div align="center">
+
 # geyserlite
 
+**GeyserMC's Bedrock-Java translation, compiled to a small native binary.**
+**Embeddable in Go and Rust. Drops into Java MC proxies that have no native bedrock support.**
+
+[![Release](https://img.shields.io/github/v/release/minekube/geyserlite?display_name=tag&color=brightgreen)](https://github.com/minekube/geyserlite/releases/latest)
+[![Crates.io](https://img.shields.io/crates/v/geyserlite.svg?color=ff7043)](https://crates.io/crates/geyserlite)
+[![Go Reference](https://pkg.go.dev/badge/go.minekube.com/geyserlite.svg)](https://pkg.go.dev/go.minekube.com/geyserlite)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Discord](https://img.shields.io/discord/633708750032863232.svg?color=%237289da&label=discord)](https://minekube.com/discord)
 
-> A small, fast, embeddable build of [GeyserMC](https://github.com/GeyserMC/Geyser) Bedrock-Java translation
-> for **Go and Rust** programs and resource-constrained hosts. Runs in **~110 MB RAM** instead of ~440 MB.
+</div>
 
-`geyserlite` ships Geyser standalone compiled to a single static native ELF
-via GraalVM `native-image`, plus first-class **Go and Rust libraries** that
-supervise it (and, in a future release, embed it in-process).
+JVM Geyser idles around **440 MB RSS**. That's bigger than a `shared-cpu-1x`
+Fly machine (256 MB), so adding Bedrock cross-play to a Java proxy
+historically meant running it as its own VM — extra cost, extra IP, extra
+surface. `geyserlite` ships Geyser standalone compiled with **GraalVM
+`native-image`** (musl-static on amd64, glibc-dynamic on arm64), tuned
+flags, and a baked 192 MB heap, so the same workload fits in **~110 MB
+idle / ~175 MB peak** alongside a Go or Rust proxy on the same machine.
 
-The same native binary the libraries depend on is also a drop-in
-replacement for `Geyser-Standalone.jar`, so you can use it without any
-language wrapper at all.
+Two flagship language libraries (Go and Rust, peers, same release cycle)
+load `libgeyserlite.so` in-process via `dlopen` and hand back a normal
+`Server` handle.
 
-> **Status**: pre-v0.1, scaffolding only. See [ROADMAP.md](./ROADMAP.md) for milestones.
+## What ships today
 
-## What you get
+| Artifact | Where | Status |
+|---|---|---|
+| Native ELF, Bedrock listener | `geyserlite-linux-amd64` / `-arm64` on the [latest GitHub Release](https://github.com/minekube/geyserlite/releases/latest) | ✅ cosign-signed + SBOM-attested |
+| Container image | `ghcr.io/minekube/geyserlite:latest` (multi-arch) | ✅ smoke-tested per build (RakNet ping → MOTD round-trip) |
+| Shared library | `libgeyserlite-linux-{amd64,arm64}.so` + header on the same release | ✅ shipped; `@CEntryPoint` exports being wired up so Go/Rust can call `geyser_init` directly |
+| Go module | `go get go.minekube.com/geyserlite` | ✅ published via vanity-URL Worker proxy |
+| Rust crate | `cargo add geyserlite` | ✅ published via crates.io OIDC Trusted Publishing |
+| Gate adapter | `go.minekube.com/geyserlite/integration/gate` | ✅ ready; Gate-side PR pending |
 
-| Artifact | Use case |
-|---|---|
-| **Native binary** ([releases](https://github.com/minekube/geyserlite/releases)) | Drop-in replacement for `Geyser-Standalone.jar`. ~107 MB, no JVM, no deps. |
-| **Container image** (`ghcr.io/minekube/geyserlite`) | `docker run ghcr.io/minekube/geyserlite`. `FROM scratch`-based. |
-| **Go library** (`go.minekube.com/geyserlite`) | Embed Geyser in your Go MC proxy in 5 lines. |
-| **Rust crate** (`geyserlite` on [crates.io](https://crates.io/crates/geyserlite)) | Embed Geyser in your Rust MC server in 5 lines. |
-| **Compose example** (`deploy/compose/`) | Cross-play stack: Geyser + Paper, in 60 seconds. |
-
-## Contributing / local dev
-
-This repo uses [`mise`](https://mise.jdx.dev) to pin all dev tooling
-(Go, Rust, GraalVM, `task`, linters) and [`task`](https://taskfile.dev)
-as the workflow runner. After cloning:
+Verify a download:
 
 ```sh
-mise trust && mise install     # installs everything in mise.toml
-task                            # list tasks
-task build:native               # GraalVM build of geyserlite + .so via Docker
-task test                       # all language tests
-task lint                       # all linters
+curl -fsSL https://github.com/minekube/geyserlite/releases/latest/download/checksums.txt \
+  | sha256sum -c --ignore-missing
 ```
-
-`task` itself is installed by `mise`, so the only prerequisite is `mise`.
 
 ## Quick starts
 
 ### Run the binary directly
 
 ```sh
-curl -fsSL -o geyserlite https://github.com/minekube/geyserlite/releases/latest/download/geyserlite-linux-amd64
+curl -fsSL -o geyserlite \
+  https://github.com/minekube/geyserlite/releases/latest/download/geyserlite-linux-amd64
 chmod +x geyserlite
 ./geyserlite        # reads ./config.yml
 ```
@@ -57,7 +59,8 @@ chmod +x geyserlite
 ### Docker
 
 ```sh
-docker run --rm -p 19132:19132/udp -v ./config.yml:/config.yml \
+docker run --rm -p 19132:19132/udp \
+  -v "$PWD/config.yml:/config.yml" \
   ghcr.io/minekube/geyserlite:latest
 ```
 
@@ -76,19 +79,22 @@ srv, _ := geyserlite.New(geyserlite.Options{
 log.Fatal(srv.Start(ctx))
 ```
 
+Single-binary distribution: `go build -tags geyserlite_embed` bundles the
+matching `.so` with self-extract on first run.
+[Full Go README →](./go/README.md)
+
 ### Rust
 
-```rust
+```rust,no_run
 use geyserlite::{Server, Options, AuthType};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let key = geyserlite::generate_floodgate_key();
     Server::new(Options {
         listen: ":19132".into(),
         upstream: "127.0.0.1:25567".into(),
         auth_type: AuthType::Floodgate,
-        floodgate_key: key,
+        floodgate_key: geyserlite::generate_floodgate_key(),
         ..Default::default()
     })?
     .start()
@@ -97,67 +103,106 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-## Why does this exist?
-
-JVM Geyser idles around **440 MB RSS**. That's larger than a `shared-cpu-1x`
-Fly machine (256 MB), so co-locating Bedrock support with a Java proxy means
-running it as its own machine — extra cost, extra IP, extra surface.
-
-GraalVM `native-image` with the right flag set, agent metadata, runtime
-tuning, and (eventually) PGO compresses Geyser to **~110 MB idle RSS**,
-**~175 MB peak under load**. That fits next to a Go or Rust proxy in 256 MB
-comfortably. This repository packages that recipe so anyone can use it.
+`cargo build --features embed` for single-binary distribution; `--features
+download` for runtime auto-fetch with checksum verify.
+[Full Rust README →](./rust/README.md)
 
 ## Architecture
 
-```
-Bedrock client ─UDP 19132─▶ geyserlite (native binary)
+```text
+Bedrock client ─UDP 19132─▶ libgeyserlite.so (loaded in-process)
                                 │
-                                │ Floodgate AES-128 (loopback or TCP)
+                                │ Floodgate AES-128 over loopback or TCP
                                 ▼
-                        Java MC server / proxy
+                        Java MC proxy / server
 ```
 
-The Go and Rust libraries each wrap the binary as a managed subprocess
-(v0.x) and, post v0.7, can embed it as an in-process function call via
-`purego` (Go) / `libloading` (Rust).
+The Go and Rust libraries `dlopen` the shared library and call C-ABI
+entry points exported by GraalVM's `@CEntryPoint` mechanism. Same
+address space as the host; lifecycle is `geyser_create_isolate →
+geyser_init → geyser_run → geyser_shutdown`. Subprocess mode is an
+opt-in fallback for OS-level crash isolation.
 
-See [docs/architecture.md](./docs/architecture.md) for details.
+[`docs/architecture.md`](./docs/architecture.md) has the full breakdown.
+
+## Why a soft fork, not a hard fork?
+
+We don't maintain a long-lived divergent branch of Geyser. The build
+pipeline clones upstream at a pinned commit, lays an additive Gradle
+subproject (`build/overlay/geyserlite-native/`) on top, runs idempotent
+mutations and (when needed) `.patch` files against the tree, then
+invokes `native-image`. Renovate watches `GeyserMC/Geyser master` and
+opens PRs that re-run the whole pipeline against the new ref — clean
+ones auto-merge, conflicts surface as failed CI. **There's no fork
+checked out anywhere; the upstream tree is reconstituted from scratch
+every build.**
+
+Within that pattern, the choice between "context-based `.patch` file"
+and "idempotent script mutation" is a per-edit call. A `.patch` is
+right when the change has multi-line context that's stable across
+upstream edits. An idempotent mutation is right when the change is
+"ensure this one line exists somewhere in this file" and the
+surrounding context churns. Our only edit so far —
+`include(":geyserlite-native")` in `settings.gradle.kts` — fits the
+second case: the patch broke on every upstream edit to that file, so
+`apply-overlay.sh` now appends the line if it isn't already present.
+The `.patch` machinery (`build/patches/*.patch`, picked up by
+`apply-overlay.sh`) stays available for changes that genuinely need it.
+
+## Local development
+
+```sh
+mise trust && mise install     # Go, Rust, GraalVM, task, linters — all pinned
+task                            # list available tasks
+task build:native               # GraalVM build via Docker (~3 min on a real CPU)
+task test                       # all language tests
+task lint                       # all linters (yaml, markdown, go, rust)
+```
+
+`task` itself is installed by `mise`; the only host prerequisite is
+`mise` and Docker (for the native build).
 
 ## Repository layout
 
-```
+```text
 geyserlite/
 ├── README.md
-├── ROADMAP.md          ← what's planned
-├── go/                 ← Go module: go.minekube.com/geyserlite
-├── rust/               ← Rust crate: geyserlite (crates.io)
-├── build/              ← shared native-image build pipeline
-├── deploy/compose/     ← docker-compose self-host example
-├── docs/
-└── .github/workflows/
+├── ROADMAP.md            ← phases, decisions log, memory budgets
+├── go/                   ← Go module: go.minekube.com/geyserlite
+│   ├── integration/gate/ ← Gate-shaped lifecycle adapter
+│   └── examples/         ← basic, floodgate, fly, healthcheck, custom-config
+├── rust/                 ← Rust crate: geyserlite (crates.io)
+│   └── examples/         ← basic, floodgate, fly, healthcheck, custom_config
+├── build/                ← native-image pipeline + soft-fork overlay/patches
+├── docs/                 ← architecture, floodgate, troubleshooting
+└── .github/workflows/    ← ci.yml, native-image.yml, release.yml
 ```
 
-The Go module imports as `go.minekube.com/geyserlite`; the source lives
-in `go/`. The vanity-URL server at `go.minekube.com` maps the import to
-the `go/` subdirectory of `github.com/minekube/geyserlite`.
+The Go module's import path is `go.minekube.com/geyserlite`; the source
+lives in `go/`. The vanity-URL host (`go.minekube.com`) is a Cloudflare
+Worker that runs the Go module proxy protocol against this repo's `go/`
+subdirectory — see [`minekube/go-vanity`](https://github.com/minekube/go-vanity).
 
-## Project status & roadmap
+## Status & roadmap
 
-This is a **fresh scaffolding repo**. v0.1 builds the native binary in CI;
-v0.2 ships the Go subprocess library; v0.3 ships the Rust subprocess
-crate; v0.7 embeds in-process for both languages. See
-[ROADMAP.md](./ROADMAP.md) for the full milestone list, decisions log,
-and memory budgets.
+`v0.1.1` is shipped: build pipeline, multi-arch ELF + shared lib + OCI
+image, Go module + Rust crate, embed/auto-download paths in code,
+Cloudflare Worker module proxy for the Go vanity URL. The piece still in
+flight is `@CEntryPoint` reachability — the shared library currently
+exports only the GraalVM runtime symbols; once `GeyserBridge`'s entry
+points are reachable from analysis, `libgeyserlite.h` declares the real
+`geyser_*` ABI and the in-process Go/Rust path is end-to-end usable.
+
+[ROADMAP.md](./ROADMAP.md) tracks the rest: Gate integration PR, moxy
+migration, memory regression CI gate, mkdocs docs site.
 
 ## Related projects
 
 - [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) — upstream Bedrock-Java translator (Java)
-- [`geyserite`](https://github.com/...) — Rust port of Geyser (different ambitious effort)
-- [`minekube/gate`](https://github.com/minekube/gate) — Go MC proxy (first Go consumer)
+- [`minekube/gate`](https://github.com/minekube/gate) — Go MC proxy; first production consumer of `geyserlite/integration/gate`
 - [`minekube/connect-java`](https://github.com/minekube/connect-java) — Connect plugin for backend MC servers
 - [valence-rs/valence](https://github.com/valence-rs/valence) — Rust MC server framework (potential Rust consumer)
 
 ## License
 
-MIT. Geyser itself is MIT — see upstream for protocol mappings copyright.
+MIT. Geyser itself is MIT — see upstream for protocol-mapping copyright.
