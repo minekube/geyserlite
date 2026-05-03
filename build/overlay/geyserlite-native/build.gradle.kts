@@ -54,19 +54,38 @@ graalvmNative {
                 "aarch64", "arm64" -> "-march=armv8-a"
                 else -> "-march=compatibility"
             }
+            // Mirror flags.sh's NI_FLAGS_COMMON (the ELF build) — kept
+            // here in sync with that file. Anything left out vs the ELF
+            // breaks differently: a missing init-at-build-time package
+            // surfaces as a runtime ServiceLoader / NoSuchMethod error,
+            // a missing IncludeResources entry shows up as Geyser
+            // "resource not found" at startup. Both are silent in the
+            // build itself — only the actual host load catches them.
+            //
+            // What's intentionally NOT mirrored from flags.sh:
+            //   --static / --libc=musl  incompatible with --shared
+            //   GeyserBridgeFeature     shared-lib only (analysis root)
             buildArgs.addAll(
                 "-H:ConfigurationFileDirectories=${rootProject.projectDir}/agent-config",
-                // Feature that registers GeyserBridge as an analysis
-                // root so its @CEntryPoint methods land in the .so.
                 "-H:Features=com.minekube.geyserlite.bridge.GeyserBridgeFeature",
+                """-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$""",
                 "--no-fallback",
                 "--enable-url-protocols=https,http",
-                "--initialize-at-build-time=org.apache.logging.log4j,java.awt.Color,com.minekube.geyserlite.bridge.GeyserBridge",
+                "--initialize-at-build-time=" + listOf(
+                    "org.apache.logging.log4j",
+                    "net.minecrell.terminalconsoleappender",
+                    "org.jline",
+                    "org.fusesource.jansi",
+                    "org.yaml.snakeyaml",
+                    "java.awt.Color",
+                    "com.sun.jna",
+                    "com.minekube.geyserlite.bridge.GeyserBridge",
+                ).joinToString(","),
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
                 "--strict-image-heap",
                 march,
                 "-O2",
-                "-R:MaxHeapSize=64m",
+                "-R:MaxHeapSize=192m",
                 "-H:+UnlockExperimentalVMOptions",
                 "-H:+RemoveSaturatedTypeFlows",
                 "-H:-ReportExceptionStackTraces",
