@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -24,10 +25,13 @@ type embeddedRunner struct {
 	api  geyserAPI
 }
 
-// geyserAPI is the typed view of libgeyserlite.so's @CEntryPoint exports.
+// geyserAPI is the typed view of libgeyserlite.so's @CEntryPoint exports
+// plus the GraalVM-provided isolate runtime.
 type geyserAPI struct {
 	createIsolate func(params uintptr, isolatePtr *uintptr, threadPtr *uintptr) int32 // graal_create_isolate
-	tearDown      func(thread uintptr) int32                                           // graal_tear_down_isolate
+	tearDown      func(thread uintptr) int32                                          // graal_tear_down_isolate
+	attachThread  func(isolate uintptr, threadPtr *uintptr) int32                     // graal_attach_thread
+	detachThread  func(thread uintptr) int32                                          // graal_detach_thread
 	init          func(thread uintptr, configPath uintptr) int32
 	run           func(thread uintptr) int32
 	shutdown      func(thread uintptr) int32
@@ -71,32 +75,63 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	}
 	defer os.Chdir(prev)
 
-	// graal_create_isolate(params, &isolate, &thread). We don't pass
-	// any params (NULL = defaults baked into the image, e.g. heap size
-	// from -R:MaxHeapSize). The thread is what every other geyser_*
-	// call takes as its first arg.
-	var isolate, thread uintptr
-	if rc := r.api.createIsolate(0, &isolate, &thread); rc != 0 {
-		return fmt.Errorf("geyserlite: graal_create_isolate failed: rc=%d", rc)
-	}
-	defer r.api.tearDown(thread)
-
+	// GraalVM's IsolateThread* is thread-affine: every isolate call
+	// must come from the OS thread that the thread handle was minted
+	// on. Go goroutines aren't pinned to OS threads by default, so we
+	// dedicate one OS-locked goroutine to the create/init/run chain
+	// and use graal_attach_thread for any cross-thread calls
+	// (shutdown, status). Without this, GraalVM raises a
+	// StackOverflowError on the first call from a stranger thread —
+	// it interprets the wrong-thread call as runaway native recursion.
 	configPath := filepath.Join(workdir, "config.yml")
 	cstr, free := cString(configPath)
 	defer free()
 
-	if rc := r.api.init(thread, cstr); rc != 0 {
-		return fmt.Errorf("geyserlite: geyser_init failed: rc=%d", rc)
+	type isolateRefs struct {
+		isolate uintptr
+		thread  uintptr
 	}
-
-	// Geyser run blocks. Drive it from a goroutine so we can react to ctx.
+	createDone := make(chan isolateRefs, 1)
+	createErr := make(chan error, 1)
 	runDone := make(chan int32, 1)
+
 	go func() {
-		runDone <- r.api.run(thread)
+		runtime.LockOSThread()
+		// We never UnlockOSThread: when this goroutine exits, the
+		// runtime kills its M anyway, which is the right behavior for
+		// an isolate that's tearing down.
+
+		var refs isolateRefs
+		if rc := r.api.createIsolate(0, &refs.isolate, &refs.thread); rc != 0 {
+			createErr <- fmt.Errorf("geyserlite: graal_create_isolate failed: rc=%d", rc)
+			return
+		}
+		defer r.api.tearDown(refs.thread)
+
+		if rc := r.api.init(refs.thread, cstr); rc != 0 {
+			createErr <- fmt.Errorf("geyserlite: geyser_init failed: rc=%d", rc)
+			return
+		}
+		createDone <- refs
+
+		// run blocks until shutdown(); the isolate's main thread is
+		// pinned to this goroutine for the duration.
+		runDone <- r.api.run(refs.thread)
 	}()
 
-	// Poll status to flip the healthy flag once Geyser is up.
-	go r.pollHealth(ctx, thread)
+	var refs isolateRefs
+	select {
+	case refs = <-createDone:
+	case err := <-createErr:
+		return err
+	case <-ctx.Done():
+		// Cancellation before init finished — we have nothing to clean up.
+		return ctx.Err()
+	}
+
+	// Health polling runs on its own attached thread. Status checks
+	// from any other OS thread would land on the wrong IsolateThread*.
+	go r.pollHealth(ctx, refs.isolate)
 
 	defer r.healthyFlag.Store(false)
 
@@ -107,16 +142,40 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 		}
 		return nil
 	case <-ctx.Done():
-		// Request graceful shutdown.
-		if rc := r.api.shutdown(thread); rc != 0 {
-			s.logger.Warn("geyser_shutdown returned non-zero", slog.Int("rc", int(rc)))
+		// Request graceful shutdown — has to come from a freshly
+		// attached thread, not the run goroutine (which is blocked
+		// inside run()).
+		if err := r.callOnAttachedThread(refs.isolate, func(thread uintptr) error {
+			if rc := r.api.shutdown(thread); rc != 0 {
+				return fmt.Errorf("geyser_shutdown rc=%d", rc)
+			}
+			return nil
+		}); err != nil {
+			s.logger.Warn("graceful shutdown failed", slog.String("err", err.Error()))
 		}
 		<-runDone
 		return ctx.Err()
 	}
 }
 
-func (r *embeddedRunner) pollHealth(ctx context.Context, thread uintptr) {
+// pollHealth attaches its own thread to the isolate and calls
+// geyser_status on it until status reports up (1) or ctx is canceled.
+// It receives the isolate handle, not a thread handle, because every
+// goroutine that wants to call into GraalVM needs its own thread
+// minted via graal_attach_thread.
+func (r *embeddedRunner) pollHealth(ctx context.Context, isolate uintptr) {
+	runtime.LockOSThread()
+	// No UnlockOSThread: the goroutine ends with the polling.
+
+	var thread uintptr
+	if rc := r.api.attachThread(isolate, &thread); rc != 0 {
+		// Without an attached thread we can't poll — bail out
+		// silently; the run goroutine will still flip healthy via
+		// other signals (or callers can fall back on time-based heuristics).
+		return
+	}
+	defer r.api.detachThread(thread)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -127,13 +186,33 @@ func (r *embeddedRunner) pollHealth(ctx context.Context, thread uintptr) {
 			r.healthyFlag.Store(true)
 			return
 		}
-		// Poll every 250ms during boot.
 		select {
 		case <-ctx.Done():
 			return
 		case <-pollSleep():
 		}
 	}
+}
+
+// callOnAttachedThread runs fn on a freshly-attached thread to the
+// isolate, then detaches. Used for one-shot cross-thread calls like
+// shutdown — anything called from a goroutine that doesn't own a
+// thread handle of its own.
+func (r *embeddedRunner) callOnAttachedThread(isolate uintptr, fn func(thread uintptr) error) error {
+	done := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		// No UnlockOSThread: detach + goroutine exit makes that moot.
+
+		var thread uintptr
+		if rc := r.api.attachThread(isolate, &thread); rc != 0 {
+			done <- fmt.Errorf("graal_attach_thread rc=%d", rc)
+			return
+		}
+		defer r.api.detachThread(thread)
+		done <- fn(thread)
+	}()
+	return <-done
 }
 
 func (r *embeddedRunner) load(libpath string) error {
@@ -159,13 +238,14 @@ func (r *embeddedRunner) load(libpath string) error {
 			}()
 			purego.RegisterLibFunc(target, lib, name)
 		}
-		// graal_create_isolate / graal_tear_down_isolate come from the
-		// GraalVM runtime that's linked into every shared library — no
-		// project-specific @CEntryPoint needed. The host calls these to
-		// own the isolate lifecycle; the geyser_* methods all run inside
-		// that isolate.
+		// graal_* come from the GraalVM runtime that's linked into
+		// every shared library — no project-specific @CEntryPoint
+		// needed. The host owns the isolate lifecycle here; the
+		// geyser_* methods all run inside that isolate.
 		bind(&r.api.createIsolate, "graal_create_isolate")
 		bind(&r.api.tearDown, "graal_tear_down_isolate")
+		bind(&r.api.attachThread, "graal_attach_thread")
+		bind(&r.api.detachThread, "graal_detach_thread")
 		bind(&r.api.init, "geyser_init")
 		bind(&r.api.run, "geyser_run")
 		bind(&r.api.shutdown, "geyser_shutdown")
