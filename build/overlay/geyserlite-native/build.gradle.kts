@@ -9,6 +9,18 @@ plugins {
 
 dependencies {
     api(project(":standalone"))
+
+    // GraalVM SDK provides the @CEntryPoint annotation and the
+    // CCharPointer / CTypeConversion C-type helpers GeyserBridge.java
+    // imports. The native-image-community:21-ol9 image already has
+    // these classes on the BUILD classpath (substratevm bundles them),
+    // but javac at *compile time* doesn't see them unless we pull them
+    // in via Maven. compileOnly is enough — the runtime JDK provides
+    // the same classes; we just need the symbols at compile time.
+    //
+    // Version 23.1.x is the SDK series matching GraalVM 21 LTS; pin
+    // the latest patch in that series.
+    compileOnly("org.graalvm.sdk:graal-sdk:23.1.7")
 }
 
 graalvmNative {
@@ -16,12 +28,14 @@ graalvmNative {
         named("main") {
             imageName.set("libgeyserlite")
             sharedLibrary.set(true)
-            // mainClass is consulted by the plugin even for shared
-            // libraries — it's the analysis root, i.e. the class
-            // native-image scans for @CEntryPoint methods. Without
-            // a real class here, only graal_isolate exports survive
-            // and no libgeyserlite.h is generated.
-            mainClass.set("com.minekube.geyserlite.bridge.GeyserBridge")
+            // No mainClass for the shared-lib build — there's no
+            // main() to invoke. native-image's analysis root is
+            // instead provided by GeyserBridgeFeature (registered via
+            // -H:Features below), which calls findClassByName on
+            // GeyserBridge during analysis setup; that's what makes
+            // its @CEntryPoint methods reachable so geyser_* symbols
+            // end up in the .so + libgeyserlite.h.
+            mainClass.set("")
             useFatJar.set(true)
             // Notes on what's NOT set here:
             //  --static    incompatible with --shared (set via
@@ -42,13 +56,11 @@ graalvmNative {
             }
             buildArgs.addAll(
                 "-H:ConfigurationFileDirectories=${rootProject.projectDir}/agent-config",
+                // Feature that registers GeyserBridge as an analysis
+                // root so its @CEntryPoint methods land in the .so.
+                "-H:Features=com.minekube.geyserlite.bridge.GeyserBridgeFeature",
                 "--no-fallback",
                 "--enable-url-protocols=https,http",
-                // GeyserBridge is initialize-at-build-time so its
-                // @CEntryPoint methods are discovered during analysis.
-                // Without this, native-image produces a stub .so with
-                // only graal_isolate.* exports — no libgeyserlite.h is
-                // generated because nothing is reachable.
                 "--initialize-at-build-time=org.apache.logging.log4j,java.awt.Color,com.minekube.geyserlite.bridge.GeyserBridge",
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
                 "--strict-image-heap",

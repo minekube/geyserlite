@@ -26,8 +26,8 @@ type embeddedRunner struct {
 
 // geyserAPI is the typed view of libgeyserlite.so's @CEntryPoint exports.
 type geyserAPI struct {
-	createIsolate func(out *uintptr) int32 // geyser_create_isolate(IsolateThread**)
-	tearDown      func(thread uintptr) int32
+	createIsolate func(params uintptr, isolatePtr *uintptr, threadPtr *uintptr) int32 // graal_create_isolate
+	tearDown      func(thread uintptr) int32                                           // graal_tear_down_isolate
 	init          func(thread uintptr, configPath uintptr) int32
 	run           func(thread uintptr) int32
 	shutdown      func(thread uintptr) int32
@@ -71,9 +71,13 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	}
 	defer os.Chdir(prev)
 
-	var thread uintptr
-	if rc := r.api.createIsolate(&thread); rc != 0 {
-		return fmt.Errorf("geyserlite: geyser_create_isolate failed: rc=%d", rc)
+	// graal_create_isolate(params, &isolate, &thread). We don't pass
+	// any params (NULL = defaults baked into the image, e.g. heap size
+	// from -R:MaxHeapSize). The thread is what every other geyser_*
+	// call takes as its first arg.
+	var isolate, thread uintptr
+	if rc := r.api.createIsolate(0, &isolate, &thread); rc != 0 {
+		return fmt.Errorf("geyserlite: graal_create_isolate failed: rc=%d", rc)
 	}
 	defer r.api.tearDown(thread)
 
@@ -155,8 +159,13 @@ func (r *embeddedRunner) load(libpath string) error {
 			}()
 			purego.RegisterLibFunc(target, lib, name)
 		}
-		bind(&r.api.createIsolate, "geyser_create_isolate")
-		bind(&r.api.tearDown, "geyser_tear_down_isolate")
+		// graal_create_isolate / graal_tear_down_isolate come from the
+		// GraalVM runtime that's linked into every shared library — no
+		// project-specific @CEntryPoint needed. The host calls these to
+		// own the isolate lifecycle; the geyser_* methods all run inside
+		// that isolate.
+		bind(&r.api.createIsolate, "graal_create_isolate")
+		bind(&r.api.tearDown, "graal_tear_down_isolate")
 		bind(&r.api.init, "geyser_init")
 		bind(&r.api.run, "geyser_run")
 		bind(&r.api.shutdown, "geyser_shutdown")

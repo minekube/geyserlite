@@ -115,33 +115,48 @@ jobs:
 
       - name: Assert C-ABI exports are reachable
         if: github.event_name != 'pull_request'
-        # When @CEntryPoint discovery silently regresses (e.g. mainClass
-        # gets reset, the bridge class is renamed/removed, or the gradle
-        # plugin changes its analysis-root behavior), the build still
-        # succeeds — just with a stub libgeyserlite.so that exposes only
-        # graal_isolate_*. The Dockerfile then falls back to copying
-        # graal_isolate.h into the position of libgeyserlite.h, so the
-        # release looks fine on the surface. This guard makes that
-        # regression a hard CI failure instead.
+        # When @CEntryPoint discovery silently regresses (e.g. the
+        # GeyserBridgeFeature stops being registered, the bridge class
+        # is renamed, or the analysis runs without our Feature on
+        # classpath), the build still succeeds — just with a stub
+        # libgeyserlite.so that exposes only graal_isolate_*. The
+        # Dockerfile then falls back to copying graal_isolate.h into
+        # the position of libgeyserlite.h, so the release looks fine
+        # on the surface. This guard makes that regression hard.
+        #
+        # We assert two things:
+        #   1. libgeyserlite.h declares the four geyser_* methods
+        #      from GeyserBridge.java
+        #   2. the .so actually exports both those + the standard
+        #      graal_isolate runtime functions the host calls
+        #      (graal_create_isolate / graal_tear_down_isolate)
         run: |
           set -eu
           h="artifacts/libgeyserlite.h"
-          required="geyser_init geyser_run geyser_shutdown geyser_status geyser_create_isolate geyser_tear_down_isolate"
+          so="artifacts/libgeyserlite-linux-${{ matrix.arch }}.so"
+
+          required_h="geyser_init geyser_run geyser_shutdown geyser_status"
           missing=""
-          for sym in $required; do
-            if ! grep -qE "\b${sym}\b" "$h"; then
-              missing="$missing $sym"
-            fi
+          for sym in $required_h; do
+            grep -qE "\b${sym}\b" "$h" || missing="$missing $sym"
           done
           if [ -n "$missing" ]; then
-            echo "::error file=$h::libgeyserlite.h is missing C-ABI exports:$missing"
-            echo "::error::GeyserBridge's @CEntryPoint methods aren't reachable from the native-image analysis root."
-            echo "::error::Check mainClass in build/overlay/geyserlite-native/build.gradle.kts."
-            echo "--- header dump ---"
+            echo "::error file=$h::libgeyserlite.h missing geyser_* declarations:$missing"
+            echo "::error::Check GeyserBridgeFeature is on -H:Features in build.gradle.kts."
             cat "$h"
             exit 1
           fi
-          echo "OK: all $(echo $required | wc -w) required exports declared in libgeyserlite.h"
+
+          required_so="geyser_init geyser_run geyser_shutdown geyser_status graal_create_isolate graal_tear_down_isolate"
+          missing=""
+          for sym in $required_so; do
+            nm -D "$so" 2>/dev/null | grep -qE " T ${sym}\b" || missing="$missing $sym"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error file=$so::libgeyserlite.so missing exported symbols:$missing"
+            exit 1
+          fi
+          echo "OK: header declares geyser_* set; .so exports geyser_* + graal_isolate runtime"
 
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
