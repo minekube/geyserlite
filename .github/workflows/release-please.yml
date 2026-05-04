@@ -40,6 +40,7 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
+      pr_number: ${{ steps.rp.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
@@ -49,6 +50,23 @@ jobs:
           # config so the same release covers both Go and Rust at once.
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # Enable PR auto-merge as soon as release-please opens/updates
+      # the release PR. Branch-protection rules on main require the
+      # `lint-test` check to pass before the merge actually happens, so
+      # this is "queue for merge once CI is green" — not "merge now".
+      # No human click needed on the happy path.
+      - name: Auto-merge release PR
+        if: ${{ steps.rp.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo '${{ steps.rp.outputs.pr }}' | jq -r '.number')
+          echo "Enabling auto-merge on PR #$PR_NUMBER"
+          gh pr merge "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --auto \
+            --merge
 
   # release-please pushes the v* tag with GITHUB_TOKEN, which by
   # design doesn't fire downstream workflows (GitHub's anti-recursion
