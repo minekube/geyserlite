@@ -13,12 +13,17 @@ pub fn fly_global_services() -> &'static str {
     }
 }
 
-/// The tuned JVM/runtime args used by the shipped `libgeyserlite.so` at
-/// build time. Useful for `Options.jvm_args` in subprocess mode when you
-/// want to start from defaults and tweak.
+/// The tuned runtime args applied to subprocess mode. Useful for
+/// `Options.jvm_args` when you want to start from defaults and tweak.
+///
+/// `-Xmx` is intentionally omitted: the geyserlite ELF bakes its own
+/// `-R:MaxHeapSize` at native-image time (currently 256m, see
+/// `build/flags.sh`). Setting `-Xmx` here would override the build-time
+/// pin with a runtime value, and a too-tight override silently OOMs
+/// during Geyser bootstrap. Operators who need a different cap should
+/// pass their own `-Xmx` via `Options.jvm_args`.
 pub fn default_jvm_args() -> Vec<String> {
     [
-        "-Xmx64m",
         "-XX:MaxHeapFree=4m",
         "-XX:+CollectYoungGenerationSeparately",
         "-XX:ActiveProcessorCount=1",

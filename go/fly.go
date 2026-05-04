@@ -16,12 +16,18 @@ func FlyGlobalServices() string {
 	return "0.0.0.0"
 }
 
-// DefaultJVMArgs returns the tuned argument list used by libgeyserlite.so
-// at build time (and applied to ModeSubprocess). Useful for Options.JVMArgs
-// when you want to start from defaults and tweak.
+// DefaultJVMArgs returns the tuned argument list applied to
+// [ModeSubprocess]. Useful for Options.JVMArgs when you want to start
+// from defaults and tweak.
+//
+// -Xmx is intentionally omitted: the geyserlite ELF bakes its own
+// `-R:MaxHeapSize` at native-image time (currently 256m, see
+// build/flags.sh). Setting -Xmx here would override the build-time
+// pin with a runtime value, and a too-tight override silently OOMs
+// during Geyser bootstrap. Operators who need a different cap should
+// pass their own -Xmx via Options.JVMArgs.
 func DefaultJVMArgs() []string {
 	return []string{
-		"-Xmx64m",
 		"-XX:MaxHeapFree=4m",
 		"-XX:+CollectYoungGenerationSeparately",
 		"-XX:ActiveProcessorCount=1",
