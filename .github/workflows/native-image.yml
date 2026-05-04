@@ -198,8 +198,8 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/integration-setup
-        id: setup
       - name: Run Go library against just-built .so
         env:
           GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
@@ -230,6 +230,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/integration-setup
       - env:
           GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
@@ -245,6 +246,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/integration-setup
       - env:
           GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
@@ -260,6 +262,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/integration-setup
       - env:
           GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
