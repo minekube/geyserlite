@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  # release-please-action's bot pushes the tag with GITHUB_TOKEN,
+  # which doesn't fire downstream workflows. release-please.yml's
+  # trigger-release job invokes this workflow via workflow_dispatch
+  # on the tag ref to close that loop without needing a PAT.
+  workflow_dispatch:
 
 permissions:
   contents: write    # GitHub Release upload

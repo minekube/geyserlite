@@ -32,15 +32,39 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write    # to gh workflow run release.yml
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: rp
         with:
           # release-type=simple just tracks the version in version.txt /
           # cargo via release-please-config.json. We use a manifest
           # config so the same release covers both Go and Rust at once.
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # release-please pushes the v* tag with GITHUB_TOKEN, which by
+  # design doesn't fire downstream workflows (GitHub's anti-recursion
+  # safeguard). Without this step the v* tag exists but release.yml
+  # never runs — empty GH Release, no crates.io publish, no artifacts.
+  # Explicitly dispatching release.yml on the freshly-tagged ref
+  # closes the loop without needing a PAT.
+  trigger-release:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch release.yml on the new tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml \
+            --repo "${{ github.repository }}" \
+            --ref "${{ needs.release-please.outputs.tag_name }}"
