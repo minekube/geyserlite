@@ -78,12 +78,12 @@ NI_FLAGS_COMMON=(
 
     -O2
 
-    # Baked-in default max heap. The smoke test surfaced that 64m is
-    # too tight for Geyser's standalone bootstrap (Loading extensions →
-    # OOM during config parse). 192m fits comfortably inside a 256MB
-    # Fly VM with headroom for native, netty buffers, and the JVM
-    # bookkeeping. Runtime callers can still override with -Xmx.
-    -R:MaxHeapSize=192m
+    # Baked-in default max heap. CI subprocess runs at 192m hit OOM in
+    # Geyser bootstrap (right at the edge); 256m gives margin. The
+    # earlier "fit in 256MB Fly VM" target is preserved at the rough
+    # peak-RSS level (heap + native ≈ 200-260M observed); strict
+    # 256MB-total deployments can override via -Xmx at runtime.
+    -R:MaxHeapSize=256m
 
     -H:+UnlockExperimentalVMOptions
     -H:+RemoveSaturatedTypeFlows

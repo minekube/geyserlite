@@ -105,7 +105,7 @@ graalvmNative {
                 "--strict-image-heap",
                 march,
                 "-O2",
-                "-R:MaxHeapSize=192m",
+                "-R:MaxHeapSize=256m",
                 "-H:+UnlockExperimentalVMOptions",
                 "-H:+RemoveSaturatedTypeFlows",
                 "-H:-ReportExceptionStackTraces",
