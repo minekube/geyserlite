@@ -21,8 +21,8 @@ use crate::options::{AuthType, Options};
 
 pub(crate) fn render_config(workdir: &Path, opts: &Options) -> Result<()> {
     let cfg = build_config(opts)?;
-    let body = serde_yaml_ng::to_string(&cfg)
-        .map_err(|e| crate::Error::Io(std::io::Error::other(e)))?;
+    let body =
+        serde_yaml_ng::to_string(&cfg).map_err(|e| crate::Error::Io(std::io::Error::other(e)))?;
 
     let path = workdir.join("config.yml");
     let mut f = OpenOptions::new()
@@ -244,8 +244,7 @@ mod tests {
             .insert("bedrock".into(), bedrock_overrides.into());
         o.config_overrides
             .insert("passthrough-motd".into(), true.into());
-        o.config_overrides
-            .insert("max-players".into(), 50.into());
+        o.config_overrides.insert("max-players".into(), 50.into());
 
         let cfg = build_config(&o).unwrap();
         let bedrock = cfg.get("bedrock").unwrap().as_mapping().unwrap();
