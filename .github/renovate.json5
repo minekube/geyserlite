@@ -7,6 +7,13 @@
   // Each Renovate PR re-runs CI, which re-applies our overlay + patches
   // against the bumped Geyser ref. Conflicts surface as failing CI on
   // the PR; clean ones auto-merge once green.
+  //
+  // Conventional Commit prefix on commit/PR titles drives release-please:
+  //   fix:   → patch release
+  //   feat:  → minor release
+  // We tag Geyser bumps as fix: so each clean upstream sync cuts a patch.
+  commitMessagePrefix: "fix(deps):",
+
   packageRules: [
     {
       groupName: "Geyser upstream",
@@ -15,6 +22,11 @@
       automerge: true,
       automergeType: "pr",
       platformAutomerge: true,
+      // "fix(deps): bump Geyser to <sha>" — release-please picks this
+      // up and cuts a patch release on auto-merge.
+      commitMessageTopic: "Geyser",
+      commitMessageAction: "bump",
+      commitMessageExtra: "to {{newDigestShort}}",
     },
     {
       groupName: "GraalVM image",

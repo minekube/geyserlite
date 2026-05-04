@@ -17,7 +17,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::process;
 use std::time::{Duration, Instant};
 
-use geyserlite::{AuthType, Options, Server};
+use geyserlite::{AuthType, Mode, Options, Server};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,6 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut listen = "127.0.0.1:19132".to_string();
     let mut upstream = "127.0.0.1:25565".to_string();
     let mut timeout_secs = 30u64;
+    let mut mode = Mode::Embedded;
 
     // Tiny hand-rolled flag parser to avoid pulling clap in as an
     // example-only dep. Args mirror the Go flag names so CI scripts
@@ -36,6 +37,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--listen" => listen = args.next().ok_or("--listen needs a value")?,
             "--upstream" => upstream = args.next().ok_or("--upstream needs a value")?,
             "--timeout" => timeout_secs = args.next().ok_or("--timeout needs a value")?.parse()?,
+            "--mode" => {
+                mode = match args.next().ok_or("--mode needs a value")?.as_str() {
+                    "embedded" => Mode::Embedded,
+                    "subprocess" => Mode::Subprocess,
+                    other => return Err(format!("unknown --mode {other}").into()),
+                };
+            }
             other => return Err(format!("unknown flag {other}").into()),
         }
     }
@@ -46,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         listen: listen.clone(),
         upstream,
         auth_type: AuthType::Offline,
+        mode,
         ..Default::default()
     };
 

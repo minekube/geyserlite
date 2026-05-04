@@ -114,6 +114,32 @@ Deliberately not shipped: Helm charts, Fly templates, Kubernetes operators,
 APT/RPM packages, language bindings beyond Go/Rust. Out of scope; users wrap
 the OCI image themselves or write their own bindings against the C ABI.
 
+## Operating model: self-sustaining via CI
+
+This project is set up to run without a human in the loop, then be
+left alone. The pieces that make that work:
+
+- **Renovate** watches `GeyserMC/Geyser master` and the GraalVM image
+  digest; opens auto-merging PRs for clean bumps.
+- **`apply-overlay.sh`** re-applies the soft fork on every CI build,
+  so an upstream rename / refactor surfaces as a CI failure on the
+  Renovate PR — not as drift in the repo.
+- **CI gates** are load-bearing: the smoke test runs the produced ELF
+  in a container, the integration tests dlopen the produced `.so` and
+  send a real RakNet probe, the header-export assertion catches
+  `@CEntryPoint` reachability regressions. Every gate is hard-failing.
+- **Auto-versioning** — release-please opens a release PR for every
+  Renovate-merged change; merging that PR cuts the tag, which fans out
+  to GH Release + crates.io OIDC publish + ghcr.io multi-arch image.
+  No manual version bumps.
+- **Trusted Publishing** for crates.io: no token to rotate.
+- **GitHub** emails the maintainer on any workflow failure by default.
+
+Together this means: a Geyser commit hits master → Renovate PR opens
+within a day → CI auto-merges if green → release-please cuts a patch
+release → consumers get the update across ELF / `.so` / container /
+Go module / crate. Zero human action on the happy path.
+
 ## Phases
 
 Phases are roughly sequential. Within a phase, Go and Rust work happens in
@@ -255,18 +281,34 @@ the Minekube portfolio. Rust users integrate directly via the crate.)
 
 ### v1.0.0 — Stable
 
-API freeze. Production stamp.
+API freeze. Production stamp. **As of v0.1.2 the project is
+self-sustaining via CI;** v1.0 is the API-freeze stamp once consumers
+have shaken it out, not a forcing function for adding features.
 
 - [ ] API freeze: semver guarantee on the public surface of both libraries
-- [ ] cosign-signed binary + container image + shared library
-- [ ] SBOM (`syft`) attached to each release
-- [ ] SLSA Level 3 build provenance attestations
-- [ ] Documentation site (`geyserlite.minekube.com` from `docs/`, mkdocs-material)
-- [ ] Migration guide from Gate's legacy `bedrock.mode: managed` to `embedded`
-- [ ] Memory regression test gate in CI (Go and Rust both run it): PRs that push idle RSS above 130 MB or peak above 180 MB fail
-- [ ] Synthetic Bedrock client harness in CI (RakNet ping, login attempt, MOTD parse) — no real Bedrock client required
-- [ ] Both crates.io and Go module proxy publish the same version simultaneously per release
+- [x] cosign-signed binary + container image + shared library
+- [x] Synthetic Bedrock client harness in CI (RakNet ping, MOTD parse)
+- [x] Both crates.io and Go module proxy publish the same version simultaneously per release
 - [ ] **Acceptance**: 90 days of stable usage in production moxy without an emergency revert
+
+### Deliberately deferred / out of scope for v1.0
+
+The project is small enough that maintenance cost matters. The items
+below were on earlier draft roadmaps; each is a real piece of work
+with marginal benefit and ongoing carrying cost. They're documented
+here so future-us doesn't relitigate the decision.
+
+| Item | Why it's deferred |
+|---|---|
+| SBOM (`syft`) attached to each release | cosign attestations + `checksums.txt` already cover the trust signals 99% of consumers want |
+| SLSA L3 build provenance attestations | same — cosign blob signatures are the existing surface; SLSA is incremental trust signal, ongoing maintenance |
+| Documentation site (mkdocs-material) | README + per-language sub-READMEs + `docs/` markdowns are comprehensive; nobody is blocked on rendering |
+| Memory regression test gate in CI | RSS sampling under matrix runners is flaky, and v0.1's smoke test already catches "does it serve traffic" |
+| Migration guide for Gate's legacy `managed` mode | only meaningful once Gate has actually adopted `embedded` mode (v0.6 cross-repo work) |
+| PGO instrumented build variant | needs Connect-side profile capture cron — not self-sustaining for *this* repo without that piece |
+| Cosign signature verification client-side | `.sig` files are published; users who need verification can consume them with `cosign verify-blob`; client-side feature is rare-use |
+| Cross-language Rust adapter analogous to integration/gate | no flagship Rust proxy in the Minekube portfolio (per Decisions log) |
+| TerminalConsole / WatchEventService log4j init warnings | harmless fallbacks; cosmetic; suppressing them means a custom log4j config patched into the soft fork — not worth the surface area |
 
 ## Soft-fork & sync strategy
 

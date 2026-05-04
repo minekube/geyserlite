@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "packages": {
+    ".": {
+      "package-name": "geyserlite",
+      "release-type": "rust",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "go/version.go"
+        },
+        {
+          "type": "generic",
+          "path": "rust/src/version.rs"
+        }
+      ]
+    }
+  }
+}

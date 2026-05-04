@@ -230,6 +230,37 @@ jobs:
           # Unconnected Ping → Pong round-trip with the configured MOTD.
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
 
+  # Subprocess-mode coverage for the Go library: spawns the ELF via
+  # os/exec instead of dlopen-ing the .so. Same probe verdict, different
+  # supervisor path. Catches restart-on-crash / signal-forwarding /
+  # locate regressions that the embedded test wouldn't see.
+  go-subprocess-integration:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+          experimental: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: geyserlite-amd64
+          path: /tmp/artifacts
+      - name: Run Go library in subprocess mode
+        env:
+          GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
+          LISTEN: 127.0.0.1:19135
+        run: |
+          chmod +x "$GEYSERLITE_BINARY"
+          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
+          STUB=$!
+          ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 90s -mode subprocess ) &
+          IT=$!
+          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
+          cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
+
   # Mirror of go-integration for the Rust crate.
   rust-integration:
     needs: build
@@ -254,6 +285,34 @@ jobs:
           ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
           STUB=$!
           ( cd rust && cargo run --example integration_test -- --listen "$LISTEN" --timeout 90 ) &
+          IT=$!
+          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
+          cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
+
+  # Subprocess-mode coverage for the Rust crate; same shape as Go.
+  rust-subprocess-integration:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+          experimental: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: geyserlite-amd64
+          path: /tmp/artifacts
+      - name: Run Rust crate in subprocess mode
+        env:
+          GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
+          LISTEN: 127.0.0.1:19136
+        run: |
+          chmod +x "$GEYSERLITE_BINARY"
+          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
+          STUB=$!
+          ( cd rust && cargo run --example integration_test -- --listen "$LISTEN" --timeout 90 --mode subprocess ) &
           IT=$!
           trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"

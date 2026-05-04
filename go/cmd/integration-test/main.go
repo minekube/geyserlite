@@ -34,15 +34,27 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1:19132", "Bedrock UDP listen addr (host:port)")
 	upstream := flag.String("upstream", "127.0.0.1:25565", "Java MC upstream addr")
 	timeout := flag.Duration("timeout", 30*time.Second, "max time to wait for the listener to bind")
+	mode := flag.String("mode", "embedded", "geyserlite mode: embedded (in-process via .so) | subprocess (spawn the ELF)")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
+	var runMode geyserlite.Mode
+	switch *mode {
+	case "embedded":
+		runMode = geyserlite.ModeEmbedded
+	case "subprocess":
+		runMode = geyserlite.ModeSubprocess
+	default:
+		fail("unknown -mode %q (want embedded|subprocess)", *mode)
+	}
+
 	srv, err := geyserlite.New(geyserlite.Options{
 		Listen:   *listen,
 		Upstream: *upstream,
 		AuthType: geyserlite.Offline,
+		Mode:     runMode,
 		Logger:   slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
 	if err != nil {

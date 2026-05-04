@@ -1,0 +1,46 @@
+name: Release Please
+
+# Closes the auto-sustaining loop.
+#
+# Renovate auto-merges Geyser bumps into main when CI is green. That
+# updates the .so/ELF/container at :latest but doesn't cut a tag, so
+# Go-module + crates.io consumers stay frozen on the last manual tag.
+#
+# This workflow uses google-github-actions/release-please-action to
+# parse Conventional Commit messages on main and open a release PR
+# that bumps Cargo.toml + the auto-download Default*Version constants
+# to the next patch (or minor / major, per the commit prefix). Merging
+# the release PR pushes the v* tag, which fans out to:
+#   - release.yml: GH Release with cosign-signed artifacts
+#   - release.yml: crates.io OIDC Trusted Publishing
+#   - native-image.yml's :latest tag (already on main; tag is informational)
+#
+# Conventional Commit prefixes that drive a release:
+#   fix:   → patch (0.1.2 → 0.1.3)
+#   feat:  → minor (0.1.2 → 0.2.0)
+#   feat!: → major (0.1.2 → 1.0.0)
+# anything else (chore:, docs:, build:, ci:, refactor:, test:) → no release.
+#
+# Renovate is configured (.github/renovate.json5) to use "fix:" prefixes
+# for Geyser bumps so they trip a patch release automatically.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # release-type=simple just tracks the version in version.txt /
+          # cargo via release-please-config.json. We use a manifest
+          # config so the same release covers both Go and Rust at once.
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
