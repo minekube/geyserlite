@@ -102,6 +102,21 @@ pub struct Options {
     /// Disable the auto-download path. With `offline = true` the locator
     /// must succeed via path / env / embed / system search.
     pub offline: bool,
+
+    /// Arbitrary YAML structure deep-merged into the generated Geyser
+    /// `config.yml` AFTER the typed fields above (`listen`, `upstream`,
+    /// `auth_type`, `motd`) have been applied. The escape hatch for
+    /// any Geyser setting the typed surface doesn't model — `mtu`,
+    /// `xbox-achievements-enabled`, `passthrough-motd`, `max-players`,
+    /// anything in Geyser's `config.yml`.
+    ///
+    /// Nested maps merge recursively (so you can override e.g. just
+    /// `bedrock.compression-level` without touching the rest of `bedrock`);
+    /// leaf values overwrite. Apply your overrides last by passing them
+    /// here rather than rewriting the whole config — that way the
+    /// baseline-bumping that ships with new geyserlite versions still
+    /// reaches you for the keys you didn't touch.
+    pub config_overrides: serde_yaml_ng::Mapping,
 }
 
 impl Options {

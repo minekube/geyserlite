@@ -111,6 +111,33 @@ type Options struct {
 	// must succeed via path / env / embed / system search, or [Start] returns
 	// an error.
 	Offline bool
+
+	// ConfigOverrides is an arbitrary YAML structure deep-merged into
+	// the generated Geyser config.yml AFTER [Listen], [Upstream],
+	// [AuthType], and [MOTD] have been applied. It's the escape hatch
+	// for any Geyser setting the typed [Options] surface doesn't model
+	// — `mtu`, `xbox-achievements-enabled`, `passthrough-motd`,
+	// `max-players`, anything in Geyser's config.yml.
+	//
+	// Nested maps merge recursively (so you can override e.g. just
+	// `bedrock.compression-level` without touching the rest of `bedrock`);
+	// leaf values overwrite. Apply your overrides last by passing them
+	// here rather than rewriting the whole config — that way the
+	// baseline-bumping that ships with new geyserlite versions still
+	// reaches you for the keys you didn't touch.
+	//
+	// Example:
+	//
+	//	geyserlite.Options{
+	//	    Listen:   ":19132",
+	//	    Upstream: "127.0.0.1:25567",
+	//	    ConfigOverrides: map[string]any{
+	//	        "bedrock":          map[string]any{"compression-level": 9},
+	//	        "passthrough-motd": true,
+	//	        "max-players":      50,
+	//	    },
+	//	}
+	ConfigOverrides map[string]any
 }
 
 // MOTD is the Bedrock client-visible server description (two lines).

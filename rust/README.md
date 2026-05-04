@@ -58,6 +58,39 @@ async fn main() -> anyhow::Result<()> {
 Fly.io UDP NAT helper, healthcheck integration, and a CI integration
 probe.
 
+## Setting any Geyser option (`config_overrides`)
+
+The typed `Options` fields cover the everyday path (`listen`, `upstream`,
+`auth_type`, `floodgate_key`, `motd`). For anything else Geyser supports
+— `mtu`, `max-players`, `passthrough-motd`, custom-skull settings, and
+so on — pass it through `Options::config_overrides`:
+
+```rust,no_run
+use geyserlite::{AuthType, Options, Server};
+use serde_yaml_ng::Mapping;
+
+let mut overrides = Mapping::new();
+overrides.insert("passthrough-motd".into(), true.into());
+overrides.insert("max-players".into(), 50.into());
+let mut bedrock = Mapping::new();
+bedrock.insert("compression-level".into(), 9.into());
+overrides.insert("bedrock".into(), bedrock.into());
+
+Server::new(Options {
+    listen: ":19132".into(),
+    upstream: "127.0.0.1:25567".into(),
+    auth_type: AuthType::Offline,
+    config_overrides: overrides,
+    ..Default::default()
+})?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The mapping is applied as a **deep merge** on top of the generated
+baseline: nested mappings merge recursively, leaf values overwrite.
+Mirrors Gate's `bedrock.config.ConfigOverrides` shape so an embedder
+can pass its existing override map straight through.
+
 ## Library acquisition (`Mode::Embedded`)
 
 `libgeyserlite.so` resolution order:

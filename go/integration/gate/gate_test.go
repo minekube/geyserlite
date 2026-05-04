@@ -47,8 +47,12 @@ func (f *fakeServer) Stop(_ context.Context) error {
 
 func (f *fakeServer) Healthy() bool { return f.healthy.Load() }
 
-// withFakeServer swaps newSrv for the duration of the test, restoring
-// it on teardown. Returns the fake the caller can mutate.
+// withFakeServer swaps the package-level newSrv factory for the
+// duration of the test, restoring it on teardown. Returns the fake
+// the caller can mutate.
+//
+// Callers must NOT t.Parallel(): newSrv is process-global state and
+// concurrent swaps stomp on each other.
 func withFakeServer(t *testing.T) *fakeServer {
 	t.Helper()
 	fake := &fakeServer{}
@@ -174,7 +178,6 @@ func validCfg() Config {
 }
 
 func TestStart_DelegatesAndUnwrapsCancel(t *testing.T) {
-	t.Parallel()
 	fake := withFakeServer(t)
 	fake.blockUntil = make(chan struct{}) // Start blocks until ctx canceled
 	b, err := New(validCfg(), nil)
@@ -203,7 +206,6 @@ func TestStart_DelegatesAndUnwrapsCancel(t *testing.T) {
 }
 
 func TestStart_PropagatesNonCancelErrors(t *testing.T) {
-	t.Parallel()
 	fake := withFakeServer(t)
 	fake.startErr = errors.New("boom")
 	b, _ := New(validCfg(), nil)
@@ -214,7 +216,6 @@ func TestStart_PropagatesNonCancelErrors(t *testing.T) {
 }
 
 func TestStart_DeadlineExceededIsCleanStop(t *testing.T) {
-	t.Parallel()
 	fake := withFakeServer(t)
 	fake.startErr = context.DeadlineExceeded
 	b, _ := New(validCfg(), nil)
@@ -226,7 +227,6 @@ func TestStart_DeadlineExceededIsCleanStop(t *testing.T) {
 }
 
 func TestStop_DelegatesAndPropagatesError(t *testing.T) {
-	t.Parallel()
 	fake := withFakeServer(t)
 	fake.stopErr = errors.New("stop-boom")
 	b, _ := New(validCfg(), nil)
@@ -240,7 +240,6 @@ func TestStop_DelegatesAndPropagatesError(t *testing.T) {
 }
 
 func TestHealthy_RoundTrips(t *testing.T) {
-	t.Parallel()
 	fake := withFakeServer(t)
 	b, _ := New(validCfg(), nil)
 
@@ -254,7 +253,6 @@ func TestHealthy_RoundTrips(t *testing.T) {
 }
 
 func TestNew_PropagatesUnderlyingFailure(t *testing.T) {
-	t.Parallel()
 	prev := newSrv
 	t.Cleanup(func() { newSrv = prev })
 	newSrv = func(geyserlite.Options) (server, error) { return nil, errors.New("ctor-boom") }

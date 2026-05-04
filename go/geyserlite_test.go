@@ -106,24 +106,9 @@ func TestNewRequiresUpstream(t *testing.T) {
 	}
 }
 
-func TestSplitHostPort(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		in, host, port string
-	}{
-		{"127.0.0.1:25567", "127.0.0.1", "25567"},
-		{":19132", "0.0.0.0", "19132"},
-		{"example.com:1234", "example.com", "1234"},
-		{"[::1]:25567", "::1", "25567"},
-		{"fly-global-services:19132", "fly-global-services", "19132"},
-	}
-	for _, c := range cases {
-		host, port := splitHostPort(c.in, "0.0.0.0", "19132")
-		if host != c.host || port != c.port {
-			t.Errorf("splitHostPort(%q) = (%q, %q), want (%q, %q)", c.in, host, port, c.host, c.port)
-		}
-	}
-}
+// splitHostPort table tests live in config_test.go now (the function
+// returns int port since YAML int is what Geyser wants). Kept the
+// edge cases there.
 
 func TestRenderConfig(t *testing.T) {
 	t.Parallel()
@@ -152,7 +137,7 @@ func TestRenderConfig(t *testing.T) {
 		"port: 25567",
 		"auth-type: floodgate",
 		"floodgate-key-file: key.bin",
-		"motd1: 'test'",
+		"motd1: test",
 	} {
 		if !strings.Contains(contents, want) {
 			t.Errorf("config.yml missing %q", want)

@@ -83,7 +83,7 @@ func main() {
 			// during native teardown, which would tank the test even
 			// after a successful probe. _exit avoids the cleanup chain.
 			<-ctx.Done()
-			os.Stderr.Sync()
+			_ = os.Stderr.Sync()
 			os.Exit(0)
 		}
 		select {

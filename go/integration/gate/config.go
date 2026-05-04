@@ -57,6 +57,18 @@ type Config struct {
 	// Offline disables the auto-download path entirely. Useful for
 	// air-gapped deployments that pre-place the .so via Docker layer.
 	Offline bool `yaml:"offline" json:"offline"`
+
+	// ConfigOverrides is forwarded verbatim to
+	// [geyserlite.Options.ConfigOverrides] — an arbitrary YAML
+	// structure deep-merged into the generated Geyser config.yml after
+	// the typed fields above have been applied. Use this for any
+	// Geyser setting the typed [Config] surface doesn't model
+	// (mtu, max-players, passthrough-motd, custom-skulls config, etc.).
+	//
+	// Mirrors Gate's own
+	// [config.Config.ConfigOverrides] so an embedder can pass its
+	// existing override map straight through.
+	ConfigOverrides map[string]any `yaml:"config_overrides,omitempty" json:"config_overrides,omitempty"`
 }
 
 // MOTDConfig is the two-line server description shown to Bedrock clients.
@@ -70,12 +82,13 @@ type MOTDConfig struct {
 // from an immutable Gate config struct without aliasing.
 func (c Config) toOptions(logger *slog.Logger) (geyserlite.Options, error) {
 	opts := geyserlite.Options{
-		Listen:      c.Listen,
-		Upstream:    c.Upstream,
-		LibraryPath: c.LibraryPath,
-		Mirror:      c.Mirror,
-		Offline:     c.Offline,
-		Logger:      logger,
+		Listen:          c.Listen,
+		Upstream:        c.Upstream,
+		LibraryPath:     c.LibraryPath,
+		Mirror:          c.Mirror,
+		Offline:         c.Offline,
+		Logger:          logger,
+		ConfigOverrides: c.ConfigOverrides,
 		MOTD: geyserlite.MOTD{
 			Line1: c.MOTD.Line1,
 			Line2: c.MOTD.Line2,

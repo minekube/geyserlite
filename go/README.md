@@ -63,6 +63,35 @@ func main() {
 More patterns under [`./examples/`](./examples/) — Floodgate keying, custom
 config rendering, Fly.io UDP NAT helper, healthcheck integration.
 
+## Setting any Geyser option (`ConfigOverrides`)
+
+The typed [`Options`] fields cover the everyday path (`Listen`, `Upstream`,
+`AuthType`, `FloodgateKey`, `MOTD`). For anything else Geyser supports —
+`mtu`, `max-players`, `passthrough-motd`, custom-skull settings, and so on —
+pass it through `Options.ConfigOverrides`:
+
+```go
+srv, _ := geyserlite.New(geyserlite.Options{
+    Listen:   ":19132",
+    Upstream: "127.0.0.1:25567",
+    ConfigOverrides: map[string]any{
+        "passthrough-motd": true,
+        "max-players":      50,
+        "bedrock": map[string]any{
+            "compression-level": 9,        // partial override; siblings preserved
+        },
+    },
+})
+```
+
+The map is applied as a **deep merge** on top of the generated baseline:
+nested maps merge recursively, leaf values overwrite. You can override
+anything in Geyser's `config.yml` without the library needing to know
+about it. Mirrors Gate's
+[`bedrock.config.ConfigOverrides`](https://github.com/minekube/gate/blob/master/pkg/edition/bedrock/config/config.go)
+so an embedder can pass its existing override map straight through the
+[`integration/gate`](./integration/gate/) adapter.
+
 ## Library acquisition (`ModeEmbedded`)
 
 `libgeyserlite.so` resolution order:
