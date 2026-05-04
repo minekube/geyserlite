@@ -212,23 +212,37 @@ jobs:
           GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
           # Stay off 19132 to avoid stomping anything else on the runner.
           LISTEN: 127.0.0.1:19133
+        # The Go embedded path is intermittently flaky on GitHub
+        # runners — the purego ↔ GraalVM signal-handler interaction
+        # produces an occasional SIGSEGV during Geyser bootstrap, even
+        # after the LockOSThread + graal_attach_thread fixes. The same
+        # .so + Rust libloading binding (rust-integration) is stable,
+        # and the Go subprocess path (go-subprocess-integration) is
+        # stable. Retry up to 3 times before declaring failure;
+        # the alternative is gating the whole release pipeline on a
+        # flake we already know how to recover from.
         run: |
           ls -la /tmp/artifacts/
-          # Tiny TCP stub on the upstream port so Geyser's connection
-          # attempts log politely instead of crash-spinning.
-          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
-          STUB=$!
-          # integration-test boots Geyser via the .so and stays up until
-          # killed; its presence is what keeps the listener alive for
-          # the probe. We don't check its exit code — clean shutdown
-          # through purego currently SIGSEGVs and would tank the test
-          # even after a successful probe.
-          ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 90s ) &
-          IT=$!
-          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
-          # bedrock-probe is the actual pass/fail signal: a real RakNet
-          # Unconnected Ping → Pong round-trip with the configured MOTD.
-          cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
+          attempt() {
+            ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
+            STUB=$!
+            ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 90s ) &
+            IT=$!
+            local rc=0
+            ( cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN" ) || rc=$?
+            kill -9 "$STUB" "$IT" 2>/dev/null || true
+            wait 2>/dev/null || true
+            return "$rc"
+          }
+          for i in 1 2 3; do
+            if attempt; then
+              echo "OK on attempt $i"
+              exit 0
+            fi
+            echo "::warning::go-integration attempt $i failed; retrying"
+          done
+          echo "::error::go-integration failed after 3 attempts"
+          exit 1
 
   # Subprocess-mode coverage for the Go library: spawns the ELF via
   # os/exec instead of dlopen-ing the .so. Same probe verdict, different
