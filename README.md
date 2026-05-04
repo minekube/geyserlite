@@ -127,9 +127,9 @@ opt-in fallback for OS-level crash isolation.
 
 ## Self-sustaining release loop
 
-This project is set up to ship updates without a human in the loop on
-the happy path. The only manual step is **clicking Merge on a release
-PR** when you're ready to publish what's accumulated.
+This project is set up to ship updates without a human in the loop —
+end to end, no merge buttons to click. The only time a human shows up
+is when CI gates surface a real conflict.
 
 ```text
 GeyserMC/Geyser commit
@@ -146,7 +146,8 @@ main
 "chore(main): release 0.1.x" PR
   │   bumps rust/Cargo.toml + go/version.go + rust/src/version.rs +
   │   .release-please-manifest.json + writes CHANGELOG.md
-  ↓ ← MANUAL: maintainer reviews changelog and clicks Merge
+  ↓ release-please enables --auto on the PR; main branch protection
+  │  holds the merge until the `lint-test` check is green
 v0.1.x tag (pushed by release-please) + GitHub Release row
   ↓ (release-please's trigger-release job dispatches release.yml)
 release.yml
@@ -170,10 +171,14 @@ clean upstream sync trips a patch release end-to-end.
 
 ### Manual release knobs
 
-You almost never need these, but they exist:
+The loop runs without a human on the happy path. These knobs exist
+for the unhappy ones:
 
-- **Skip a release**: just don't merge the open release-please PR; it
-  rebases itself on every push to `main` and absorbs subsequent commits.
+- **Pause auto-merge**: disable `Allow auto-merge` in repo Settings or
+  remove `lint-test` from `main`'s branch protection — the PR stays
+  open until you re-enable.
+- **Skip a release**: close the release-please PR; the next push to
+  `main` reopens it with the accumulated commits absorbed.
 - **Force a release without a `fix:`/`feat:` commit**: add an empty
   commit with `git commit --allow-empty -m "fix: <reason>"`.
 - **Force a major bump** before 1.0: amend the release-please PR title
