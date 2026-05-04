@@ -5,13 +5,21 @@
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "packages": {
-    "rust": {
+    ".": {
       "package-name": "geyserlite",
-      "release-type": "rust",
+      "release-type": "simple",
       "extra-files": [
+        "go/version.go",
+        "rust/src/version.rs",
         {
-          "type": "generic",
-          "path": "../go/version.go"
+          "type": "toml",
+          "path": "rust/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "rust/Cargo.lock",
+          "jsonpath": "$.package[?(@.name == 'geyserlite')].version"
         }
       ]
     }
