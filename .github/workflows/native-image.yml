@@ -187,148 +187,87 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT}-arm64
 
-  # End-to-end embed test: pull the just-built libgeyserlite-linux-amd64.so,
-  # have the Go library load it via purego, run a real Bedrock RakNet
-  # ping through bedrock-probe, and assert the MOTD round-trips. This
-  # is the test that catches "the .so was built fine but the embed
-  # path doesn't actually work" — a class of regression neither unit
-  # tests nor the docker container smoke test (which uses the ELF) can see.
+  # End-to-end tests against the just-built artifacts. Each job loads
+  # the .so (embedded mode) or spawns the ELF (subprocess mode) and
+  # confirms a real RakNet probe → MOTD round-trip succeeds. Catches
+  # regressions neither unit tests nor the docker smoke test can see.
+  # Common scaffolding (checkout + mise + artifact download + upstream
+  # stub) lives in .github/actions/integration-setup.
   go-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-          experimental: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: geyserlite-amd64
-          path: /tmp/artifacts
+      - uses: ./.github/actions/integration-setup
+        id: setup
       - name: Run Go library against just-built .so
         env:
           GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
-          # Stay off 19132 to avoid stomping anything else on the runner.
           LISTEN: 127.0.0.1:19133
-        # The Go embedded path is intermittently flaky on GitHub
-        # runners — the purego ↔ GraalVM signal-handler interaction
-        # produces an occasional SIGSEGV during Geyser bootstrap, even
-        # after the LockOSThread + graal_attach_thread fixes. The same
-        # .so + Rust libloading binding (rust-integration) is stable,
-        # and the Go subprocess path (go-subprocess-integration) is
-        # stable. Retry up to 3 times before declaring failure;
-        # the alternative is gating the whole release pipeline on a
-        # flake we already know how to recover from.
+          STUB_PGID: ${{ steps.setup.outputs.stub_pgid }}
+        # Embedded Go is intermittently flaky on GitHub runners — the
+        # purego ↔ GraalVM signal-handler interaction occasionally
+        # SIGSEGVs during Geyser bootstrap. Other paths (rust embedded,
+        # both subprocess) are stable. Retry up to 3× before failing.
         run: |
-          ls -la /tmp/artifacts/
           attempt() {
-            ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
-            STUB=$!
             ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 90s ) &
-            IT=$!
+            local IT=$!
             local rc=0
             ( cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN" ) || rc=$?
-            kill -9 "$STUB" "$IT" 2>/dev/null || true
-            wait 2>/dev/null || true
+            kill -- "-$IT" 2>/dev/null || kill -9 "$IT" 2>/dev/null || true
+            wait "$IT" 2>/dev/null || true
             return "$rc"
           }
           for i in 1 2 3; do
-            if attempt; then
-              echo "OK on attempt $i"
-              exit 0
-            fi
+            if attempt; then echo "OK on attempt $i"; exit 0; fi
             echo "::warning::go-integration attempt $i failed; retrying"
           done
-          echo "::error::go-integration failed after 3 attempts"
           exit 1
 
-  # Subprocess-mode coverage for the Go library: spawns the ELF via
-  # os/exec instead of dlopen-ing the .so. Same probe verdict, different
-  # supervisor path. Catches restart-on-crash / signal-forwarding /
-  # locate regressions that the embedded test wouldn't see.
   go-subprocess-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-          experimental: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: geyserlite-amd64
-          path: /tmp/artifacts
-      - name: Run Go library in subprocess mode
-        env:
+      - uses: ./.github/actions/integration-setup
+      - env:
           GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
           LISTEN: 127.0.0.1:19135
         run: |
-          chmod +x "$GEYSERLITE_BINARY"
-          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
-          STUB=$!
           ( cd go && go run ./cmd/integration-test -listen "$LISTEN" -timeout 90s -mode subprocess ) &
           IT=$!
-          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
+          trap "kill -- -$IT 2>/dev/null || kill -9 $IT 2>/dev/null || true" EXIT
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
 
-  # Mirror of go-integration for the Rust crate.
   rust-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-          experimental: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: geyserlite-amd64
-          path: /tmp/artifacts
-      - name: Run Rust crate against just-built .so
-        env:
+      - uses: ./.github/actions/integration-setup
+      - env:
           GEYSERLITE_LIBRARY: /tmp/artifacts/libgeyserlite-linux-amd64.so
           LISTEN: 127.0.0.1:19134
         run: |
-          ls -la /tmp/artifacts/
-          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
-          STUB=$!
           ( cd rust && cargo run --example integration_test -- --listen "$LISTEN" --timeout 90 ) &
           IT=$!
-          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
+          trap "kill -- -$IT 2>/dev/null || kill -9 $IT 2>/dev/null || true" EXIT
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
 
-  # Subprocess-mode coverage for the Rust crate; same shape as Go.
   rust-subprocess-integration:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-          experimental: true
-      - uses: actions/download-artifact@v4
-        with:
-          name: geyserlite-amd64
-          path: /tmp/artifacts
-      - name: Run Rust crate in subprocess mode
-        env:
+      - uses: ./.github/actions/integration-setup
+      - env:
           GEYSERLITE_BINARY: /tmp/artifacts/geyserlite-linux-amd64
           LISTEN: 127.0.0.1:19136
         run: |
-          chmod +x "$GEYSERLITE_BINARY"
-          ( while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done ) &
-          STUB=$!
           ( cd rust && cargo run --example integration_test -- --listen "$LISTEN" --timeout 90 --mode subprocess ) &
           IT=$!
-          trap "kill -9 $STUB $IT 2>/dev/null || true" EXIT
+          trap "kill -- -$IT 2>/dev/null || kill -9 $IT 2>/dev/null || true" EXIT
           cd go && go run ./cmd/bedrock-probe -wait 60s "$LISTEN"
 
   smoke:

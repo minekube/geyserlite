@@ -1,0 +1,44 @@
+name: Integration setup
+description: |
+  Common scaffolding for the four embed/subprocess integration jobs in
+  native-image.yml — checkout + mise + download the geyserlite-amd64
+  artifact + start the upstream stub. Each job's run block then differs
+  in language/mode/listen-port; the boilerplate above is identical and
+  lives here.
+
+outputs:
+  stub_pgid:
+    description: Process group ID of the upstream-stub loop. Pass to
+      "kill -- -$STUB_PGID" in the job's cleanup trap.
+    value: ${{ steps.stub.outputs.pgid }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+
+    - uses: jdx/mise-action@v2
+      with:
+        cache: true
+        experimental: true
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: geyserlite-amd64
+        path: /tmp/artifacts
+
+    - name: chmod the ELF (a no-op for embed jobs that don't use it)
+      shell: bash
+      run: chmod +x /tmp/artifacts/geyserlite-linux-amd64 || true
+
+    - name: Start upstream stub (TCP 25565 swallow-everything)
+      id: stub
+      shell: bash
+      run: |
+        # setsid puts the stub in its own process group so the job's
+        # trap can reliably kill the whole tree with kill -- -$pgid.
+        # Without this, kill targets only the outer subshell PID and
+        # the in-flight `nc` child survives + holds the port, racing
+        # the next test attempt.
+        setsid bash -c 'while true; do nc -l -p 25565 < /dev/null > /dev/null 2>&1 || true; done' &
+        echo "pgid=$!" >> "$GITHUB_OUTPUT"

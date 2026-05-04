@@ -125,6 +125,72 @@ opt-in fallback for OS-level crash isolation.
 
 [`docs/architecture.md`](./docs/architecture.md) has the full breakdown.
 
+## Self-sustaining release loop
+
+This project is set up to ship updates without a human in the loop on
+the happy path. The only manual step is **clicking Merge on a release
+PR** when you're ready to publish what's accumulated.
+
+```text
+GeyserMC/Geyser commit
+  ↓ (Renovate, daily)
+"fix(deps): bump Geyser to <sha>" PR
+  ↓ CI re-applies the soft-fork overlay; 8 jobs gate
+  │  • build amd64 + arm64           • smoke (docker container)
+  │  • header export assertion       • multi-arch manifest
+  │  • go-integration (embedded)     • rust-integration (embedded)
+  │  • go-subprocess-integration     • rust-subprocess-integration
+  ↓ auto-merges on green (Renovate + GitHub platform-automerge)
+main
+  ↓ (release-please, on every push)
+"chore(main): release 0.1.x" PR
+  │   bumps rust/Cargo.toml + go/version.go + rust/src/version.rs +
+  │   .release-please-manifest.json + writes CHANGELOG.md
+  ↓ ← MANUAL: maintainer reviews changelog and clicks Merge
+v0.1.x tag (pushed by release-please) + GitHub Release row
+  ↓ (release-please's trigger-release job dispatches release.yml)
+release.yml
+  ├─ pulls signed artifacts from the latest native-image run
+  ├─ cosign sign-blob + attest each asset
+  ├─ uploads to GitHub Release
+  └─ cargo publish via crates.io OIDC Trusted Publishing
+```
+
+Conventional Commit prefixes drive what release-please decides:
+
+| Prefix | Effect |
+|---|---|
+| `fix:` / `fix(...):` | patch release (0.1.2 → 0.1.3) |
+| `feat:` / `feat(...):` | minor release (0.1.2 → 0.2.0) |
+| `feat!:` (or `BREAKING CHANGE:`) | major release |
+| anything else (`chore:`, `docs:`, `build:`, `ci:`, `refactor:`, `test:`) | no release |
+
+Renovate is configured to tag Geyser bumps as `fix(deps):` so each
+clean upstream sync trips a patch release end-to-end.
+
+### Manual release knobs
+
+You almost never need these, but they exist:
+
+- **Skip a release**: just don't merge the open release-please PR; it
+  rebases itself on every push to `main` and absorbs subsequent commits.
+- **Force a release without a `fix:`/`feat:` commit**: add an empty
+  commit with `git commit --allow-empty -m "fix: <reason>"`.
+- **Force a major bump** before 1.0: amend the release-please PR title
+  to start with `feat!:` or include `BREAKING CHANGE:` in the body.
+- **Re-fire `release.yml` for an existing tag**: `gh workflow run
+  release.yml --ref v0.1.x` (the trigger-release job uses the same
+  workflow_dispatch surface).
+
+### Trust signals
+
+| Signal | How |
+|---|---|
+| Build pipeline integrity | All artifacts cosign-signed with sigstore keyless OIDC; SBOM-style SPDX attestations alongside the `.sig` files |
+| Release authenticity | crates.io Trusted Publishing (OIDC) — no long-lived token to rotate or leak |
+| Reproducible inputs | `build/geyser.version` (commit SHA) + `build/graalvm.version` (image digest) pin the build to byte-identical inputs |
+| Verifiable downloads | `checksums.txt` on every GH Release; `sha256sum -c` works directly |
+
 ## Why a soft fork, not a hard fork?
 
 We don't maintain a long-lived divergent branch of Geyser. The build
