@@ -5,13 +5,14 @@
     ":semanticCommits",
     ":dependencyDashboard"
   ],
-  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am every weekday"],
   "labels": ["dependencies"],
 
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["^build/geyser\\.version$"],
+      "managerFilePatterns": ["/^build/geyser\\.version$/"],
       "matchStrings": ["^(?<currentDigest>[a-f0-9]{40})\\s*$"],
       "depNameTemplate": "GeyserMC/Geyser",
       "packageNameTemplate": "https://github.com/GeyserMC/Geyser",
@@ -20,8 +21,10 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["^build/graalvm\\.version$"],
-      "matchStrings": ["^(?<depName>[\\w./-]+):(?<currentValue>[\\w.-]+)\\s*$"],
+      "managerFilePatterns": ["/^build/graalvm\\.version$/"],
+      "matchStrings": [
+        "^(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)(?:@(?<currentDigest>sha256:[0-9a-f]{64}))?\\s*$"
+      ],
       "datasourceTemplate": "docker"
     }
   ],
@@ -29,17 +32,21 @@
   "packageRules": [
     {
       "matchManagers": ["custom.regex"],
-      "matchPackageNames": ["GeyserMC/Geyser"],
-      "groupName": "Geyser",
+      "matchDepNames": ["GeyserMC/Geyser"],
+      "groupName": "Geyser upstream",
+      "commitMessagePrefix": "fix(deps):",
       "commitMessageTopic": "Geyser",
+      "commitMessageAction": "bump",
       "commitMessageExtra": "to {{newDigestShort}}",
       "labels": ["dependencies", "geyser-rebuild"],
-      "automerge": false
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     },
     {
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["ghcr.io/graalvm/native-image-community"],
-      "groupName": "GraalVM",
+      "groupName": "GraalVM image",
       "labels": ["dependencies", "graalvm-rebuild"],
       "automerge": false
     },
@@ -55,5 +62,10 @@
       "automergeType": "pr",
       "matchUpdateTypes": ["minor", "patch"]
     }
-  ]
+  ],
+
+  "ignorePaths": ["build/.work/**", "build/overlay/**", "node_modules/**"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 8,
+  "rebaseWhen": "behind-base-branch"
 }
