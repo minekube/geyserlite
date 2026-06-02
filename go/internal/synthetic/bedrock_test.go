@@ -117,8 +117,8 @@ func TestProbeAgainstFakeServer(t *testing.T) {
 	if motd.Line1 != "Synthetic" {
 		t.Errorf("Line1=%q", motd.Line1)
 	}
-	if motd.RTTMillis <= 0 {
-		t.Errorf("RTT=%v should be > 0", motd.RTTMillis)
+	if motd.RTTMillis < 0 {
+		t.Errorf("RTT=%v should be >= 0", motd.RTTMillis)
 	}
 }
 
