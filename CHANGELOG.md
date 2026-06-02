@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/minekube/geyserlite/compare/v0.2.0...v0.2.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **ci:** use one Renovate config ([611d12c](https://github.com/minekube/geyserlite/commit/611d12c81dbeabde6e9bdbda985adc45a16ee185))
+* **go:** compile embedded loader on windows ([23925a0](https://github.com/minekube/geyserlite/commit/23925a017e9c80fccd8de89d12c398d31ebee5e0))
+* **go:** compile embedded loader on windows ([af0a439](https://github.com/minekube/geyserlite/commit/af0a439c4f184b49473ad7fde674b74ac169d1b5))
+
 ## [0.2.0](https://github.com/minekube/geyserlite/compare/v0.1.3...v0.2.0) (2026-05-04)
 
 
