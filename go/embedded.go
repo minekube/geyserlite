@@ -218,9 +218,9 @@ func (r *embeddedRunner) callOnAttachedThread(isolate uintptr, fn func(thread ui
 func (r *embeddedRunner) load(libpath string) error {
 	var loadErr error
 	r.once.Do(func() {
-		lib, err := purego.Dlopen(libpath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		lib, err := openLibrary(libpath)
 		if err != nil {
-			loadErr = fmt.Errorf("geyserlite: dlopen %s: %w", libpath, err)
+			loadErr = fmt.Errorf("geyserlite: load library %s: %w", libpath, err)
 			return
 		}
 		r.lib = lib
@@ -265,4 +265,3 @@ func cString(s string) (uintptr, func()) {
 	// during a callback. For init/shutdown that doesn't happen.
 	return ptrOf(b), func() { _ = b }
 }
-

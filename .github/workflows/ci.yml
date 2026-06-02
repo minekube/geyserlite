@@ -73,3 +73,17 @@ jobs:
 
       - name: Test
         run: task test
+
+  go-windows-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: Test Go module on Windows
+        working-directory: go
+        run: go test ./...
