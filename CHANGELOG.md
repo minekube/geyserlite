@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/minekube/geyserlite/compare/v0.2.2...v0.2.3) (2026-06-03)
+
+
+### Bug Fixes
+
+* **ci:** complete release PR automation loop ([2133002](https://github.com/minekube/geyserlite/commit/21330020a0088b04dbf34673b15d53b71227a4aa))
+* **ci:** complete release PR automation loop ([33561b4](https://github.com/minekube/geyserlite/commit/33561b40e7324d5fba957a2a41ae1fec47984f40))
+
 ## [0.2.2](https://github.com/minekube/geyserlite/compare/v0.2.1...v0.2.2) (2026-06-03)
 
 
