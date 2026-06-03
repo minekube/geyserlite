@@ -34,6 +34,7 @@ permissions:
   pull-requests: write
   actions: write    # to gh workflow run release.yml
   checks: write     # to mirror release-branch CI onto the required PR check
+  statuses: write   # to satisfy branch protection for GITHUB_TOKEN release PRs
 
 jobs:
   release-please:
@@ -52,27 +53,11 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # Enable PR auto-merge as soon as release-please opens/updates
-      # the release PR. Branch-protection rules on main require the
-      # `lint-test` check to pass before the merge actually happens, so
-      # this is "queue for merge once CI is green" — not "merge now".
-      # No human click needed on the happy path.
-      - name: Auto-merge release PR
-        if: ${{ steps.rp.outputs.pr }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=$(echo '${{ steps.rp.outputs.pr }}' | jq -r '.number')
-          echo "Enabling auto-merge on PR #$PR_NUMBER"
-          gh pr merge "$PR_NUMBER" \
-            --repo "${{ github.repository }}" \
-            --auto \
-            --merge
-
       # Pull requests created by GITHUB_TOKEN do not trigger pull_request
       # workflows. Run the same CI workflow on the release branch explicitly,
-      # then mirror its result to the required lint-test check on the PR head
-      # SHA so branch protection and auto-merge have a real signal to consume.
+      # mirror its result to the required lint-test context, merge the validated
+      # PR, and dispatch this workflow once more on main so release-please can
+      # create the tag. GITHUB_TOKEN-created merges do not fire push workflows.
       - name: Validate release PR
         if: ${{ steps.rp.outputs.pr }}
         env:
@@ -143,10 +128,50 @@ jobs:
             -f output[title]="Release PR CI $CONCLUSION" \
             -f output[summary]="Mirrors workflow_dispatch CI run $RUN_ID for release PR #$PR_NUMBER: $RUN_URL"
 
+          STATUS_STATE="failure"
+          if [ "$CONCLUSION" = "success" ]; then
+            STATUS_STATE="success"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+            -f state="$STATUS_STATE" \
+            -f context='lint-test' \
+            -f target_url="$RUN_URL" \
+            -f description="Release PR CI $CONCLUSION via workflow_dispatch"
+
           if [ "$CONCLUSION" != "success" ]; then
             echo "::error::Release PR CI concluded $CONCLUSION"
             exit 1
           fi
+
+          echo "Merging release PR #$PR_NUMBER"
+          for _ in $(seq 1 30); do
+            if gh pr merge "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --merge; then
+              break
+            fi
+            STATE=$(gh pr view "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --json state \
+              --jq '.state')
+            if [ "$STATE" = "MERGED" ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          STATE=$(gh pr view "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --json state \
+            --jq '.state')
+          if [ "$STATE" != "MERGED" ]; then
+            echo "::error::Release PR #$PR_NUMBER did not merge"
+            exit 1
+          fi
+
+          gh workflow run release-please.yml \
+            --repo "${{ github.repository }}" \
+            --ref main
 
   # release-please pushes the v* tag with GITHUB_TOKEN, which by
   # design doesn't fire downstream workflows (GitHub's anti-recursion
