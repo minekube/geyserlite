@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2](https://github.com/minekube/geyserlite/compare/v0.2.1...v0.2.2) (2026-06-03)
+
+
+### Bug Fixes
+
+* **build:** keep Geyser annotation classes reachable ([802b632](https://github.com/minekube/geyserlite/commit/802b6325299f8d9278de47ff233ad387570669e6))
+* **build:** keep Geyser annotation classes reachable ([10a4633](https://github.com/minekube/geyserlite/commit/10a463374439dbc8c73b8dd2f05685a325421a55))
+* **ci:** give shared native-image build enough heap ([1bd932e](https://github.com/minekube/geyserlite/commit/1bd932eece17fc098b6313e0e316eeda21eb7cec))
+* **ci:** open Geyser Renovate PRs immediately ([a95f7c8](https://github.com/minekube/geyserlite/commit/a95f7c8a40af95724991aa1ec2bd06c0fda6294c))
+* **ci:** run required lint check for build updates ([ae0d5aa](https://github.com/minekube/geyserlite/commit/ae0d5aa8db18b93426031a0cd41b8199679bab46))
+* **deps:** bump Geyser to 53b5842 ([a45ad57](https://github.com/minekube/geyserlite/commit/a45ad57558995d0ba7d5ec3b70d5f8f7104ea33a))
+* **deps:** bump Geyser to 53b5842 ([2d8426b](https://github.com/minekube/geyserlite/commit/2d8426b4eb12b812f111235e4549ba7d82db19ee))
+
 ## [0.2.1](https://github.com/minekube/geyserlite/compare/v0.2.0...v0.2.1) (2026-06-02)
 
 
