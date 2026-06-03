@@ -4,8 +4,9 @@ name: CI
 # All tool versions come from mise.toml; mise-action installs them with caching.
 
 # Path filters: lint+test only runs when something it actually checks
-# changes. Doc-only or workflow-config edits skip CI. The native-image
-# workflow has its own filter for build/**.
+# changes. Doc-only edits skip CI. build/** is included because branch
+# protection requires lint-test; build-only Renovate PRs otherwise cannot
+# satisfy the required check even when native-image succeeds.
 on:
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'go/**'
       - 'rust/**'
       - 'examples/**'
+      - 'build/**'
       - 'mise.toml'
       - 'Taskfile.yml'
       - '.golangci.yml'
@@ -24,6 +26,7 @@ on:
       - 'go/**'
       - 'rust/**'
       - 'examples/**'
+      - 'build/**'
       - 'mise.toml'
       - 'Taskfile.yml'
       - '.golangci.yml'

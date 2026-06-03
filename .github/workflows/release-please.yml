@@ -21,7 +21,7 @@ name: Release Please
 #   feat!: → major (0.1.2 → 1.0.0)
 # anything else (chore:, docs:, build:, ci:, refactor:, test:) → no release.
 #
-# Renovate is configured (.github/renovate.json5) to use "fix:" prefixes
+# Renovate is configured (renovate.json) to use "fix:" prefixes
 # for Geyser bumps so they trip a patch release automatically.
 
 on:
