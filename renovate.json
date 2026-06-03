@@ -39,6 +39,7 @@
       "commitMessageAction": "bump",
       "commitMessageExtra": "to {{newDigestShort}}",
       "labels": ["dependencies", "geyser-rebuild"],
+      "schedule": ["at any time"],
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true

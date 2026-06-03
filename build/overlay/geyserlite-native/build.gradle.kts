@@ -109,6 +109,11 @@ graalvmNative {
                 "-H:+UnlockExperimentalVMOptions",
                 "-H:+RemoveSaturatedTypeFlows",
                 "-H:-ReportExceptionStackTraces",
+                // Keep this in sync with build/flags.sh. Without an
+                // explicit cap, native-image auto-sized the builder heap
+                // to ~7.6g on GitHub's arm64 runner and OOMed while
+                // compiling the shared library.
+                "-J-Xmx14g",
             )
         }
     }
