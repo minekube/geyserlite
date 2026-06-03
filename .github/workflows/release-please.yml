@@ -33,6 +33,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write    # to gh workflow run release.yml
+  checks: write     # to mirror release-branch CI onto the required PR check
 
 jobs:
   release-please:
@@ -67,6 +68,85 @@ jobs:
             --repo "${{ github.repository }}" \
             --auto \
             --merge
+
+      # Pull requests created by GITHUB_TOKEN do not trigger pull_request
+      # workflows. Run the same CI workflow on the release branch explicitly,
+      # then mirror its result to the required lint-test check on the PR head
+      # SHA so branch protection and auto-merge have a real signal to consume.
+      - name: Validate release PR
+        if: ${{ steps.rp.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER=$(echo '${{ steps.rp.outputs.pr }}' | jq -r '.number')
+          PR_JSON=$(gh pr view "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --json headRefName,headRefOid)
+          HEAD_REF=$(echo "$PR_JSON" | jq -r '.headRefName')
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
+
+          echo "Dispatching CI for release PR #$PR_NUMBER at $HEAD_REF ($HEAD_SHA)"
+          gh workflow run ci.yml --repo "${{ github.repository }}" --ref "$HEAD_REF"
+
+          RUN_ID=""
+          for _ in $(seq 1 60); do
+            RUN_ID=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow ci.yml \
+              --branch "$HEAD_REF" \
+              --event workflow_dispatch \
+              --json databaseId,headSha \
+              --jq "map(select(.headSha == \"$HEAD_SHA\")) | .[0].databaseId // \"\"")
+            if [ -n "$RUN_ID" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::Timed out waiting for dispatched CI run to appear"
+            exit 1
+          fi
+
+          echo "Waiting for CI run $RUN_ID"
+          for _ in $(seq 1 180); do
+            RUN_JSON=$(gh run view "$RUN_ID" \
+              --repo "${{ github.repository }}" \
+              --json status,conclusion,url)
+            STATUS=$(echo "$RUN_JSON" | jq -r '.status')
+            CONCLUSION=$(echo "$RUN_JSON" | jq -r '.conclusion // ""')
+            RUN_URL=$(echo "$RUN_JSON" | jq -r '.url')
+            if [ "$STATUS" = "completed" ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$STATUS" != "completed" ]; then
+            echo "::error::Timed out waiting for CI run $RUN_ID"
+            exit 1
+          fi
+
+          CHECK_CONCLUSION="$CONCLUSION"
+          if [ "$CHECK_CONCLUSION" = "cancelled" ]; then
+            CHECK_CONCLUSION="neutral"
+          fi
+
+          gh api "repos/${{ github.repository }}/check-runs" \
+            -f name='lint-test' \
+            -f head_sha="$HEAD_SHA" \
+            -f status='completed' \
+            -f conclusion="$CHECK_CONCLUSION" \
+            -f details_url="$RUN_URL" \
+            -f output[title]="Release PR CI $CONCLUSION" \
+            -f output[summary]="Mirrors workflow_dispatch CI run $RUN_ID for release PR #$PR_NUMBER: $RUN_URL"
+
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::Release PR CI concluded $CONCLUSION"
+            exit 1
+          fi
 
   # release-please pushes the v* tag with GITHUB_TOKEN, which by
   # design doesn't fire downstream workflows (GitHub's anti-recursion
