@@ -21,6 +21,8 @@ on:
       - '.markdownlint*'
       - '.yamllint*'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/release-please.yml'
+      - '.github/workflows/release.yml'
   pull_request:
     paths:
       - 'go/**'
@@ -33,6 +35,8 @@ on:
       - '.markdownlint*'
       - '.yamllint*'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/release-please.yml'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
