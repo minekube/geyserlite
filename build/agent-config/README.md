@@ -56,3 +56,16 @@ The tracing agent records the reflective call but doesn't always tag the type
 as `unsafeAllocated`. The Dockerfile patches this automatically by walking
 `reflect-config.json` and adding `unsafeAllocated: true` to every non-JDK
 entry. See `build/Dockerfile`.
+
+## Geyser annotation metadata
+
+Geyser also generates resource files for annotation-based registries such as
+packet translators, block entity translators, collision remappers, and sound
+translators. `AnnotationUtils` reads those files and calls `Class.forName` for
+every listed class during startup.
+
+The Dockerfile runs `build/augment-annotation-reflect-config.py` after building
+the pinned `Geyser-Standalone.jar`. That script merges the generated class lists
+from the JAR into `reflect-config.json` for both native-image targets, so normal
+upstream Geyser bumps do not require manually editing this captured agent config
+just because a translator class was added or renamed.

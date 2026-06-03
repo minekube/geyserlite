@@ -47,7 +47,7 @@ RUN curl -fsSLO https://musl.libc.org/releases/musl-1.2.5.tar.gz \
     && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/aarch64-linux-musl-gcc
 
 WORKDIR /work
-COPY build/geyser.version build/apply-overlay.sh build/flags.sh ./build/
+COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py ./build/
 COPY build/overlay/   ./build/overlay/
 COPY build/patches/   ./build/patches/
 COPY build/agent-config/ ./build/agent-config/
@@ -60,8 +60,15 @@ WORKDIR /work/build/.work/Geyser
 # Build the standalone shadow JAR (input to native-image).
 RUN ./gradlew :standalone:shadowJar --no-daemon
 
+# Geyser's annotation processor writes resource files listing classes that
+# AnnotationUtils loads with Class.forName at runtime. Keep those classes
+# reachable for both native-image targets using the exact pinned JAR's lists.
+RUN python3 /work/build/augment-annotation-reflect-config.py \
+      --jar bootstrap/standalone/build/libs/Geyser-Standalone.jar \
+      --config-dir /work/build/.work/Geyser/agent-config
+
 # Patch reflect-config to mark non-JDK classes as unsafe-allocated for Gson's UnsafeAllocator path.
-COPY build/agent-config /tmp/agent-config
+RUN cp -R /work/build/.work/Geyser/agent-config /tmp/agent-config
 RUN python3 -c "import json,sys; \
     p='/tmp/agent-config/reflect-config.json'; \
     cfg=json.load(open(p)); n=0; \
