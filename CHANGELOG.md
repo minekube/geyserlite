@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4](https://github.com/minekube/geyserlite/compare/v0.2.3...v0.2.4) (2026-06-04)
+
+
+### Bug Fixes
+
+* **build:** suppress native Log4j status warning ([77d8d25](https://github.com/minekube/geyserlite/commit/77d8d25c75e47b89e6d1e3af3cc3a3febdb562bd))
+* **build:** suppress native Log4j status warning ([b2d1e09](https://github.com/minekube/geyserlite/commit/b2d1e090dba5dd6a4ce60f149891937fc6b1ecd3))
+
 ## [0.2.3](https://github.com/minekube/geyserlite/compare/v0.2.2...v0.2.3) (2026-06-03)
 
 
