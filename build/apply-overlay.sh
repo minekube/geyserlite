@@ -94,7 +94,16 @@ once(
     r'(\n\s+)System\.exit\(0\);',
     rf'\1if (!Boolean.getBoolean("{prop}")) {{ System.exit(0); }}',
 )
-# 4-5. Open useGui + configFilename so the bridge can configure them
+# 4. Native images cannot define the hidden classes Log4j's StatusLogger
+#    ServiceLoader error path tries to synthesize while looking for
+#    WatchEventService implementations. That path is non-fatal but noisy,
+#    so silence Log4j internal status logging before GeyserStandaloneLogger
+#    triggers LogManager initialization. Normal Geyser logs still flow.
+once(
+    r'(\n\s+System\.setProperty\("java\.util\.logging\.manager", "org\.apache\.logging\.log4j\.jul\.LogManager"\);\n)(\s+)GeyserStandaloneLogger\.setupStreams\(\);',
+    r'\1\2org.apache.logging.log4j.status.StatusLogger.getLogger().setLevel(Level.OFF);\n\2GeyserStandaloneLogger.setupStreams();',
+)
+# 5-6. Open useGui + configFilename so the bridge can configure them
 #      without reflection. Anchor on the type+initializer so a rename
 #      to a similarly-named field can't silently match.
 once(r'\bprivate (boolean useGui\b\s*=)', r'public \1')
