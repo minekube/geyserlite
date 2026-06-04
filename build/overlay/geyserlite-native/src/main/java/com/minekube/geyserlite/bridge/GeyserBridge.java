@@ -119,6 +119,8 @@ public final class GeyserBridge {
             }
             System.setProperty("java.util.logging.manager",
                 "org.apache.logging.log4j.jul.LogManager");
+            org.apache.logging.log4j.status.StatusLogger.getLogger()
+                .setLevel(org.apache.logging.log4j.Level.OFF);
             // Skip GeyserStandaloneLogger.setupStreams(): it depends on
             // terminalconsoleappender (not on the embed compile classpath)
             // and reassigns System.out/err for the standalone CLI prompt

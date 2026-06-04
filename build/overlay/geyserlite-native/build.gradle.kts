@@ -21,6 +21,14 @@ dependencies {
     // Version 23.1.x is the SDK series matching GraalVM 21 LTS; pin
     // the latest patch in that series.
     compileOnly("org.graalvm.sdk:graal-sdk:23.1.7")
+
+    // GeyserBridge sets Log4j's StatusLogger level before bootstrap
+    // initialization to suppress a known native-image-only ServiceLoader
+    // warning. The classes are already present through :standalone at
+    // runtime/native-image analysis time; compileOnly only exposes the
+    // symbols to javac for this bridge subproject.
+    compileOnly("org.apache.logging.log4j:log4j-api:2.20.0")
+    compileOnly("org.apache.logging.log4j:log4j-core:2.20.0")
 }
 
 graalvmNative {

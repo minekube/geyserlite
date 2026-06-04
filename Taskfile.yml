@@ -23,7 +23,7 @@ tasks:
     cmds:
       - cd go && go mod download
       - cd rust && cargo fetch
-      - echo "Done. Try `task build:native` next."
+      - echo 'Done. Try task build:native next.'
 
   # ─── Build ───────────────────────────────────────────────────────────────
   build:native:
