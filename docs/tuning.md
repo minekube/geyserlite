@@ -42,8 +42,8 @@ subprocess mode. Embedded mode bakes them in at build time.
 -XX:MaxHeapFree=4m
 -XX:+CollectYoungGenerationSeparately
 -XX:ActiveProcessorCount=1
--Dio.netty.maxDirectMemory=16777216
--XX:MaxDirectMemorySize=16m
+-Dio.netty.maxDirectMemory=67108864
+-XX:MaxDirectMemorySize=64m
 -Dio.netty.allocator.type=unpooled
 -Dio.netty.allocator.numHeapArenas=1
 -Dio.netty.allocator.numDirectArenas=1
@@ -62,7 +62,7 @@ Explanations:
 | `MaxHeapFree=4m` | How much free heap to keep allocated to the OS. Lower = more `mmap`/`munmap`, less RSS. |
 | `CollectYoungGenerationSeparately` | Smaller GC pauses, smaller RSS during full GCs. |
 | `ActiveProcessorCount=1` | Tell JVM/Substrate it has 1 CPU regardless of actual count. Reduces auto-sized thread pools. |
-| `Dio.netty.maxDirectMemory=16777216` | 16 MB cap on Netty's off-heap buffers. Default is unlimited; uncapped Netty pre-reserves a lot. |
+| `Dio.netty.maxDirectMemory=67108864` | 64 MB cap on Netty's off-heap buffers. Default is unlimited; uncapped Netty pre-reserves a lot, while 16 MB is too tight during Bedrock chunk bursts. |
 | `Dio.netty.allocator.type=unpooled` | No buffer pool. Slightly higher per-message allocation; way less idle RSS. |
 | `Dio.netty.allocator.numHeapArenas=1` | One arena instead of one per thread. RSS savings. |
 | `Dio.netty.eventLoopThreads=2` | Two Netty event loops (default = 2× cores). |
@@ -75,7 +75,7 @@ Explanations:
 
 | Profile | Adjustments |
 |---|---|
-| **Many concurrent players (10+)** | Raise `-Xmx96m` or `-Xmx128m`; raise `MaxDirectMemorySize=32m`; raise `eventLoopThreads=4`; consider G1 GC (`--gc=G1` at build time). |
+| **Many concurrent players (10+)** | Raise `-Xmx96m` or `-Xmx128m`; raise `MaxDirectMemorySize=96m` or `128m`; raise `eventLoopThreads=4`; consider G1 GC (`--gc=G1` at build time). |
 | **Multi-core host** | Raise `ActiveProcessorCount`; raise `eventLoopThreads`; `ForkJoinPool` parallelism. |
 | **Latency-critical** | `--gc=G1` at build; raise heap to reduce GC frequency; profile with PGO. |
 | **Smallest possible binary** | Add `-Ob` (build mode = smallest); accept slower runtime. |

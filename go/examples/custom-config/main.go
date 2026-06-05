@@ -28,15 +28,15 @@ func main() {
 	// Start from defaults and tweak. Each line is annotated with what it
 	// trades off; see docs/tuning.md for the full table.
 	jvmArgs := []string{
-		"-Xmx256m",                                // 256 MB heap (default 64 MB)
-		"-XX:MaxHeapFree=16m",                     // less aggressive heap shrink
+		"-Xmx256m",            // 256 MB heap (default 64 MB)
+		"-XX:MaxHeapFree=16m", // less aggressive heap shrink
 		"-XX:+CollectYoungGenerationSeparately",
-		"-Dio.netty.maxDirectMemory=64m",          // 4× the default direct buffer cap
+		"-Dio.netty.maxDirectMemory=64m", // default direct buffer cap
 		"-XX:MaxDirectMemorySize=64m",
-		"-Dio.netty.allocator.type=pooled",        // pooled is faster under load (default unpooled)
-		"-Dio.netty.allocator.numHeapArenas=4",    // tune to expected concurrency
+		"-Dio.netty.allocator.type=pooled",     // pooled is faster under load (default unpooled)
+		"-Dio.netty.allocator.numHeapArenas=4", // tune to expected concurrency
 		"-Dio.netty.allocator.numDirectArenas=4",
-		"-Dio.netty.eventLoopThreads=8",           // 4× default — more cores → more event loops
+		"-Dio.netty.eventLoopThreads=8", // 4× default — more cores → more event loops
 		"-Dlog4j2.disableJmx=true",
 	}
 
