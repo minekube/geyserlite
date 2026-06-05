@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/minekube/geyserlite/compare/v0.2.4...v0.2.5) (2026-06-05)
+
+
+### Bug Fixes
+
+* **runtime:** raise default geyserlite direct memory ([c5bccd7](https://github.com/minekube/geyserlite/commit/c5bccd7d2cc71b28565a8304a9c60c5c84895d27))
+
 ## [0.2.4](https://github.com/minekube/geyserlite/compare/v0.2.3...v0.2.4) (2026-06-04)
 
 
