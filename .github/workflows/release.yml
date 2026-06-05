@@ -14,6 +14,7 @@ permissions:
   contents: write    # GitHub Release upload
   packages: write    # GHCR (if we ever sign the OCI image at release time)
   id-token: write    # cosign keyless + crates.io Trusted Publishing OIDC
+  actions: read      # locate and download matching native-image artifacts
 
 jobs:
   release:
@@ -36,13 +37,68 @@ jobs:
 
       - uses: sigstore/cosign-installer@v3
 
-      - name: Pull native artifacts from latest native-image.yml run
+      - name: Pull native artifacts for this release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           mkdir -p artifacts
-          # Last successful native-image build on this commit's history.
-          RUN_ID=$(gh run list --workflow=native-image.yml --branch=main --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+
+          # Release commits usually only bump metadata. The native assets
+          # belong to the latest reachable commit that changed native build
+          # inputs, so wait for that exact native-image.yml run instead of
+          # racing against "latest successful" artifacts from an older commit.
+          NATIVE_SHA=$(git log -n 1 --format=%H -- \
+            build \
+            mise.toml \
+            .github/workflows/native-image.yml)
+
+          if [ -z "$NATIVE_SHA" ]; then
+            echo "::error::Could not resolve native artifact source commit"
+            exit 1
+          fi
+
+          echo "Waiting for native-image.yml artifacts from $NATIVE_SHA"
+          RUN_ID=""
+          RUN_URL=""
+          for _ in $(seq 1 240); do
+            RUN_JSON=$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow=native-image.yml \
+              --branch=main \
+              --limit=100 \
+              --json databaseId,headSha,status,conclusion,url,createdAt \
+              --jq "map(select(.headSha == \"$NATIVE_SHA\")) | sort_by(.createdAt) | reverse | .[0] // {}")
+
+            RUN_ID=$(echo "$RUN_JSON" | jq -r '.databaseId // ""')
+            STATUS=$(echo "$RUN_JSON" | jq -r '.status // ""')
+            CONCLUSION=$(echo "$RUN_JSON" | jq -r '.conclusion // ""')
+            RUN_URL=$(echo "$RUN_JSON" | jq -r '.url // ""')
+
+            if [ -z "$RUN_ID" ]; then
+              echo "No native-image.yml run for $NATIVE_SHA yet; waiting..."
+              sleep 10
+              continue
+            fi
+
+            echo "native-image.yml run $RUN_ID is $STATUS/$CONCLUSION: $RUN_URL"
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                break
+              fi
+              echo "::error::native-image.yml run $RUN_ID concluded $CONCLUSION"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          if [ -z "$RUN_ID" ] || [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
+            echo "::error::Timed out waiting for successful native-image.yml artifacts from $NATIVE_SHA"
+            exit 1
+          fi
+
           # Only download our own upload-artifact outputs; skip the
           # docker/build-push-action build-summary blobs (which gh run
           # download mistakes for zips and chokes on).
