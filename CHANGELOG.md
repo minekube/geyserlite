@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/minekube/geyserlite/compare/v0.2.6...v0.2.7) (2026-06-08)
+
+
+### Bug Fixes
+
+* repair arm64 image and expose download failures ([#27](https://github.com/minekube/geyserlite/issues/27)) ([b5436ae](https://github.com/minekube/geyserlite/commit/b5436aee2422a0953d0dbf493968295972e7871e))
+
 ## [0.2.6](https://github.com/minekube/geyserlite/compare/v0.2.5...v0.2.6) (2026-06-05)
 
 
