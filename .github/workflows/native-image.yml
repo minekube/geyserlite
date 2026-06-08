@@ -282,7 +282,13 @@ jobs:
             "--parallelism=2",
             "-o", $output
           )
-          & $nativeImage @flags
+          $argsFile = "native-image.args"
+          Set-Content -Path $argsFile -Value $flags -Encoding utf8NoBOM
+          Write-Host "native-image args:"
+          Get-Content $argsFile | ForEach-Object { Write-Host "  $_" }
+
+          & $nativeImage --dry-run "@$argsFile"
+          & $nativeImage "@$argsFile"
 
       - name: Scan Windows executable with Microsoft Defender
         shell: pwsh
