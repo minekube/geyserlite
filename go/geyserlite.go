@@ -47,7 +47,7 @@ const (
 	// methods directly. No subprocess. Lowest overhead. Native crash kills the host.
 	ModeEmbedded Mode = iota
 
-	// ModeSubprocess spawns the geyserlite ELF via os/exec. Crash-isolated.
+	// ModeSubprocess spawns the geyserlite native binary via os/exec. Crash-isolated.
 	ModeSubprocess
 )
 
@@ -77,7 +77,7 @@ type Options struct {
 	// LibraryPath overrides the auto-located libgeyserlite.so. [ModeEmbedded] only.
 	LibraryPath string
 
-	// BinaryPath overrides the auto-located geyserlite ELF. [ModeSubprocess] only.
+	// BinaryPath overrides the auto-located geyserlite native binary. [ModeSubprocess] only.
 	BinaryPath string
 
 	// JVMArgs overrides the default tuned JVM args (see [DefaultJVMArgs]).
@@ -161,8 +161,8 @@ var (
 	ErrNotStarted = errors.New("geyserlite: server not started")
 	// ErrAlreadyStarted is returned when Start is called twice.
 	ErrAlreadyStarted = errors.New("geyserlite: server already started")
-	// ErrNoBinary is returned when the geyserlite ELF can't be located.
-	ErrNoBinary = errors.New("geyserlite: ELF binary not found (set Options.BinaryPath, $GEYSERLITE_BINARY, or build with -tags geyserlite_embed)")
+	// ErrNoBinary is returned when the geyserlite native binary can't be located.
+	ErrNoBinary = errors.New("geyserlite: native binary not found (set Options.BinaryPath, $GEYSERLITE_BINARY, or build with -tags geyserlite_embed)")
 	// ErrNoLibrary is returned when libgeyserlite.so can't be located.
 	ErrNoLibrary = errors.New("geyserlite: libgeyserlite.so not found (set Options.LibraryPath, $GEYSERLITE_LIBRARY, or build with -tags geyserlite_embed)")
 	// ErrInvalidFloodgateKey is returned when FloodgateKey is the wrong size.

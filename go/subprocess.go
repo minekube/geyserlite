@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// subprocessRunner spawns the geyserlite ELF via os/exec, supervises it,
+// subprocessRunner spawns the geyserlite native binary via os/exec, supervises it,
 // restarts on crash with exponential backoff, and forwards signals.
 type subprocessRunner struct {
 	healthyFlag atomic.Bool

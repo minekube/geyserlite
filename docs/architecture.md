@@ -3,7 +3,7 @@
 ## High level
 
 ```
-Bedrock client ─UDP 19132─▶ libgeyserlite.so / geyserlite ELF
+Bedrock client ─UDP 19132─▶ libgeyserlite.so / geyserlite native executable
                                 │
                                 │ Floodgate AES-128 (loopback or TCP)
                                 ▼
@@ -14,8 +14,8 @@ A single GraalVM `native-image` build of upstream
 [GeyserMC/Geyser](https://github.com/GeyserMC/Geyser) compiled into two
 artifacts:
 
-- **`geyserlite` ELF** — drop-in for `Geyser-Standalone.jar`. Used by Docker
-  consumers and by the Go/Rust libraries' subprocess fallback.
+- **`geyserlite` native executable** — drop-in for `Geyser-Standalone.jar`.
+  Used by Docker consumers and by the Go/Rust libraries' subprocess fallback.
 - **`libgeyserlite.so`** — same code built with `--shared`, exposing
   `@CEntryPoint`-annotated lifecycle functions. Loaded via `dlopen` by the Go
   (`purego`) and Rust (`libloading`) libraries for in-process embedding.
@@ -42,7 +42,8 @@ We don't fork or contribute upstream. Our build pipeline:
 2. Layers in `build/overlay/` — pure additions, never overwrites.
 3. Applies `build/patches/*.patch` — minimal surgical changes (currently a
    one-line edit to `settings.gradle.kts` to register our overlay subproject).
-4. Runs `native-image` twice: once for the ELF, once for the `.so`.
+4. Runs `native-image` twice on Linux: once for the executable, once for the
+   `.so`. Windows CI builds and smokes the subprocess `.exe` artifact.
 
 Renovate watches upstream master and opens a PR bumping `geyser.version` on
 new commits. CI re-applies overlay + patches; conflicts surface as failed
@@ -68,7 +69,8 @@ Go program / Rust program
             os/exec / tokio::process
                 │
                 ▼
-            geyserlite ELF      (separate process)
+            geyserlite native executable
+                    (separate process)
 ```
 
 **Embedded mode** is the default because it's simpler operationally: one

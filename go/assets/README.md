@@ -1,22 +1,28 @@
 # `go/assets/`
 
-Per-arch native artifacts that get `//go:embed`'d into the Go binary when
-built with the `geyserlite_embed` build tag.
+Per-arch native artifacts used by the Go package. Linux artifacts can be
+`//go:embed`'d into the Go binary when built with the `geyserlite_embed`
+build tag. Windows currently uses the subprocess executable as a release
+download or explicit `Options.BinaryPath`.
 
 These files are **never committed** — they're downloaded by
 `task embed:fetch` (or your own equivalent) from a published GitHub
 Release before building.
 
-## Expected layout
+## Fetched release layout
 
 ```
 go/assets/
-├── geyserlite-linux-amd64           ELF binary (subprocess mode)
+├── geyserlite-linux-amd64           native binary (subprocess mode)
 ├── geyserlite-linux-arm64
+├── geyserlite-windows-amd64.exe     native binary (subprocess mode)
 ├── libgeyserlite-linux-amd64.so     shared library (embedded mode)
 ├── libgeyserlite-linux-arm64.so
 └── checksums.txt                    sha256 manifest from the release
 ```
+
+Windows embedded DLL assets are not part of the expected layout yet.
+Windows consumers should use subprocess mode with `geyserlite-windows-amd64.exe`.
 
 ## Why not commit them
 

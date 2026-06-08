@@ -70,28 +70,19 @@ pub(crate) async fn download_asset(opts: &Options, kind: AssetKind) -> Result<Pa
     Ok(cached_path)
 }
 
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 fn asset_for_target(kind: AssetKind) -> Result<&'static str> {
-    Ok(match kind {
-        AssetKind::Binary => "geyserlite-linux-amd64",
-        AssetKind::Library => "libgeyserlite-linux-amd64.so",
-    })
+    asset_for(std::env::consts::OS, std::env::consts::ARCH, kind)
 }
 
-#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-fn asset_for_target(kind: AssetKind) -> Result<&'static str> {
-    Ok(match kind {
-        AssetKind::Binary => "geyserlite-linux-arm64",
-        AssetKind::Library => "libgeyserlite-linux-arm64.so",
-    })
-}
-
-#[cfg(not(all(
-    target_os = "linux",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-)))]
-fn asset_for_target(_kind: AssetKind) -> Result<&'static str> {
-    Err(Error::UnsupportedTarget)
+fn asset_for(os: &str, arch: &str, kind: AssetKind) -> Result<&'static str> {
+    match (os, arch, kind) {
+        ("linux", "x86_64", AssetKind::Binary) => Ok("geyserlite-linux-amd64"),
+        ("linux", "x86_64", AssetKind::Library) => Ok("libgeyserlite-linux-amd64.so"),
+        ("linux", "aarch64", AssetKind::Binary) => Ok("geyserlite-linux-arm64"),
+        ("linux", "aarch64", AssetKind::Library) => Ok("libgeyserlite-linux-arm64.so"),
+        ("windows", "x86_64", AssetKind::Binary) => Ok("geyserlite-windows-amd64.exe"),
+        _ => Err(Error::UnsupportedTarget),
+    }
 }
 
 async fn fetch_expected_sha(base: &str, version: &str, asset_name: &str) -> Result<String> {
@@ -169,4 +160,66 @@ fn stream_sha(path: &std::path::Path) -> Result<String> {
         hasher.update(&buf[..n]);
     }
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AssetKind, asset_for};
+
+    #[test]
+    fn asset_for_release_targets() {
+        let cases = [
+            (
+                "linux amd64 binary",
+                "linux",
+                "x86_64",
+                AssetKind::Binary,
+                Ok("geyserlite-linux-amd64"),
+            ),
+            (
+                "linux arm64 library",
+                "linux",
+                "aarch64",
+                AssetKind::Library,
+                Ok("libgeyserlite-linux-arm64.so"),
+            ),
+            (
+                "windows amd64 binary",
+                "windows",
+                "x86_64",
+                AssetKind::Binary,
+                Ok("geyserlite-windows-amd64.exe"),
+            ),
+            (
+                "windows library unsupported",
+                "windows",
+                "x86_64",
+                AssetKind::Library,
+                Err(()),
+            ),
+            (
+                "windows arm64 unsupported",
+                "windows",
+                "aarch64",
+                AssetKind::Binary,
+                Err(()),
+            ),
+            (
+                "darwin unsupported",
+                "macos",
+                "aarch64",
+                AssetKind::Binary,
+                Err(()),
+            ),
+        ];
+
+        for (name, os, arch, kind, want) in cases {
+            let got = asset_for(os, arch, kind);
+            match (got, want) {
+                (Ok(got), Ok(want)) => assert_eq!(got, want, "{name}"),
+                (Err(_), Err(())) => {}
+                (got, want) => panic!("{name}: got {got:?}, want {want:?}"),
+            }
+        }
+    }
 }

@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="${REPO_ROOT}/build/.work"
 GEYSER_DIR="${WORK_DIR}/Geyser"
 GEYSER_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/build/geyser.version")"
+PYTHON_BIN="${PYTHON:-python3}"
 
 echo "▸ Geyser ref: ${GEYSER_VERSION}"
 
@@ -63,7 +64,7 @@ echo "▸ Patching GeyserStandaloneBootstrap for embedded use"
 # Anchor it here too so a rename in either place breaks loudly.
 SBP="${GEYSER_DIR}/bootstrap/standalone/src/main/java/org/geysermc/geyser/platform/standalone/GeyserStandaloneBootstrap.java"
 EMBED_PROP="geyserlite.embedded"
-python3 - "$SBP" "$EMBED_PROP" <<'PY'
+"${PYTHON_BIN}" - "$SBP" "$EMBED_PROP" <<'PY'
 import sys, re
 path, prop = sys.argv[1], sys.argv[2]
 src = open(path).read()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-//! Locate the native ELF binary or shared library at runtime.
+//! Locate the native binary or shared library at runtime.
 
 use std::path::{Path, PathBuf};
 
@@ -129,12 +129,27 @@ fn ensure_file(p: &Path) -> Result<()> {
 fn which(name: &str) -> Result<PathBuf> {
     let path_env = std::env::var_os("PATH").ok_or(Error::NoBinary)?;
     for dir in std::env::split_paths(&path_env) {
-        let p = dir.join(name);
-        if p.is_file() && ensure_executable(&p).is_ok() {
-            return Ok(p);
+        for p in path_candidates(&dir, name) {
+            if p.is_file() && ensure_executable(&p).is_ok() {
+                return Ok(p);
+            }
         }
     }
     Err(Error::NoBinary)
+}
+
+#[cfg(target_os = "windows")]
+fn path_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![dir.join(name)];
+    if Path::new(name).extension().is_none() {
+        candidates.push(dir.join(format!("{name}.exe")));
+    }
+    candidates
+}
+
+#[cfg(not(target_os = "windows"))]
+fn path_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
+    vec![dir.join(name)]
 }
 
 #[cfg(not(feature = "embed"))]
@@ -170,4 +185,24 @@ async fn try_download_binary(_opts: &Options) -> Result<PathBuf> {
 #[cfg(not(feature = "download"))]
 async fn try_download_library(_opts: &Options) -> Result<PathBuf> {
     Err(Error::NoLibrary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_candidates_match_platform() {
+        let dir = Path::new("bin");
+        let candidates = path_candidates(dir, "geyserlite");
+
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            candidates,
+            vec![dir.join("geyserlite"), dir.join("geyserlite.exe")]
+        );
+
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(candidates, vec![dir.join("geyserlite")]);
+    }
 }

@@ -24,19 +24,20 @@ flags, and a baked 192 MB heap, so the same workload fits in **~110 MB
 idle / ~175 MB peak** alongside a Go or Rust proxy on the same machine.
 
 Two flagship language libraries (Go and Rust, peers, same release cycle)
-load `libgeyserlite.so` in-process via `dlopen` and hand back a normal
+load `libgeyserlite.so` in-process via `dlopen` on Linux, or spawn the
+native executable as a crash-isolated subprocess, and hand back a normal
 `Server` handle.
 
 ## What ships today
 
 | Artifact | Where | Status |
 |---|---|---|
-| Native ELF, Bedrock listener | `geyserlite-linux-amd64` / `-arm64` on the [latest GitHub Release](https://github.com/minekube/geyserlite/releases/latest) | ✅ cosign-signed + SBOM-attested |
-| Container image | `ghcr.io/minekube/geyserlite:latest` (multi-arch) | ✅ smoke-tested per build (RakNet ping → MOTD round-trip) |
-| Shared library | `libgeyserlite-linux-{amd64,arm64}.so` + header on the same release | ✅ shipped; `@CEntryPoint` exports being wired up so Go/Rust can call `geyser_init` directly |
-| Go module | `go get go.minekube.com/geyserlite` | ✅ published via vanity-URL Worker proxy |
-| Rust crate | `cargo add geyserlite` | ✅ published via crates.io OIDC Trusted Publishing |
-| Gate adapter | `go.minekube.com/geyserlite/integration/gate` | ✅ ready; Gate-side PR pending |
+| Native executable, Bedrock listener | `geyserlite-linux-amd64`, `geyserlite-linux-arm64`, `geyserlite-windows-amd64.exe` on the [latest GitHub Release](https://github.com/minekube/geyserlite/releases/latest) | cosign-signed + SBOM-attested; Windows artifact is also scanned by Microsoft Defender in CI |
+| Container image | `ghcr.io/minekube/geyserlite:latest` (multi-arch) | smoke-tested per build (RakNet ping to MOTD round-trip) |
+| Shared library | `libgeyserlite-linux-{amd64,arm64}.so` + header on the same release | shipped for Linux embedded mode; `@CEntryPoint` exports let Go/Rust call `geyser_init` directly |
+| Go module | `go get go.minekube.com/geyserlite` | published via vanity-URL Worker proxy |
+| Rust crate | `cargo add geyserlite` | published via crates.io OIDC Trusted Publishing |
+| Gate adapter | `go.minekube.com/geyserlite/integration/gate` | ready for managed Bedrock integrations |
 
 Verify a download:
 
@@ -80,7 +81,8 @@ log.Fatal(srv.Start(ctx))
 ```
 
 Single-binary distribution: `go build -tags geyserlite_embed` bundles the
-matching `.so` with self-extract on first run.
+matching Linux `.so` with self-extract on first run. Windows uses
+subprocess mode with `geyserlite-windows-amd64.exe`.
 [Full Go README →](./go/README.md)
 
 ### Rust
@@ -135,8 +137,9 @@ is when CI gates surface a real conflict.
 GeyserMC/Geyser commit
   ↓ (Renovate, daily)
 "fix(deps): bump Geyser to <sha>" PR
-  ↓ CI re-applies the soft-fork overlay; 8 jobs gate
-  │  • build amd64 + arm64           • smoke (docker container)
+  ↓ CI re-applies the soft-fork overlay; native + integration jobs gate
+  │  • build Linux amd64 + arm64     • build/smoke Windows amd64
+  │  • smoke (docker container)
   │  • header export assertion       • multi-arch manifest
   │  • go-integration (embedded)     • rust-integration (embedded)
   │  • go-subprocess-integration     • rust-subprocess-integration

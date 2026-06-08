@@ -19,9 +19,9 @@ pub enum Error {
     #[error("geyserlite: server already started")]
     AlreadyStarted,
 
-    /// The native ELF binary couldn't be located for [`super::Mode::Subprocess`].
+    /// The native binary couldn't be located for [`super::Mode::Subprocess`].
     #[error(
-        "geyserlite: ELF binary not found (set Options.binary_path, $GEYSERLITE_BINARY, or build with --features embed)"
+        "geyserlite: native binary not found (set Options.binary_path, $GEYSERLITE_BINARY, or build with --features embed)"
     )]
     NoBinary,
 
@@ -61,7 +61,7 @@ pub enum Error {
 
     /// Auto-download isn't supported on this build target.
     #[error(
-        "geyserlite: auto-download supports linux amd64/arm64 only; set Options.binary_path or Options.library_path"
+        "geyserlite: auto-download supports linux amd64/arm64 and windows amd64 subprocess binaries only; set Options.binary_path or Options.library_path"
     )]
     UnsupportedTarget,
 

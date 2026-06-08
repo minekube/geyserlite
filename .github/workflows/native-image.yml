@@ -187,6 +187,185 @@ jobs:
           path: artifacts/
           if-no-files-found: error
 
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply Geyser overlay
+        shell: bash
+        env:
+          PYTHON: python
+        run: |
+          python --version
+          bash build/apply-overlay.sh
+
+      - name: Build standalone shadow JAR
+        working-directory: build/.work/Geyser
+        run: ./gradlew.bat :standalone:shadowJar --no-daemon
+
+      - name: Complete native-image metadata
+        shell: pwsh
+        run: |
+          python build/augment-annotation-reflect-config.py `
+            --jar build/.work/Geyser/bootstrap/standalone/build/libs/Geyser-Standalone.jar `
+            --config-dir build/.work/Geyser/agent-config
+          python build/mark-reflect-unsafe.py `
+            --config-dir build/.work/Geyser/agent-config
+
+      - name: Build Windows executable
+        shell: pwsh
+        env:
+          NI_BUILD_JVM_XMX: 12g
+        run: |
+          New-Item -ItemType Directory -Force build/.native-windows | Out-Null
+          Copy-Item build/.work/Geyser/bootstrap/standalone/build/libs/Geyser-Standalone.jar build/.native-windows/
+          Copy-Item -Recurse build/.work/Geyser/agent-config build/.native-windows/
+          Set-Location build/.native-windows
+
+          $nativeImage = Join-Path $env:GRAALVM_HOME "bin/native-image.cmd"
+          & $nativeImage --version
+          Remove-Item Env:NATIVE_IMAGE_CONFIG_FILE -ErrorAction SilentlyContinue
+
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (!(Test-Path $vswhere)) {
+            throw "vswhere.exe not found at $vswhere"
+          }
+          $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vsInstall) {
+            throw "Visual Studio with MSVC x64 tools not found"
+          }
+          $vcvars = Join-Path $vsInstall "VC/Auxiliary/Build/vcvars64.bat"
+          if (!(Test-Path $vcvars)) {
+            throw "vcvars64.bat not found at $vcvars"
+          }
+          Write-Host "Visual Studio installation: $vsInstall"
+          Write-Host "MSVC environment script: $vcvars"
+
+          $jar = "Geyser-Standalone.jar"
+          $configDir = "agent-config"
+          $output = "geyserlite"
+          Write-Host "native-image jar: $jar"
+          Write-Host "native-image config: $configDir"
+          Write-Host "native-image output: $output"
+
+          $buildXmx = if ($env:NI_BUILD_JVM_XMX) { $env:NI_BUILD_JVM_XMX } else { "6g" }
+          $flags = @(
+            "-H:ConfigurationFileDirectories=$configDir",
+            '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$',
+            "--no-fallback",
+            "--enable-url-protocols=https,http",
+            "--initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna",
+            "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
+            "--strict-image-heap",
+            "-march=compatibility",
+            "-O2",
+            "-R:MaxHeapSize=256m",
+            "-H:+UnlockExperimentalVMOptions",
+            "-H:+RemoveSaturatedTypeFlows",
+            "-H:-ReportExceptionStackTraces",
+            "-J-Xmx$buildXmx",
+            "-jar", $jar,
+            "--parallelism=2",
+            "-o", $output
+          )
+          $argsFile = "native-image.args"
+          Set-Content -Path $argsFile -Value $flags -Encoding utf8NoBOM
+          Write-Host "native-image args:"
+          Get-Content $argsFile | ForEach-Object { Write-Host "  $_" }
+
+          $cmd = '"{0}" && where cl.exe && "{1}" "@{2}"' -f $vcvars, $nativeImage, $argsFile
+          cmd.exe /d /s /c $cmd
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Scan Windows executable with Microsoft Defender
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          )
+          if (Test-Path "$env:ProgramData\Microsoft\Windows Defender\Platform") {
+            $latestPlatform = Get-ChildItem "$env:ProgramData\Microsoft\Windows Defender\Platform" -Directory |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
+            if ($latestPlatform) {
+              $candidates = @((Join-Path $latestPlatform.FullName "MpCmdRun.exe")) + $candidates
+            }
+          }
+
+          $mpcmd = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$mpcmd) {
+            Write-Warning "MpCmdRun.exe not found on this runner; skipping Defender scan"
+            exit 0
+          }
+
+          & $mpcmd -Scan -ScanType 3 -File "$PWD\build\.native-windows\geyserlite.exe"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Microsoft Defender scan failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Smoke Windows executable
+        shell: pwsh
+        run: |
+          $smoke = New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP/geyserlite-smoke"
+          Copy-Item build/.native-windows/geyserlite.exe "$smoke/geyserlite.exe"
+          Copy-Item build/.work/Geyser/core/src/main/resources/permissions.yml "$smoke/permissions.yml"
+
+          $stdout = Join-Path $smoke "stdout.log"
+          $stderr = Join-Path $smoke "stderr.log"
+          $proc = Start-Process `
+            -FilePath "$smoke/geyserlite.exe" `
+            -ArgumentList "--nogui" `
+            -WorkingDirectory $smoke `
+            -RedirectStandardOutput $stdout `
+            -RedirectStandardError $stderr `
+            -PassThru
+
+          try {
+            for ($i = 0; $i -lt 90; $i++) {
+              $logs = ""
+              if (Test-Path $stdout) { $logs += Get-Content $stdout -Raw }
+              if (Test-Path $stderr) { $logs += Get-Content $stderr -Raw }
+              if ($logs -match "Started Geyser on UDP port") {
+                exit 0
+              }
+              if ($proc.HasExited) {
+                throw "geyserlite exited with code $($proc.ExitCode)`n$logs"
+              }
+              Start-Sleep -Seconds 1
+            }
+            throw "timed out waiting for Geyser startup"
+          } finally {
+            if (!$proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force
+            }
+            if (Test-Path $stdout) { Get-Content $stdout }
+            if (Test-Path $stderr) { Get-Content $stderr }
+          }
+
+      - name: Stage release artifact
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Copy-Item build/.native-windows/geyserlite.exe artifacts/geyserlite-windows-amd64.exe
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
+        with:
+          name: geyserlite-windows-amd64
+          path: artifacts/
+          if-no-files-found: error
+
   # Multi-arch manifest + smoke
   publish-manifest:
     needs: build
