@@ -1,12 +1,14 @@
 # `rust/assets/`
 
-Per-target native artifacts `include_bytes!`'d into the Rust crate when
-built with the `embed` Cargo feature.
+Per-target native artifacts used by the Rust crate. Linux artifacts can be
+`include_bytes!`'d into the crate when built with the `embed` Cargo feature.
+Windows currently uses the subprocess executable as a release download or
+explicit `Options::binary_path`.
 
 These files are **never committed**. Run `task embed:fetch` (or
 `scripts/fetch-embed-assets.sh`) before `cargo build --features embed`.
 
-## Expected layout
+## Fetched release layout
 
 ```text
 rust/assets/

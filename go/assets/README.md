@@ -1,13 +1,15 @@
 # `go/assets/`
 
-Per-arch native artifacts that get `//go:embed`'d into the Go binary when
-built with the `geyserlite_embed` build tag.
+Per-arch native artifacts used by the Go package. Linux artifacts can be
+`//go:embed`'d into the Go binary when built with the `geyserlite_embed`
+build tag. Windows currently uses the subprocess executable as a release
+download or explicit `Options.BinaryPath`.
 
 These files are **never committed** — they're downloaded by
 `task embed:fetch` (or your own equivalent) from a published GitHub
 Release before building.
 
-## Expected layout
+## Fetched release layout
 
 ```
 go/assets/

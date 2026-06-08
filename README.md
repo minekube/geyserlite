@@ -137,8 +137,9 @@ is when CI gates surface a real conflict.
 GeyserMC/Geyser commit
   ↓ (Renovate, daily)
 "fix(deps): bump Geyser to <sha>" PR
-  ↓ CI re-applies the soft-fork overlay; 8 jobs gate
-  │  • build amd64 + arm64           • smoke (docker container)
+  ↓ CI re-applies the soft-fork overlay; native + integration jobs gate
+  │  • build Linux amd64 + arm64     • build/smoke Windows amd64
+  │  • smoke (docker container)
   │  • header export assertion       • multi-arch manifest
   │  • go-integration (embedded)     • rust-integration (embedded)
   │  • go-subprocess-integration     • rust-subprocess-integration
