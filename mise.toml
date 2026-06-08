@@ -13,7 +13,7 @@
 go = "1.26"
 
 # Rust crate (Edition 2024 requires 1.85+)
-rust = "1.85"
+rust = "1.96.0"
 
 # Java + GraalVM 21 LTS for the native-image build (when building locally
 # without Docker — most builds happen via `task build:native` which uses
@@ -24,7 +24,7 @@ java = "graalvm-community-21"
 "aqua:go-task/task" = "latest"
 
 # Used by build/Dockerfile's reflect-config patcher and various scripts.
-python = "3.12"
+python = "3.14.5"
 
 # Linters / formatters used by CI and by `task lint`.
 # markdownlint-cli2 ships as a Node package; yamllint as a Python package;
