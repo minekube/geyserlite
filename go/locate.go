@@ -44,6 +44,8 @@ func locateBinary(ctx context.Context, opts Options) (string, error) {
 	if !opts.Offline {
 		if path, err := downloadAsset(ctx, opts, assetKindBinary); err == nil {
 			return path, nil
+		} else {
+			return "", fmt.Errorf("%w: auto-download failed: %v", ErrNoBinary, err)
 		}
 	}
 	return "", ErrNoBinary
@@ -85,6 +87,8 @@ func locateLibrary(ctx context.Context, opts Options) (string, error) {
 	if !opts.Offline {
 		if path, err := downloadAsset(ctx, opts, assetKindLibrary); err == nil {
 			return path, nil
+		} else {
+			return "", fmt.Errorf("%w: auto-download failed: %v", ErrNoLibrary, err)
 		}
 	}
 	return "", ErrNoLibrary

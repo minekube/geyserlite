@@ -81,10 +81,32 @@ jobs:
           build-args: |
             GRAALVM_IMAGE=${{ steps.pins.outputs.graalvm }}
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}
           cache-from: type=gha,scope=image-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=image-${{ matrix.arch }}
+
+      - name: Smoke image on native architecture
+        run: |
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pins.outputs.geyser_short }}-${{ matrix.arch }}"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker pull "$image"
+          fi
+          docker run -d --name geyser-image-smoke "$image"
+          trap 'docker logs geyser-image-smoke 2>&1 || true; docker rm -f geyser-image-smoke >/dev/null 2>&1 || true' EXIT
+
+          for _ in $(seq 1 60); do
+            logs=$(docker logs geyser-image-smoke 2>&1)
+            if grep -q "Started Geyser on UDP port" <<<"$logs"; then
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' geyser-image-smoke)" != "true" ]; then
+              exit 1
+            fi
+            sleep 1
+          done
+          exit 1
 
       - name: Build shared library (extract artifacts)
         if: github.event_name != 'pull_request'
@@ -275,7 +297,11 @@ jobs:
 
   smoke:
     needs: publish-manifest
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
