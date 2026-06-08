@@ -199,10 +199,6 @@ jobs:
           distribution: 'graalvm-community'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Apply Geyser overlay
         shell: bash
         env:
@@ -236,8 +232,22 @@ jobs:
 
           $nativeImage = Join-Path $env:GRAALVM_HOME "bin/native-image.cmd"
           & $nativeImage --version
-          cl.exe 2>&1 | Select-Object -First 1
           Remove-Item Env:NATIVE_IMAGE_CONFIG_FILE -ErrorAction SilentlyContinue
+
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (!(Test-Path $vswhere)) {
+            throw "vswhere.exe not found at $vswhere"
+          }
+          $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vsInstall) {
+            throw "Visual Studio with MSVC x64 tools not found"
+          }
+          $vcvars = Join-Path $vsInstall "VC/Auxiliary/Build/vcvars64.bat"
+          if (!(Test-Path $vcvars)) {
+            throw "vcvars64.bat not found at $vcvars"
+          }
+          Write-Host "Visual Studio installation: $vsInstall"
+          Write-Host "MSVC environment script: $vcvars"
 
           $jar = "Geyser-Standalone.jar"
           $configDir = "agent-config"
@@ -271,8 +281,11 @@ jobs:
           Write-Host "native-image args:"
           Get-Content $argsFile | ForEach-Object { Write-Host "  $_" }
 
-          & $nativeImage --dry-run "@$argsFile"
-          & $nativeImage "@$argsFile"
+          $cmd = '"{0}" && where cl.exe && "{1}" "@{2}"' -f $vcvars, $nativeImage, $argsFile
+          cmd.exe /d /s /c $cmd
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
       - name: Scan Windows executable with Microsoft Defender
         shell: pwsh
