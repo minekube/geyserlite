@@ -255,9 +255,9 @@ jobs:
           cl.exe 2>&1 | Select-Object -First 1
           Remove-Item Env:NATIVE_IMAGE_CONFIG_FILE -ErrorAction SilentlyContinue
 
-          $jar = (Resolve-Path "Geyser-Standalone.jar").Path
-          $configDir = (Resolve-Path "agent-config").Path
-          $output = Join-Path (Get-Location).Path "geyserlite"
+          $jar = "Geyser-Standalone.jar"
+          $configDir = "agent-config"
+          $output = "geyserlite"
           Write-Host "native-image jar: $jar"
           Write-Host "native-image config: $configDir"
           Write-Host "native-image output: $output"
