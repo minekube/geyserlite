@@ -11,12 +11,16 @@ Release before building.
 
 ```
 go/assets/
-├── geyserlite-linux-amd64           ELF binary (subprocess mode)
+├── geyserlite-linux-amd64           native binary (subprocess mode)
 ├── geyserlite-linux-arm64
+├── geyserlite-windows-amd64.exe     native binary (subprocess mode)
 ├── libgeyserlite-linux-amd64.so     shared library (embedded mode)
 ├── libgeyserlite-linux-arm64.so
 └── checksums.txt                    sha256 manifest from the release
 ```
+
+Windows embedded DLL assets are not part of the expected layout yet.
+Windows consumers should use subprocess mode with `geyserlite-windows-amd64.exe`.
 
 ## Why not commit them
 

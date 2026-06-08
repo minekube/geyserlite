@@ -47,7 +47,7 @@ RUN curl -fsSLO https://musl.libc.org/releases/musl-1.2.5.tar.gz \
     && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/aarch64-linux-musl-gcc
 
 WORKDIR /work
-COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py ./build/
+COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py build/mark-reflect-unsafe.py ./build/
 COPY build/overlay/   ./build/overlay/
 COPY build/patches/   ./build/patches/
 COPY build/agent-config/ ./build/agent-config/
@@ -69,14 +69,7 @@ RUN python3 /work/build/augment-annotation-reflect-config.py \
 
 # Patch reflect-config to mark non-JDK classes as unsafe-allocated for Gson's UnsafeAllocator path.
 RUN cp -R /work/build/.work/Geyser/agent-config /tmp/agent-config
-RUN python3 -c "import json,sys; \
-    p='/tmp/agent-config/reflect-config.json'; \
-    cfg=json.load(open(p)); n=0; \
-    [(e.update({'unsafeAllocated': True}), n := n+1) for e in cfg \
-       if not e.get('name','').startswith(('java.','javax.','sun.','jdk.','com.sun.','com.oracle.','org.graalvm.')) \
-       and not e.get('unsafeAllocated')]; \
-    json.dump(cfg, open(p,'w'), indent=2); \
-    print(f'patched {n} entries')"
+RUN python3 /work/build/mark-reflect-unsafe.py --config-dir /tmp/agent-config
 
 # Stage the JAR + agent-config into a flat build dir so native-image flags resolve cleanly.
 WORKDIR /build

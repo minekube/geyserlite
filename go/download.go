@@ -95,18 +95,30 @@ const (
 )
 
 func assetForRuntime(kind assetKind) (string, error) {
-	if runtime.GOOS != "linux" {
-		return "", fmt.Errorf("geyserlite: auto-download supports linux only (got %s); set BinaryPath/LibraryPath manually", runtime.GOOS)
-	}
+	return assetFor(kind, runtime.GOOS, runtime.GOARCH)
+}
+
+func assetFor(kind assetKind, goos, goarch string) (string, error) {
 	var arch string
-	switch runtime.GOARCH {
+	switch goarch {
 	case "amd64":
 		arch = "amd64"
 	case "arm64":
 		arch = "arm64"
 	default:
-		return "", fmt.Errorf("geyserlite: auto-download supports amd64/arm64 only (got %s)", runtime.GOARCH)
+		return "", fmt.Errorf("geyserlite: auto-download supports amd64/arm64 only (got %s)", goarch)
 	}
+
+	if goos == "windows" {
+		if kind == assetKindBinary && arch == "amd64" {
+			return "geyserlite-windows-amd64.exe", nil
+		}
+		return "", fmt.Errorf("geyserlite: auto-download supports windows/amd64 subprocess binaries only (got %s/%s); set BinaryPath/LibraryPath manually", goos, goarch)
+	}
+	if goos != "linux" {
+		return "", fmt.Errorf("geyserlite: auto-download supports linux amd64/arm64 and windows amd64 subprocess binaries only (got %s/%s); set BinaryPath/LibraryPath manually", goos, goarch)
+	}
+
 	switch kind {
 	case assetKindBinary:
 		return fmt.Sprintf("geyserlite-linux-%s", arch), nil

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-//! Locate the native ELF binary or shared library at runtime.
+//! Locate the native binary or shared library at runtime.
 
 use std::path::{Path, PathBuf};
 

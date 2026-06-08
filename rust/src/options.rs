@@ -32,7 +32,7 @@ pub enum Mode {
     /// Native crash kills the host.
     #[default]
     Embedded,
-    /// Spawn the geyserlite ELF via [`tokio::process`]. Crash-isolated.
+    /// Spawn the geyserlite native binary via [`tokio::process`]. Crash-isolated.
     Subprocess,
 }
 
@@ -80,7 +80,7 @@ pub struct Options {
     pub mode: Mode,
     /// Override auto-located `libgeyserlite.so`. Embedded mode only.
     pub library_path: Option<String>,
-    /// Override auto-located ELF. Subprocess mode only.
+    /// Override auto-located native binary. Subprocess mode only.
     pub binary_path: Option<String>,
     /// Override default tuned JVM args. Subprocess mode only.
     /// `None` = use [`crate::default_jvm_args`].

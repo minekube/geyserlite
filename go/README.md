@@ -20,8 +20,8 @@ Resolves through `go.minekube.com`'s Cloudflare Worker module proxy to
 
 | Mode | How | Crash isolation | Pick when |
 |---|---|---|---|
-| `ModeEmbedded` *(default)* | `purego.Dlopen("libgeyserlite.so")` | ❌ shared address space | normal use; lowest overhead |
-| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | ✅ separate process | hard isolation, dev, debugging |
+| `ModeEmbedded` *(default)* | `purego.Dlopen("libgeyserlite.so")` | No, shared address space | normal use on Linux; lowest overhead |
+| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | Yes, separate process | hard isolation, Windows, dev, debugging |
 
 Same `Server` API across both — switch with `Options.Mode`.
 
@@ -94,7 +94,7 @@ so an embedder can pass its existing override map straight through the
 
 ## Library acquisition (`ModeEmbedded`)
 
-`libgeyserlite.so` resolution order:
+`libgeyserlite.so` resolution order on Linux:
 
 1. `Options.LibraryPath` — explicit override.
 2. `$GEYSERLITE_LIBRARY` env var.
@@ -106,6 +106,22 @@ so an embedder can pass its existing override map straight through the
 
 Production recipe: `go build -tags geyserlite_embed`. Ships a single
 self-contained binary with no runtime acquisition step.
+
+## Binary acquisition (`ModeSubprocess`)
+
+The subprocess binary resolution order mirrors library acquisition:
+
+1. `Options.BinaryPath` — explicit override.
+2. `$GEYSERLITE_BINARY` env var.
+3. Embedded blob when built with `-tags geyserlite_embed` and matching assets.
+4. `$PATH` lookup for `geyserlite`.
+5. Auto-download from the matching GitHub Release with sha256 verify
+   against `checksums.txt` (skipped when `Options.Offline`).
+
+Auto-download supports Linux amd64/arm64 and Windows amd64 subprocess
+binaries. Windows embedded DLL auto-download is intentionally not shipped
+yet; use `ModeSubprocess` on Windows for crash isolation and the released
+`geyserlite-windows-amd64.exe`.
 
 ## Crash boundary (read this)
 

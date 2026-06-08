@@ -11,7 +11,7 @@ import (
 	"runtime"
 )
 
-// locateBinary finds the geyserlite ELF for [ModeSubprocess].
+// locateBinary finds the geyserlite native binary for [ModeSubprocess].
 //
 // Resolution order:
 //  1. opts.BinaryPath if set (must exist + be executable)

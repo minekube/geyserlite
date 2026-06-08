@@ -16,18 +16,29 @@
 # --libc=musl, so we fall back to dynamic glibc (still produces a clean
 # ELF, just one with the standard glibc runtime dependency).
 NI_LIBC_FLAGS=()
-case "$(uname -m)" in
-    x86_64|amd64)
-        NI_MARCH="-march=x86-64-v2"
-        NI_LIBC_FLAGS=(--static --libc=musl)
-        ;;
-    aarch64|arm64)
-        NI_MARCH="-march=armv8-a"
-        ;;
-    *)
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT)
+        # Windows native-image uses MSVC. Linux-only musl/static flags do
+        # not apply, and -march=compatibility keeps the .exe broadly usable.
         NI_MARCH="-march=compatibility"
         ;;
+    *)
+        case "$(uname -m)" in
+            x86_64|amd64)
+                NI_MARCH="-march=x86-64-v2"
+                NI_LIBC_FLAGS=(--static --libc=musl)
+                ;;
+            aarch64|arm64)
+                NI_MARCH="-march=armv8-a"
+                ;;
+            *)
+                NI_MARCH="-march=compatibility"
+                ;;
+        esac
+        ;;
 esac
+
+NI_BUILD_JVM_XMX="${NI_BUILD_JVM_XMX:-14g}"
 
 # Flags shared by both the ELF and the .so build.
 NI_FLAGS_COMMON=(
@@ -92,7 +103,7 @@ NI_FLAGS_COMMON=(
     -H:-ReportExceptionStackTraces
 
     # Build-time resources (CPU on the build host, not runtime).
-    -J-Xmx14g
+    "-J-Xmx${NI_BUILD_JVM_XMX}"
 )
 
 # Flags specific to the standalone executable build.

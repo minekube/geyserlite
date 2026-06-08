@@ -29,8 +29,8 @@ Default build is "bring your own .so" — point `GEYSERLITE_LIBRARY` or
 
 | Mode | How | Crash isolation | Pick when |
 |---|---|---|---|
-| `Mode::Embedded` *(default)* | `libloading::Library::new("libgeyserlite.so")` | ❌ shared address space | normal use; lowest overhead |
-| `Mode::Subprocess` | `tokio::process::Command` | ✅ separate process | hard isolation, dev, debugging |
+| `Mode::Embedded` *(default)* | `libloading::Library::new("libgeyserlite.so")` | No, shared address space | normal use on Linux; lowest overhead |
+| `Mode::Subprocess` | `tokio::process::Command` | Yes, separate process | hard isolation, Windows, dev, debugging |
 
 Same [`Server`] API — switch via `Options::mode`.
 
@@ -93,7 +93,7 @@ can pass its existing override map straight through.
 
 ## Library acquisition (`Mode::Embedded`)
 
-`libgeyserlite.so` resolution order:
+`libgeyserlite.so` resolution order on Linux:
 
 1. `Options::library_path` — explicit override.
 2. `GEYSERLITE_LIBRARY` env var.
@@ -105,6 +105,16 @@ can pass its existing override map straight through.
 
 Production recipe: `cargo build --release --features embed`. Single
 self-contained binary, no runtime acquisition.
+
+## Binary acquisition (`Mode::Subprocess`)
+
+With the `download` feature, subprocess mode can auto-download the native
+executable from the matching GitHub Release with sha256 verification.
+Supported auto-download targets are Linux amd64/arm64 and Windows amd64.
+
+Windows embedded DLL auto-download is intentionally not shipped yet; use
+`Mode::Subprocess` on Windows for crash isolation and the released
+`geyserlite-windows-amd64.exe`.
 
 ## Crash boundary (read this)
 

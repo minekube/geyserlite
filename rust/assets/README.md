@@ -10,11 +10,15 @@ These files are **never committed**. Run `task embed:fetch` (or
 
 ```text
 rust/assets/
-├── geyserlite-linux-amd64           ELF binary (subprocess mode)
+├── geyserlite-linux-amd64           native binary (subprocess mode)
 ├── geyserlite-linux-arm64
+├── geyserlite-windows-amd64.exe     native binary (subprocess mode)
 ├── libgeyserlite-linux-amd64.so     shared library (embedded mode)
 └── libgeyserlite-linux-arm64.so
 ```
+
+Windows embedded DLL assets are not part of the expected layout yet.
+Windows consumers should use subprocess mode with `geyserlite-windows-amd64.exe`.
 
 ## Why not commit them
 
