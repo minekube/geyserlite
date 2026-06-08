@@ -13,7 +13,7 @@
 go = "1.26"
 
 # Rust crate (Edition 2024 requires 1.85+)
-rust = "1.85"
+rust = "1.96.0"
 
 # Java + GraalVM 21 LTS for the native-image build (when building locally
 # without Docker — most builds happen via `task build:native` which uses
