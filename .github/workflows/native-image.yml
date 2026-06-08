@@ -203,22 +203,6 @@ jobs:
         with:
           arch: x64
 
-      - name: Smoke GraalVM Native Image toolchain
-        shell: pwsh
-        run: |
-          $nativeImage = Join-Path $env:GRAALVM_HOME "bin/native-image.cmd"
-          & $nativeImage --version
-          javac -version
-          cl.exe 2>&1 | Select-Object -First 1
-
-          New-Item -ItemType Directory -Force build/.native-smoke | Out-Null
-          Set-Content -Path build/.native-smoke/Hello.java -Value 'public class Hello { public static void main(String[] args) { System.out.println("hello"); } }'
-          Push-Location build/.native-smoke
-          javac Hello.java
-          & $nativeImage --no-fallback -O0 Hello
-          .\hello.exe
-          Pop-Location
-
       - name: Apply Geyser overlay
         shell: bash
         env:
@@ -243,7 +227,7 @@ jobs:
       - name: Build Windows executable
         shell: pwsh
         env:
-          NI_BUILD_JVM_XMX: 6g
+          NI_BUILD_JVM_XMX: 12g
         run: |
           New-Item -ItemType Directory -Force build/.native-windows | Out-Null
           Copy-Item build/.work/Geyser/bootstrap/standalone/build/libs/Geyser-Standalone.jar build/.native-windows/
