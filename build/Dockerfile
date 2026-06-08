@@ -114,9 +114,17 @@ RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
          cp "$NC/graal_isolate.h" /out/libgeyserlite.h; \
        fi
 
-# ── Output stage: scratch image with just the ELF + permissions.yml ──────────
-FROM scratch AS image
+# The amd64 executable is fully static, while arm64 currently falls back to
+# dynamic glibc and zlib. Stage zlib from the target platform so the same final
+# image works on both architectures.
+FROM debian:bookworm-slim AS runtime-deps
+RUN mkdir -p /runtime-libs \
+    && cp -L /usr/lib/*-linux-gnu/libz.so.1 /runtime-libs/libz.so.1
+
+# ── Output stage: minimal runnable image + permissions.yml ───────────────────
+FROM gcr.io/distroless/base-debian12 AS image
 COPY --from=builder /out/geyserlite /geyserlite
+COPY --from=runtime-deps /runtime-libs/libz.so.1 /usr/lib/libz.so.1
 # permissions.yml moved upstream from bootstrap/standalone to core/
 # (see GeyserMC/Geyser commit history). Pinning to the new location.
 COPY --from=builder /work/build/.work/Geyser/core/src/main/resources/permissions.yml /permissions.yml
