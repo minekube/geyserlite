@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/minekube/geyserlite/compare/v0.3.0...v0.3.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser upstream to 0dbc38f ([#38](https://github.com/minekube/geyserlite/issues/38)) ([38e6633](https://github.com/minekube/geyserlite/commit/38e6633e719f06512eff57bdce5babcef05e10dc))
+
 ## [0.3.0](https://github.com/minekube/geyserlite/compare/v0.2.7...v0.3.0) (2026-06-08)
 
 
