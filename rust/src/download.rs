@@ -33,24 +33,32 @@ pub(crate) async fn download_asset(opts: &Options, kind: AssetKind) -> Result<Pa
     let asset_name = asset_for_target(kind)?;
 
     let cache_dir = cache_root()?.join("geyserlite").join(version);
-    let cached_path = cache_dir.join(asset_name);
+    let legacy_cached_path = cache_dir.join(asset_name);
 
-    // Trust the version-keyed dirname for warm-cache hits — full re-hash on
-    // every Server::start would re-read 100 MB just to confirm what the
-    // file's parent dir already names. Fresh downloads still verify (below).
-    if cached_path.is_file() {
+    let expected = fetch_expected_sha(base, version, asset_name).await?;
+    let cached_path = verified_download_path(&cache_dir, asset_name, &expected);
+
+    if matching_sha(&cached_path, &expected) {
         return Ok(cached_path);
     }
 
-    fs::create_dir_all(&cache_dir)?;
-    let url = format!("{base}/{version}/{asset_name}");
-    let tmp = cached_path.with_extension("tmp");
-    download_to(&url, &tmp).await?;
+    // Reuse the pre-content-addressed cache layout when it already contains
+    // the expected asset. New downloads use cached_path, which avoids replacing
+    // a version-stable executable that may still be running on Windows.
+    if matching_sha(&legacy_cached_path, &expected) {
+        return Ok(legacy_cached_path);
+    }
 
-    let expected = fetch_expected_sha(base, version, asset_name).await?;
-    let got = stream_sha(&tmp)?;
+    fs::create_dir_all(cached_path.parent().unwrap_or(&cache_dir))?;
+    let url = format!("{base}/{version}/{asset_name}");
+    let tmp = tempfile::Builder::new()
+        .prefix(asset_name)
+        .suffix(".tmp")
+        .tempfile_in(cached_path.parent().unwrap_or(&cache_dir))?;
+    download_to(&url, tmp.path()).await?;
+
+    let got = stream_sha(tmp.path())?;
     if got != expected {
-        let _ = fs::remove_file(&tmp);
         return Err(Error::ChecksumMismatch {
             asset: asset_name.into(),
             got,
@@ -61,13 +69,29 @@ pub(crate) async fn download_asset(opts: &Options, kind: AssetKind) -> Result<Pa
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perm = fs::metadata(&tmp)?.permissions();
+            let mut perm = fs::metadata(tmp.path())?.permissions();
             perm.set_mode(0o755);
-            fs::set_permissions(&tmp, perm)?;
+            fs::set_permissions(tmp.path(), perm)?;
         }
     }
-    fs::rename(&tmp, &cached_path)?;
+    if matching_sha(&cached_path, &expected) {
+        return Ok(cached_path);
+    }
+    if let Err(err) = tmp.persist_noclobber(&cached_path) {
+        if matching_sha(&cached_path, &expected) {
+            return Ok(cached_path);
+        }
+        return Err(Error::Io(err.error));
+    }
     Ok(cached_path)
+}
+
+fn verified_download_path(dir: &std::path::Path, asset_name: &str, expected_sha: &str) -> PathBuf {
+    dir.join(expected_sha).join(asset_name)
+}
+
+fn matching_sha(path: &std::path::Path, expected_sha: &str) -> bool {
+    path.is_file() && stream_sha(path).is_ok_and(|got| got == expected_sha)
 }
 
 fn asset_for_target(kind: AssetKind) -> Result<&'static str> {
@@ -164,7 +188,23 @@ fn stream_sha(path: &std::path::Path) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AssetKind, asset_for};
+    use std::path::Path;
+
+    use super::{AssetKind, asset_for, verified_download_path};
+
+    #[test]
+    fn verified_download_path_includes_expected_sha() {
+        let dir = Path::new("/cache/geyserlite/v1.2.3");
+        let asset_name = "geyserlite-windows-amd64.exe";
+        let expected_sha = "a".repeat(64);
+
+        let got = verified_download_path(dir, asset_name, &expected_sha);
+
+        assert_eq!(
+            got,
+            dir.join(&expected_sha).join("geyserlite-windows-amd64.exe")
+        );
+    }
 
     #[test]
     fn asset_for_release_targets() {
