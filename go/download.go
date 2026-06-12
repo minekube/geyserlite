@@ -43,13 +43,14 @@ func downloadAsset(ctx context.Context, opts Options, kind assetKind) (string, e
 		return "", fmt.Errorf("geyserlite: locate cache: %w", err)
 	}
 	dir := filepath.Join(cacheDir, "geyserlite", version)
-	cachedPath := filepath.Join(dir, assetName)
+	legacyCachedPath := filepath.Join(dir, assetName)
 
 	// Manifest fetch + sha lookup.
 	expectedSha, err := fetchExpectedSha(ctx, base, version, assetName)
 	if err != nil {
 		return "", err
 	}
+	cachedPath := verifiedDownloadPath(dir, assetName, expectedSha)
 
 	// Reuse cached if matching.
 	if existing, err := os.Open(cachedPath); err == nil {
@@ -60,31 +61,63 @@ func downloadAsset(ctx context.Context, opts Options, kind assetKind) (string, e
 		}
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// Reuse the pre-content-addressed cache layout when it already contains
+	// the expected asset. New downloads use cachedPath, which avoids replacing
+	// a version-stable executable that may still be running on Windows.
+	if legacyCachedPath != cachedPath {
+		existing, err := os.Open(legacyCachedPath)
+		if err == nil {
+			sum, hashErr := streamSha(existing)
+			_ = existing.Close()
+			if hashErr == nil && sum == expectedSha {
+				return legacyCachedPath, nil
+			}
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(cachedPath), 0o755); err != nil {
 		return "", fmt.Errorf("geyserlite: mkdir cache: %w", err)
 	}
 	url := fmt.Sprintf("%s/%s/%s", strings.TrimSuffix(base, "/"), version, assetName)
-	tmp := cachedPath + ".tmp"
-	if err := downloadFile(ctx, url, tmp); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(cachedPath), assetName+".*.tmp")
+	if err != nil {
+		return "", fmt.Errorf("geyserlite: create temp download: %w", err)
+	}
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	if err := downloadFile(ctx, url, tmpPath); err != nil {
+		_ = os.Remove(tmpPath)
 		return "", err
 	}
-	gotSha, err := shaFile(tmp)
+	gotSha, err := shaFile(tmpPath)
 	if err != nil {
-		_ = os.Remove(tmp)
+		_ = os.Remove(tmpPath)
 		return "", err
 	}
 	if gotSha != expectedSha {
-		_ = os.Remove(tmp)
+		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("geyserlite: sha256 mismatch for %s: got %s, want %s", assetName, gotSha, expectedSha)
 	}
 	if kind == assetKindBinary {
-		_ = os.Chmod(tmp, 0o755)
+		_ = os.Chmod(tmpPath, 0o755)
 	}
-	if err := os.Rename(tmp, cachedPath); err != nil {
-		_ = os.Remove(tmp)
+	if existing, err := os.Open(cachedPath); err == nil {
+		sum, hashErr := streamSha(existing)
+		_ = existing.Close()
+		if hashErr == nil && sum == expectedSha {
+			_ = os.Remove(tmpPath)
+			return cachedPath, nil
+		}
+	}
+	if err := os.Rename(tmpPath, cachedPath); err != nil {
+		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("geyserlite: rename %s: %w", cachedPath, err)
 	}
 	return cachedPath, nil
+}
+
+func verifiedDownloadPath(dir, assetName, expectedSha string) string {
+	return filepath.Join(dir, expectedSha, assetName)
 }
 
 type assetKind int
