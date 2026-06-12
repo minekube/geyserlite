@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/minekube/geyserlite/compare/v0.3.1...v0.3.2) (2026-06-12)
+
+
+### Bug Fixes
+
+* avoid replacing downloaded geyserlite binaries ([#40](https://github.com/minekube/geyserlite/issues/40)) ([49ef9f3](https://github.com/minekube/geyserlite/commit/49ef9f3336ff59cf61209ab93e96be99f235bf31))
+
 ## [0.3.1](https://github.com/minekube/geyserlite/compare/v0.3.0...v0.3.1) (2026-06-10)
 
 
