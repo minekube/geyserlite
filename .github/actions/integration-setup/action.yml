@@ -13,7 +13,7 @@ runs:
         cache: true
         experimental: true
 
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         name: geyserlite-amd64
         path: /tmp/artifacts
