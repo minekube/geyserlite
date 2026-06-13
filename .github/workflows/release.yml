@@ -46,7 +46,7 @@ jobs:
           cache: true
           experimental: true
 
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Pull native artifacts for this release
         env:
