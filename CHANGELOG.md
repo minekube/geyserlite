@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/minekube/geyserlite/compare/v0.3.3...v0.3.4) (2026-06-13)
+
+
+### Bug Fixes
+
+* trigger release after native integration repair ([13f8ea3](https://github.com/minekube/geyserlite/commit/13f8ea33ff709300e677e4e8756f1ad94b6ec680))
+
 ## [0.3.3](https://github.com/minekube/geyserlite/compare/v0.3.2...v0.3.3) (2026-06-13)
 
 
