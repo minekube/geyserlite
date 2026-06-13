@@ -10,11 +10,13 @@ on:
     paths:
       - 'build/**'
       - 'mise.toml'
+      - '.github/actions/integration-setup/**'
       - '.github/workflows/native-image.yml'
   pull_request:
     paths:
       - 'build/**'
       - 'mise.toml'
+      - '.github/actions/integration-setup/**'
       - '.github/workflows/native-image.yml'
   workflow_dispatch:
 
