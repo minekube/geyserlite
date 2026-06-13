@@ -47,7 +47,7 @@ RUN curl -fsSLO https://musl.libc.org/releases/musl-1.2.5.tar.gz \
     && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/aarch64-linux-musl-gcc
 
 WORKDIR /work
-COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py build/mark-reflect-unsafe.py ./build/
+COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py build/mark-reflect-unsafe.py build/validate-geyser-source.py ./build/
 COPY build/overlay/   ./build/overlay/
 COPY build/patches/   ./build/patches/
 COPY build/agent-config/ ./build/agent-config/
