@@ -11,7 +11,7 @@
 
 services:
   floodgate-key:
-    image: alpine:3.23
+    image: alpine:3.24
     command: >
       sh -c "test -f /key/key.bin || (head -c 16 /dev/urandom > /key/key.bin && chmod 600 /key/key.bin && echo 'generated 16-byte AES Floodgate key')"
     volumes:
