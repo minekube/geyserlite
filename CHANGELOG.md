@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/minekube/geyserlite/compare/v0.3.2...v0.3.3) (2026-06-13)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser upstream block palette fix ([6f80e26](https://github.com/minekube/geyserlite/commit/6f80e26769f0b4f0a7b899f58e735fb87ecc32fc))
+
 ## [0.3.2](https://github.com/minekube/geyserlite/compare/v0.3.1...v0.3.2) (2026-06-12)
 
 
