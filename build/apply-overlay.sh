@@ -125,4 +125,7 @@ if [ ${#patches[@]} -gt 0 ]; then
   done
 fi
 
+echo "▸ Validating Geyser source assumptions"
+"${PYTHON_BIN}" "${REPO_ROOT}/build/validate-geyser-source.py" "${GEYSER_DIR}"
+
 echo "✓ Overlay applied; tree at ${GEYSER_DIR}"
