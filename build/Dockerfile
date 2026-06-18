@@ -7,7 +7,7 @@
 #
 # See build/flags.sh for the full flag set with annotations.
 
-ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:21-ol9
+ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:25-ol9
 
 # ── Build stage ──────────────────────────────────────────────────────────────
 FROM ${GRAALVM_IMAGE} AS builder
