@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/minekube/geyserlite/compare/v0.3.7...v0.3.8) (2026-06-18)
+
+
+### Bug Fixes
+
+* **deps:** update language deps ([#32](https://github.com/minekube/geyserlite/issues/32)) ([0918354](https://github.com/minekube/geyserlite/commit/091835433db783358c0e8458fea2df0c54f02315))
+
 ## [0.3.7](https://github.com/minekube/geyserlite/compare/v0.3.6...v0.3.7) (2026-06-18)
 
 
