@@ -114,7 +114,7 @@ tasks:
   lint:yaml:
     desc: YAML lint
     cmds:
-      - yamllint .
+      - uvx --from yamllint yamllint .
 
   lint:
     desc: run all linters
