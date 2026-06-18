@@ -2,7 +2,7 @@
 name = "geyserlite"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Embed GeyserMC's Bedrock-Java translation in Rust programs (in-process via libloading, or as a managed subprocess)"
 license = "MIT"
 repository = "https://github.com/minekube/geyserlite"
@@ -24,16 +24,16 @@ download = ["dep:reqwest", "dep:sha2"]
 tokio = { version = "1", features = ["macros", "process", "signal", "rt-multi-thread", "io-util", "time", "sync"] }
 tokio-util = "0.7"
 tracing = "0.1"
-libloading = "0.8"
+libloading = "0.9"
 thiserror = "2"
-getrandom = "0.3"
+getrandom = "0.4"
 tempfile = "3"
 libc = "0.2"
 
 # embed + download features
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 # download feature
-reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false, optional = true }
+reqwest = { version = "0.13", features = ["rustls"], default-features = false, optional = true }
 serde_yaml_ng = "0.10"
 
 [dev-dependencies]

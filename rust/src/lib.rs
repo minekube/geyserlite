@@ -14,6 +14,8 @@ mod embedded;
 mod error;
 mod floodgate;
 mod fly;
+#[cfg(any(feature = "embed", feature = "download"))]
+mod hex;
 mod locate;
 mod options;
 #[cfg(any(feature = "embed", feature = "download"))]

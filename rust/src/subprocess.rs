@@ -142,10 +142,11 @@ async fn forward_lines<R: tokio::io::AsyncRead + Unpin>(
             Level::ERROR => tracing::error!(stream, "{}", line),
             _ => info!(stream, "{}", line),
         }
-        if let Some(flag) = &healthy {
-            if !flag.load(Ordering::Relaxed) && line_is_done(&line) {
-                flag.store(true, Ordering::Relaxed);
-            }
+        if let Some(flag) = &healthy
+            && !flag.load(Ordering::Relaxed)
+            && line_is_done(&line)
+        {
+            flag.store(true, Ordering::Relaxed);
         }
     }
 }
