@@ -13,6 +13,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 
 use crate::error::{Error, Result};
+use crate::hex::hex_lower;
 use crate::options::Options;
 use crate::paths::cache_root;
 use crate::version::{DEFAULT_DOWNLOAD_BASE, DEFAULT_VERSION};
@@ -183,7 +184,7 @@ fn stream_sha(path: &std::path::Path) -> Result<String> {
         }
         hasher.update(&buf[..n]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex_lower(&hasher.finalize()))
 }
 
 #[cfg(test)]

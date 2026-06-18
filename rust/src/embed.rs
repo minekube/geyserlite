@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use sha2::{Digest, Sha256};
 
 use crate::error::Result;
+use crate::hex::hex_lower;
 use crate::paths::cache_root;
 
 /// Returns the on-disk path of the extracted asset, writing it from the
@@ -21,7 +22,7 @@ pub(crate) fn extract_asset(blob: &[u8], name: &str, executable: bool) -> Result
     if blob.is_empty() {
         return Ok(None);
     }
-    let sha = format!("{:x}", Sha256::digest(blob));
+    let sha = hex_lower(&Sha256::digest(blob));
 
     let mut dir = cache_root()?;
     dir.push("geyserlite");

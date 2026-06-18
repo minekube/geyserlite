@@ -186,13 +186,13 @@ pub(crate) fn split_host_port(s: &str, default_host: &str, default_port: i64) ->
 }
 
 fn split_host_port_str(s: &str) -> (String, String) {
-    if let Some(rest) = s.strip_prefix('[') {
-        if let Some(end) = rest.find(']') {
-            let host = &rest[..end];
-            let after = &rest[end + 1..];
-            let port = after.strip_prefix(':').unwrap_or("");
-            return (host.into(), port.into());
-        }
+    if let Some(rest) = s.strip_prefix('[')
+        && let Some(end) = rest.find(']')
+    {
+        let host = &rest[..end];
+        let after = &rest[end + 1..];
+        let port = after.strip_prefix(':').unwrap_or("");
+        return (host.into(), port.into());
     }
     if let Some(idx) = s.rfind(':') {
         return (s[..idx].into(), s[idx + 1..].into());
