@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/minekube/geyserlite/compare/v0.3.5...v0.3.6) (2026-06-18)
+
+
+### Bug Fixes
+
+* **ci:** run yamllint through uv ([#50](https://github.com/minekube/geyserlite/issues/50)) ([e4b8230](https://github.com/minekube/geyserlite/commit/e4b82302ce8eb6b2b87089ec29422b47523ae1eb))
+
 ## [0.3.5](https://github.com/minekube/geyserlite/compare/v0.3.4...v0.3.5) (2026-06-13)
 
 
