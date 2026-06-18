@@ -130,7 +130,7 @@ stdout/stderr piped through `tracing`.
 
 ## MSRV / runtime
 
-- Stable Rust **1.85+**, Edition **2024**. No nightly features.
+- Stable Rust **1.88+**, Edition **2024**. No nightly features.
 - Async API uses `tokio`. A runtime-agnostic API is on the
   open-questions list — see [`../ROADMAP.md`](../ROADMAP.md) if you
   have a use case for it.

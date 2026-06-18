@@ -2,7 +2,7 @@
 name = "geyserlite"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Embed GeyserMC's Bedrock-Java translation in Rust programs (in-process via libloading, or as a managed subprocess)"
 license = "MIT"
 repository = "https://github.com/minekube/geyserlite"
@@ -33,7 +33,7 @@ libc = "0.2"
 # embed + download features
 sha2 = { version = "0.11", optional = true }
 # download feature
-reqwest = { version = "0.13", features = ["rustls-tls"], default-features = false, optional = true }
+reqwest = { version = "0.13", features = ["rustls"], default-features = false, optional = true }
 serde_yaml_ng = "0.10"
 
 [dev-dependencies]

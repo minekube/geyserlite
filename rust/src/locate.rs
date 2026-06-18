@@ -18,12 +18,12 @@ pub(crate) async fn locate_binary(opts: &Options) -> Result<PathBuf> {
         ensure_executable(&p)?;
         return Ok(p);
     }
-    if let Ok(env) = std::env::var("GEYSERLITE_BINARY") {
-        if !env.is_empty() {
-            let p = PathBuf::from(env);
-            ensure_executable(&p)?;
-            return Ok(p);
-        }
+    if let Ok(env) = std::env::var("GEYSERLITE_BINARY")
+        && !env.is_empty()
+    {
+        let p = PathBuf::from(env);
+        ensure_executable(&p)?;
+        return Ok(p);
     }
     if let Some(p) = extract_embedded_binary()? {
         return Ok(p);
@@ -31,10 +31,10 @@ pub(crate) async fn locate_binary(opts: &Options) -> Result<PathBuf> {
     if let Ok(p) = which("geyserlite") {
         return Ok(p);
     }
-    if !opts.offline {
-        if let Ok(p) = try_download_binary(opts).await {
-            return Ok(p);
-        }
+    if !opts.offline
+        && let Ok(p) = try_download_binary(opts).await
+    {
+        return Ok(p);
     }
     Err(Error::NoBinary)
 }
@@ -47,12 +47,12 @@ pub(crate) async fn locate_library(opts: &Options) -> Result<PathBuf> {
         ensure_file(&p)?;
         return Ok(p);
     }
-    if let Ok(env) = std::env::var("GEYSERLITE_LIBRARY") {
-        if !env.is_empty() {
-            let p = PathBuf::from(env);
-            ensure_file(&p)?;
-            return Ok(p);
-        }
+    if let Ok(env) = std::env::var("GEYSERLITE_LIBRARY")
+        && !env.is_empty()
+    {
+        let p = PathBuf::from(env);
+        ensure_file(&p)?;
+        return Ok(p);
     }
     if let Some(p) = extract_embedded_library()? {
         return Ok(p);
@@ -63,10 +63,10 @@ pub(crate) async fn locate_library(opts: &Options) -> Result<PathBuf> {
             return Ok(p);
         }
     }
-    if !opts.offline {
-        if let Ok(p) = try_download_library(opts).await {
-            return Ok(p);
-        }
+    if !opts.offline
+        && let Ok(p) = try_download_library(opts).await
+    {
+        return Ok(p);
     }
     Err(Error::NoLibrary)
 }
