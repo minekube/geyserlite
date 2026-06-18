@@ -24,7 +24,7 @@ java = "graalvm-community-21"
 "aqua:go-task/task" = "latest"
 
 # Used by build/Dockerfile's reflect-config patcher and various scripts.
-python = "3.14.5"
+python = "3.14.6"
 
 # Linters / formatters used by CI and by `task lint`.
 # markdownlint-cli2 ships as a Node package. yamllint is run through uvx
