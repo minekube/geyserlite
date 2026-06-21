@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.11](https://github.com/minekube/geyserlite/compare/v0.3.10...v0.3.11) (2026-06-21)
+
+
+### Bug Fixes
+
+* **release:** use cosign bundles ([#62](https://github.com/minekube/geyserlite/issues/62)) ([92cc8a8](https://github.com/minekube/geyserlite/commit/92cc8a85498d36cddf596e5aa404cb2d75823a30))
+
 ## [0.3.10](https://github.com/minekube/geyserlite/compare/v0.3.9...v0.3.10) (2026-06-19)
 
 
