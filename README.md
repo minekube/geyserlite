@@ -194,7 +194,7 @@ for the unhappy ones:
 
 | Signal | How |
 |---|---|
-| Build pipeline integrity | All artifacts cosign-signed with sigstore keyless OIDC; SBOM-style SPDX attestations alongside the `.sig` files |
+| Build pipeline integrity | All artifacts cosign-signed with sigstore keyless OIDC; sigstore bundles and SBOM-style SPDX attestations are published alongside release assets |
 | Release authenticity | crates.io Trusted Publishing (OIDC) — no long-lived token to rotate or leak |
 | Reproducible inputs | `build/geyser.version` (commit SHA) + `build/graalvm.version` (image digest) pin the build to byte-identical inputs |
 | Verifiable downloads | `checksums.txt` on every GH Release; `sha256sum -c` works directly |

@@ -139,7 +139,7 @@ jobs:
         run: |
           for f in artifacts/**/*; do
             [ -f "$f" ] || continue
-            cosign sign-blob --yes --output-signature "${f}.sig" "$f"
+            cosign sign-blob --yes --bundle "${f}.sigstore.json" "$f"
           done
 
       - name: Generate SBOM attestations
