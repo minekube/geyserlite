@@ -259,7 +259,7 @@ For users who don't want to embed and don't want to pre-place the `.so`.
 - [x] Cache in OS-appropriate dir (`os.UserCacheDir` / `dirs::cache_dir`)
 - [x] `Mirror` option for self-hosters
 - [x] `Offline` option disables download
-- [ ] Optional cosign signature verification when present — `.sig` files are published but client-side verification not yet implemented
+- [ ] Optional cosign signature verification when present — sigstore bundle files are published but client-side verification not yet implemented
 - [ ] **Acceptance** (both langs): fresh run on a machine with no cache fetches the `.so`, runs in-process, second run uses cache — pending end-to-end test on a Linux host
 
 ### v0.6.0 — Gate adapter (first prod consumer)
@@ -306,7 +306,7 @@ here so future-us doesn't relitigate the decision.
 | Memory regression test gate in CI | RSS sampling under matrix runners is flaky, and v0.1's smoke test already catches "does it serve traffic" |
 | Migration guide for Gate's legacy `managed` mode | only meaningful once Gate has actually adopted `embedded` mode (v0.6 cross-repo work) |
 | PGO instrumented build variant | needs Connect-side profile capture cron — not self-sustaining for *this* repo without that piece |
-| Cosign signature verification client-side | `.sig` files are published; users who need verification can consume them with `cosign verify-blob`; client-side feature is rare-use |
+| Cosign signature verification client-side | Sigstore bundle files are published; users who need verification can consume them with `cosign verify-blob`; client-side feature is rare-use |
 | Cross-language Rust adapter analogous to integration/gate | no flagship Rust proxy in the Minekube portfolio (per Decisions log) |
 | TerminalConsole / WatchEventService log4j init warnings | harmless fallbacks; cosmetic; suppressing them means a custom log4j config patched into the soft fork — not worth the surface area |
 
