@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.14](https://github.com/minekube/geyserlite/compare/v0.3.13...v0.3.14) (2026-06-22)
+
+
+### Bug Fixes
+
+* enable shared arena support in native images ([#68](https://github.com/minekube/geyserlite/issues/68)) ([948181e](https://github.com/minekube/geyserlite/commit/948181e97ccee91479fcf7fde3193bb267a858b0))
+
 ## [0.3.13](https://github.com/minekube/geyserlite/compare/v0.3.12...v0.3.13) (2026-06-22)
 
 
