@@ -97,6 +97,7 @@ NI_FLAGS_COMMON=(
     -R:MaxHeapSize=256m
 
     -H:+UnlockExperimentalVMOptions
+    -H:+SharedArenaSupport
     -H:+RemoveSaturatedTypeFlows
 
     # Production: don't pay for stack-trace formatting on rare paths.

@@ -115,6 +115,7 @@ graalvmNative {
                 "-O2",
                 "-R:MaxHeapSize=256m",
                 "-H:+UnlockExperimentalVMOptions",
+                "-H:+SharedArenaSupport",
                 "-H:+RemoveSaturatedTypeFlows",
                 "-H:-ReportExceptionStackTraces",
                 // Keep this in sync with build/flags.sh. Without an
