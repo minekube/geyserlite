@@ -195,27 +195,19 @@ jobs:
   dispatch-gate-bump:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create release cascade token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_CASCADE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_CASCADE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: gate
-          permission-actions: write
-
-      - name: Dispatch Gate dependency bump
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
-        run: |
-          gh workflow run bump-managed-dependency.yml \
-            --repo "${{ github.repository_owner }}/gate" \
-            --ref master \
-            -f dependency=geyserlite \
-            -f version="${TAG_NAME}" \
-            -f source_repository="${{ github.repository }}" \
-            -f source_release_url="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG_NAME}"
+    uses: minekube/actions/.github/workflows/dispatch-workflow.yml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      target-repository: gate
+      target-workflow: bump-managed-dependency.yml
+      target-ref: master
+      inputs-json: |
+        {
+          "dependency": "geyserlite",
+          "version": "${{ needs.release-please.outputs.tag_name }}",
+          "source_repository": "${{ github.repository }}",
+          "source_release_url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.release-please.outputs.tag_name }}"
+        }
+    secrets: inherit
