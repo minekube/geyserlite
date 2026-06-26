@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.15](https://github.com/minekube/geyserlite/compare/v0.3.14...v0.3.15) (2026-06-26)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser to ed861ee ([#74](https://github.com/minekube/geyserlite/issues/74)) ([41465d6](https://github.com/minekube/geyserlite/commit/41465d6c55e2e4a6ead21f79a427d0bc96655413))
+
 ## [0.3.14](https://github.com/minekube/geyserlite/compare/v0.3.13...v0.3.14) (2026-06-22)
 
 
