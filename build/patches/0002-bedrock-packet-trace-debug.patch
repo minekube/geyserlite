@@ -1,0 +1,47 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
+index 7ccab594f..75efc449c 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
+@@ -66,7 +66,12 @@ public class GeyserServerInitializer extends BedrockServerInitializer {
+
+             if (!bedrockServerSession.isSubClient()) {
+                 Channel channel = bedrockServerSession.getPeer().getChannel();
+-                channel.pipeline().addAfter(BedrockPacketCodec.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
++                if (BedrockPacketTraceHandler.enabled()) {
++                    channel.pipeline().addAfter(BedrockPacketCodec.NAME, BedrockPacketTraceHandler.NAME, new BedrockPacketTraceHandler(this.geyser, session));
++                    channel.pipeline().addAfter(BedrockPacketTraceHandler.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
++                } else {
++                    channel.pipeline().addAfter(BedrockPacketCodec.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
++                }
+             }
+
+             bedrockServerSession.setPacketHandler(new UpstreamPacketHandler(this.geyser, session));
+diff --git a/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java b/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java
+index b3c1b42da..a786db81f 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java
++++ b/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java
+@@ -152,6 +152,10 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
+
+     @Override
+     public void onDisconnect(CharSequence reason) {
++        BedrockPacketTraceHandler.dump(
++                this.session.getUpstream().getSession().getPeer().getChannel(),
++                "upstream onDisconnect rawReason=" + reason
++        );
+         // Use our own disconnect messages for these reasons
+         if (BedrockDisconnectReasons.CLOSED.contentEquals(reason)) {
+             this.session.getUpstream().getSession().setDisconnectReason(GeyserLocale.getLocaleStringLog("geyser.network.disconnect.closed_by_remote_peer"));
+diff --git a/core/src/main/java/org/geysermc/geyser/network/netty/GeyserServer.java b/core/src/main/java/org/geysermc/geyser/network/netty/GeyserServer.java
+index 3d97e5381..0f0f26221 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/netty/GeyserServer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/netty/GeyserServer.java
+@@ -153,6 +153,9 @@ public final class GeyserServer {
+
+             Channel channel = f.channel();
+             // Add our handlers
++            if (BedrockRawDatagramTraceHandler.enabled()) {
++                channel.pipeline().addBefore(RakServerOfflineHandler.NAME, BedrockRawDatagramTraceHandler.NAME, new BedrockRawDatagramTraceHandler());
++            }
+             channel.pipeline()
+                 .addBefore(RakServerOfflineHandler.NAME, RakConnectionRequestHandler.NAME, new RakConnectionRequestHandler(this))
+                 .addAfter(RakServerOfflineHandler.NAME, RakPingHandler.NAME, new RakPingHandler(this));
