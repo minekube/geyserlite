@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.16](https://github.com/minekube/geyserlite/compare/v0.3.15...v0.3.16) (2026-06-28)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser preview to pr.6452 ([e58f7de](https://github.com/minekube/geyserlite/commit/e58f7de86145b359c4aed44eaf30cf57138b9f2d))
+
 ## [0.3.15](https://github.com/minekube/geyserlite/compare/v0.3.14...v0.3.15) (2026-06-26)
 
 
