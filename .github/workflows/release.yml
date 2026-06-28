@@ -182,3 +182,23 @@ jobs:
         run: cargo publish --manifest-path rust/Cargo.toml --no-verify --allow-dirty
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
+
+  dispatch-gate-bump:
+    needs: release
+    if: startsWith(inputs.release_tag || github.ref_name, 'v')
+    uses: minekube/actions/.github/workflows/dispatch-workflow.yml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      target-repository: gate
+      target-workflow: bump-managed-dependency.yml
+      target-ref: master
+      inputs-json: |
+        {
+          "dependency": "geyserlite",
+          "version": "${{ inputs.release_tag || github.ref_name }}",
+          "source_repository": "${{ github.repository }}",
+          "source_release_url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.release_tag || github.ref_name }}"
+        }
+    secrets: inherit
