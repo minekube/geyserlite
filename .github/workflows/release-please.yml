@@ -13,6 +13,7 @@ name: Release Please
 # the release PR pushes the v* tag, which fans out to:
 #   - release.yml: GH Release with cosign-signed artifacts
 #   - release.yml: crates.io OIDC Trusted Publishing
+#   - release.yml: Gate dependency bump after release assets are uploaded
 #   - native-image.yml's :latest tag (already on main; tag is informational)
 #
 # Conventional Commit prefixes that drive a release:
@@ -191,23 +192,3 @@ jobs:
           gh workflow run release.yml \
             --repo "${{ github.repository }}" \
             --ref "${{ needs.release-please.outputs.tag_name }}"
-
-  dispatch-gate-bump:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    uses: minekube/actions/.github/workflows/dispatch-workflow.yml@v1
-    permissions:
-      contents: read
-      id-token: write
-    with:
-      target-repository: gate
-      target-workflow: bump-managed-dependency.yml
-      target-ref: master
-      inputs-json: |
-        {
-          "dependency": "geyserlite",
-          "version": "${{ needs.release-please.outputs.tag_name }}",
-          "source_repository": "${{ github.repository }}",
-          "source_release_url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.release-please.outputs.tag_name }}"
-        }
-    secrets: inherit
