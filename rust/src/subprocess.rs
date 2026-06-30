@@ -177,12 +177,25 @@ fn strip_ansi(s: &str) -> String {
 
 #[cfg(unix)]
 fn send_sigterm(pid: u32) -> std::io::Result<()> {
+    // Signal the entire process group (negative pid), not just the direct
+    // child. The subprocess is started in its own group via
+    // process_group(0), so its PID is its PGID. This terminates
+    // grandchildren Geyser spawned, preventing orphaned workers from
+    // keeping the UDP port bound after shutdown.
+    //
     // SAFETY: kill(2) is signal-safe and doesn't dereference user pointers.
-    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
+    let rc = unsafe { libc::kill(-(pid as libc::pid_t), libc::SIGTERM) };
     if rc == 0 {
         Ok(())
     } else {
-        Err(std::io::Error::last_os_error())
+        let err = std::io::Error::last_os_error();
+        // ESRCH: the group already exited — treat as success so shutdown
+        // isn't reported as an error.
+        if err.raw_os_error() == Some(libc::ESRCH) {
+            Ok(())
+        } else {
+            Err(err)
+        }
     }
 }
 

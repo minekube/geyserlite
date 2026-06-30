@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -21,6 +20,12 @@ import (
 type subprocessRunner struct {
 	healthyFlag atomic.Bool
 }
+
+// stableRunThreshold is how long a subprocess must run before the
+// supervisor considers it stable and resets the crash-restart backoff.
+// Matches the Rust subprocess.rs threshold (5 minutes).
+const stableRunThreshold = 5 * time.Minute
+
 
 func (r *subprocessRunner) healthy() bool { return r.healthyFlag.Load() }
 
@@ -51,14 +56,21 @@ func (r *subprocessRunner) run(ctx context.Context, s *Server) error {
 	backoff := newBackoff(policy.MinBackoff, policy.MaxBackoff)
 
 	for attempt := 0; ; attempt++ {
-		if policy.MaxRetries > 0 && attempt >= policy.MaxRetries {
-			return fmt.Errorf("geyserlite: max retries (%d) exceeded", policy.MaxRetries)
-		}
-		err := r.runOnce(ctx, s, binary, workdir)
-		if err == nil || errors.Is(err, context.Canceled) {
-			return ctx.Err()
-		}
-		s.logger.Warn("geyser exited with error; restarting after backoff",
+			if policy.MaxRetries > 0 && attempt >= policy.MaxRetries {
+				return fmt.Errorf("geyserlite: max retries (%d) exceeded", policy.MaxRetries)
+			}
+			startedAt := time.Now()
+			err := r.runOnce(ctx, s, binary, workdir)
+			if err == nil || errors.Is(err, context.Canceled) {
+				return ctx.Err()
+			}
+			// If the subprocess stayed up long enough to look stable,
+			// reset backoff so a later crash loop doesn't inherit the
+			// max-backoff from a previous incident.
+			if time.Since(startedAt) >= stableRunThreshold {
+				backoff.reset()
+			}
+			s.logger.Warn("geyser exited with error; restarting after backoff",
 			slog.Any("err", err),
 			slog.Duration("backoff", backoff.peek()),
 			slog.Int("attempt", attempt+1),
@@ -77,7 +89,15 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = workdir
-	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return os.ErrProcessDone
+		}
+		// Signal the entire process group (not just the direct child) so
+		// grandchildren Geyser spawned are terminated too. On Unix the
+		// child is its own group leader (Setpgid), so -pid targets it.
+		return signalProcess(cmd.Process.Pid)
+	}
 	cmd.WaitDelay = s.opts.ShutdownTimeout
 	// Place the child in its own process group so we can signal it cleanly.
 	cmd.SysProcAttr = sysProcAttrNewGroup()
