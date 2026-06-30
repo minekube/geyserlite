@@ -84,7 +84,7 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	// StackOverflowError on the first call from a stranger thread —
 	// it interprets the wrong-thread call as runaway native recursion.
 	configPath := filepath.Join(workdir, "config.yml")
-	cstr, free := cString(configPath)
+	cstr, free := pinString(configPath)
 	defer free()
 
 	type isolateRefs struct {
@@ -254,14 +254,7 @@ func (r *embeddedRunner) load(libpath string) error {
 	return loadErr
 }
 
-// cString allocates a NUL-terminated copy of s in C memory and returns a
-// pointer to it plus a free function. Caller must invoke free.
-func cString(s string) (uintptr, func()) {
-	// purego provides Calloc-style helpers but to avoid pulling in cgo,
-	// we use a Go []byte and unsafe.Pointer; libgeyserlite reads it in init
-	// before run blocks so the pointer remains valid.
-	b := append([]byte(s), 0)
-	// Pin via runtime.KeepAlive in the call site if we ever cross boundaries
-	// during a callback. For init/shutdown that doesn't happen.
-	return ptrOf(b), func() { _ = b }
-}
+// cString lives in embedded_helpers.go as pinString. The old cString
+// returned a raw uintptr into unpinned Go memory, which was GC-unsafe;
+// pinString pins the backing array via runtime.Pinner so libgeyserlite
+// can read it without the GC moving or reclaiming it first.
