@@ -82,10 +82,11 @@ impl EmbeddedRunner {
         render_config(workdir.path(), &srv.opts)?;
         write_permissions_yml(workdir.path())?;
 
-        // Geyser uses cwd-relative file lookups. Chdir before init.
-        let prev_cwd = std::env::current_dir()?;
-        std::env::set_current_dir(workdir.path())?;
-        let _restore_cwd = CdGuard(Some(prev_cwd));
+        // No chdir here. Geyser's getConfigFolder() is patched (via
+        // apply-overlay.sh) to return the config file's parent directory
+        // instead of process CWD, so all relative-path lookups
+        // (permissions.yml, cache files, etc.) resolve correctly without
+        // mutating global process state.
 
         let config_path = workdir.path().join("config.yml");
         let cstr = CString::new(config_path.to_string_lossy().as_bytes())
@@ -149,16 +150,6 @@ impl EmbeddedRunner {
             res = join => res
                 .map_err(|e| Error::Io(std::io::Error::other(e)))?,
             _ = srv.cancel.cancelled() => Ok(()),
-        }
-    }
-}
-
-/// Restore cwd when dropped. Avoids pulling in `scopeguard` for one use.
-struct CdGuard(Option<std::path::PathBuf>);
-impl Drop for CdGuard {
-    fn drop(&mut self) {
-        if let Some(p) = self.0.take() {
-            let _ = std::env::set_current_dir(p);
         }
     }
 }

@@ -63,19 +63,17 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	if err := renderConfig(workdir, s.opts); err != nil {
 		return err
 	}
-	if err := copyPermissionsYML(workdir); err != nil {
-		s.logger.Warn("could not stage permissions.yml", slog.String("err", err.Error()))
-	}
+		if err := copyPermissionsYML(workdir); err != nil {
+			s.logger.Warn("could not stage permissions.yml", slog.String("err", err.Error()))
+		}
 
-	// chdir into the workdir for Geyser's relative-path file access.
-	// We don't rely on global state — Geyser inside the isolate sees this cwd.
-	prev, _ := os.Getwd()
-	if err := os.Chdir(workdir); err != nil {
-		return fmt.Errorf("geyserlite: chdir: %w", err)
-	}
-	defer os.Chdir(prev)
+		// No os.Chdir here. Geyser's getConfigFolder() is patched (via
+		// apply-overlay.sh) to return the config file's parent directory
+		// instead of process CWD, so all relative-path lookups
+		// (permissions.yml, cache files, etc.) resolve correctly without
+		// mutating global state.
 
-	// GraalVM's IsolateThread* is thread-affine: every isolate call
+		// GraalVM's IsolateThread* is thread-affine: every isolate call
 	// must come from the OS thread that the thread handle was minted
 	// on. Go goroutines aren't pinned to OS threads by default, so we
 	// dedicate one OS-locked goroutine to the create/init/run chain

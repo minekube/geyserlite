@@ -109,6 +109,15 @@ once(
 #      to a similarly-named field can't silently match.
 once(r'\bprivate (boolean useGui\b\s*=)', r'public \1')
 once(r'\bprivate (String configFilename\b\s*=)', r'public \1')
+# 7. getConfigFolder() must return the config file's parent directory
+#    (not the process CWD) so that embedded mode can work without
+#    os.Chdir/set_current_dir. This resolves permissions.yml, cache
+#    files, and any relative resource paths relative to where
+#    config.yml lives — matching getSavedUserLoginsFolder() behavior.
+once(
+    r'(public Path getConfigFolder\(\) \{\s*\n\s+)// Return the current working directory\s*\n\s+return Paths\.get\(System\.getProperty\("user\.dir"\)\);',
+    r'\1// Return the directory containing config.yml so that embedded mode\n        // does not depend on process CWD.\n        return new File(configFilename).getAbsoluteFile().getParentFile().toPath();',
+)
 
 open(path, 'w').write(src)
 print(f"  patched {count} sites")

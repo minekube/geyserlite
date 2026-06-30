@@ -20,8 +20,11 @@ import (
 // option reachable through ConfigOverrides for the long-tail of
 // settings the typed surface doesn't model.
 //
-// Geyser standalone reads config.yml from cwd; the runner sets cwd to
-// workdir before launch.
+// Geyser standalone reads config.yml from the path we pass; the runner
+// provides an absolute config path. Geyser's getConfigFolder() is patched
+// via apply-overlay.sh to return the config file's parent directory,
+// so relative-path lookups (permissions.yml, key.bin) resolve without
+// relying on process CWD.
 func renderConfig(workdir string, opts Options) error {
 	cfg, err := buildConfigMap(opts)
 	if err != nil {
