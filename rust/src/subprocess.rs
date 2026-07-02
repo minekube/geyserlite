@@ -234,10 +234,7 @@ mod tests {
         // Cursor position (H)
         assert_eq!(strip_ansi("abc\x1b[Hdef"), "abcdef");
         // UTF-8 preserved
-        assert_eq!(
-            strip_ansi("utf8 café \x1b[31mred\x1b[0m"),
-            "utf8 café red"
-        );
+        assert_eq!(strip_ansi("utf8 café \x1b[31mred\x1b[0m"), "utf8 café red");
         // Truncated ESC[ left intact
         assert_eq!(strip_ansi("truncated \x1b["), "truncated \x1b[");
     }

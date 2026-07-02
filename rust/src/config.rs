@@ -241,11 +241,11 @@ pub(crate) fn split_host_port(
 }
 
 fn parse_port(port_str: &str, endpoint: &str) -> Result<i64> {
-    let port: i64 = port_str
-        .parse()
-        .map_err(|_| crate::Error::Io(std::io::Error::other(format!(
+    let port: i64 = port_str.parse().map_err(|_| {
+        crate::Error::Io(std::io::Error::other(format!(
             "invalid port {port_str:?} in endpoint {endpoint:?}"
-        ))))?;
+        )))
+    })?;
     if !(1..=65535).contains(&port) {
         return Err(crate::Error::Io(std::io::Error::other(format!(
             "port out of range {port} in endpoint {endpoint:?}"
