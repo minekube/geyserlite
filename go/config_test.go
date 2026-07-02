@@ -132,17 +132,40 @@ func TestSplitHostPort(t *testing.T) {
 		in       string
 		wantHost string
 		wantPort int
+		wantErr  bool
 	}{
-		{"", "0.0.0.0", 19132},
-		{":19133", "0.0.0.0", 19133},
-		{"10.0.0.1:25567", "10.0.0.1", 25567},
-		{"[::1]:25567", "::1", 25567},
-		{"[::1]", "::1", 19132},
-		{"localhost", "localhost", 19132},
-		{"host:notaport", "host", 19132},
+		// Valid shorthand forms.
+		{"", "0.0.0.0", 19132, false},
+		{":19133", "0.0.0.0", 19133, false},
+		{"10.0.0.1:25567", "10.0.0.1", 25567, false},
+		{"[::1]:25567", "::1", 25567, false},
+		{"[::1]", "::1", 19132, false},
+		{"localhost", "localhost", 19132, false},
+		{"localhost:25565", "localhost", 25565, false},
+		{"[::1]:19132", "::1", 19132, false},
+		// Invalid — must fail loudly, no silent fallback.
+		{":abc", "", 0, true},
+		{"127.0.0.1:abc", "", 0, true},
+		{"127.0.0.1:99999", "", 0, true},
+		{"127.0.0.1:0", "", 0, true},
+		{"host:12x", "", 0, true},
+		{"host:-1", "", 0, true},
+		{"[::1", "", 0, true},       // unclosed bracket
+		{"[::1]abc", "", 0, true},   // junk after bracket
+		{"host:port:notvalid", "", 0, true},
 	}
 	for _, tt := range tests {
-		host, port := splitHostPort(tt.in, "0.0.0.0", 19132)
+		host, port, err := splitHostPort(tt.in, "0.0.0.0", 19132)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("splitHostPort(%q) = (%q, %d, nil), want error", tt.in, host, port)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("splitHostPort(%q) unexpected error: %v", tt.in, err)
+			continue
+		}
 		if host != tt.wantHost || port != tt.wantPort {
 			t.Errorf("splitHostPort(%q) = (%q, %d), want (%q, %d)",
 				tt.in, host, port, tt.wantHost, tt.wantPort)

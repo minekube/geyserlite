@@ -131,6 +131,21 @@ impl Options {
         if self.listen.is_empty() {
             self.listen = ":19132".into();
         }
+        // Validate endpoints strictly: reject malformed host:port strings,
+        // non-numeric ports, and out-of-range ports. Mirrors the Go
+        // Options.validate() behavior.
+        if let Err(e) = crate::config::split_host_port(&self.listen, "", 0) {
+            let listen = &self.listen;
+            return Err(crate::Error::Io(std::io::Error::other(format!(
+                "geyserlite: invalid listen {listen:?}: {e}"
+            ))));
+        }
+        if let Err(e) = crate::config::split_host_port(&self.upstream, "", 0) {
+            let upstream = &self.upstream;
+            return Err(crate::Error::Io(std::io::Error::other(format!(
+                "geyserlite: invalid upstream {upstream:?}: {e}"
+            ))));
+        }
         if self.shutdown_timeout.is_none() {
             self.shutdown_timeout = Some(Duration::from_secs(30));
         }
