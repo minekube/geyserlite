@@ -36,3 +36,13 @@ func signalProcess(pid int) error {
 	}
 	return err
 }
+
+// signalFromExitError extracts the terminating signal from an exec.ExitError
+// on Unix, if the process was killed by a signal. Returns nil for ordinary
+// exits or when the wait status is unavailable.
+func signalFromExitError(exitErr *os.ProcessState) os.Signal {
+	if ws, ok := exitErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+		return ws.Signal()
+	}
+	return nil
+}

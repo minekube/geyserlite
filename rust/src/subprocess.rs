@@ -162,11 +162,24 @@ fn strip_ansi(s: &str) -> String {
     let mut chars = s.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '\x1b' && chars.peek() == Some(&'[') {
-            chars.next(); // consume '['
+            // Potential CSI sequence. Collect into a buffer; if we reach
+            // a final byte (0x40..0x7e) the sequence is complete and we
+            // discard it. Otherwise (truncated), we emit it as-is to
+            // match the Go regexp-based stripper.
+            let mut buf = String::new();
+            buf.push('\x1b');
+            buf.push(chars.next().unwrap()); // consume '['
+            let mut complete = false;
             for ch in chars.by_ref() {
-                if ch == 'm' {
+                buf.push(ch);
+                let b = ch as u32;
+                if (0x40..=0x7e).contains(&b) {
+                    complete = true;
                     break;
                 }
+            }
+            if !complete {
+                out.push_str(&buf);
             }
         } else {
             out.push(c);
@@ -210,5 +223,22 @@ mod tests {
         ));
         assert!(line_is_done("[INFO] Done (1.0s)!"));
         assert!(!line_is_done("Loading extensions..."));
+    }
+
+    #[test]
+    fn strip_ansi_handles_all_csi_final_bytes() {
+        // SGR color (m)
+        assert_eq!(strip_ansi("\x1b[32mDone\x1b[0m"), "Done");
+        // Erase line (K)
+        assert_eq!(strip_ansi("\x1b[2KDone"), "Done");
+        // Cursor position (H)
+        assert_eq!(strip_ansi("abc\x1b[Hdef"), "abcdef");
+        // UTF-8 preserved
+        assert_eq!(
+            strip_ansi("utf8 café \x1b[31mred\x1b[0m"),
+            "utf8 café red"
+        );
+        // Truncated ESC[ left intact
+        assert_eq!(strip_ansi("truncated \x1b["), "truncated \x1b[");
     }
 }

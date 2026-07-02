@@ -29,3 +29,8 @@ func signalProcess(pid int) error {
 	}
 	return nil
 }
+
+// signalFromExitError on non-Unix cannot extract a signal from the wait
+// status (no syscall.WaitStatus equivalent). Returns nil so
+// formatExitError falls back to a generic signal-death message.
+func signalFromExitError(_ *os.ProcessState) os.Signal { return nil }

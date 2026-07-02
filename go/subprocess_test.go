@@ -26,6 +26,29 @@ func TestIsGeyserReady(t *testing.T) {
 	}
 }
 
+func TestStripANSI(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"SGR color", "\x1b[32mDone\x1b[0m", "Done"},
+		{"erase line", "\x1b[2KDone", "Done"},
+		{"cursor position", "abc\x1b[Hdef", "abcdef"},
+		{"no ANSI", "plain text", "plain text"},
+		{"truncated ESC[", "truncated \x1b[", "truncated \x1b["},
+		{"utf8 preserved", "utf8 café \x1b[31mred\x1b[0m", "utf8 café red"},
+		{"empty", "", ""},
+		{"multiple sequences", "\x1b[1m\x1b[31mB\x1b[0m", "B"},
+	}
+	for _, tt := range tests {
+		if got := stripANSI(tt.in); got != tt.want {
+			t.Errorf("%s: stripANSI(%q) = %q, want %q", tt.name, tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestStableRunThreshold_MatchesRust(t *testing.T) {
 	t.Parallel()
 	// The Go and Rust subprocess supervisors must use the same stable-run
