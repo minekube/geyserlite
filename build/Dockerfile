@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.24
+# syntax=docker/dockerfile:1.25
 #
 # Builds two artifacts from the same Geyser source tree:
 #   /out/geyserlite           — standalone ELF (drop-in for Geyser-Standalone.jar)
