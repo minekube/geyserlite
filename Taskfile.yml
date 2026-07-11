@@ -86,9 +86,14 @@ tasks:
       # exercised by the dedicated `embed:fetch` workflow + a manual run.
       - cargo test --features download
 
+  test:patches:
+    desc: Verify patches survive a Windows-style checkout
+    cmds:
+      - bash build/test-patch-checkout.sh
+
   test:
     desc: all tests
-    deps: [test:go, test:rust]
+    deps: [test:go, test:rust, test:patches]
 
   # ─── Lint ────────────────────────────────────────────────────────────────
   lint:go:
