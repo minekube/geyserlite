@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.25](https://github.com/minekube/geyserlite/compare/v0.3.24...v0.3.25) (2026-07-12)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser to c813ca4 ([#105](https://github.com/minekube/geyserlite/issues/105)) ([38e6d42](https://github.com/minekube/geyserlite/commit/38e6d422e684ad5d47b59d64e64a4010daa1f91f))
+
 ## [0.3.24](https://github.com/minekube/geyserlite/compare/v0.3.23...v0.3.24) (2026-07-11)
 
 
