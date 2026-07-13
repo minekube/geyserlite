@@ -206,20 +206,19 @@ public final class BedrockPacketTraceHandler extends ChannelDuplexHandler {
 
     private static String describe(Object msg) {
         if (msg instanceof BedrockPacketWrapper wrapper) {
-            BedrockPacket packet = wrapper.getPacket();
-            return "BedrockPacketWrapper packet=" + packetName(msg)
+            return "packetType=" + packetName(msg)
                     + " packetId=" + wrapper.getPacketId()
                     + " flags=" + wrapper.getFlags()
-                    + " packetBufferBytes=" + readableBytes(wrapper.getPacketBuffer())
-                    + " " + abbreviate(String.valueOf(packet));
+                    + " size=" + readableBytes(wrapper.getPacketBuffer());
         }
         if (msg instanceof BedrockPacket packet) {
-            return packet.getClass().getSimpleName() + " " + abbreviate(String.valueOf(packet));
+            return "packetType=" + packet.getClass().getSimpleName()
+                    + " packetId=unknown flags=unknown size=unknown";
         }
         if (msg instanceof ByteBuf buf) {
-            return "ByteBuf readableBytes=" + buf.readableBytes();
+            return "packetType=ByteBuf packetId=unknown flags=unknown size=" + buf.readableBytes();
         }
-        return msg.getClass().getName() + " " + abbreviate(String.valueOf(msg));
+        return "packetType=" + packetName(msg) + " packetId=unknown flags=unknown size=unknown";
     }
 
     private static int readableBytes(Object msg) {

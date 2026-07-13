@@ -1,18 +1,21 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/entity/type/Entity.java b/core/src/main/java/org/geysermc/geyser/entity/type/Entity.java
-index dd198930f..8b33c543e 100644
+index 26c25405e..fdbb08be6 100644
 --- a/core/src/main/java/org/geysermc/geyser/entity/type/Entity.java
 +++ b/core/src/main/java/org/geysermc/geyser/entity/type/Entity.java
-@@ -322,9 +322,12 @@ public class Entity implements GeyserEntity {
+@@ -299,2 +299,3 @@ public class Entity implements GeyserEntity {
+         setPosition(position.add(relX, relY, relZ));
++        boolean dirtyOnGround = this.onGround != isOnGround;
+         setOnGround(isOnGround);
+@@ -342,9 +343,12 @@ public class Entity implements GeyserEntity {
                  moveEntityPacket.setHeadYaw(headYaw);
                  moveEntityPacket.getFlags().add(MoveEntityDeltaPacket.Flag.HAS_HEAD_YAW);
              }
--            if (isOnGround) {
 +            boolean hasMovementOrRotation = !moveEntityPacket.getFlags().isEmpty();
-+            if (isOnGround && hasMovementOrRotation) {
+             if (isOnGround) {
                  moveEntityPacket.getFlags().add(MoveEntityDeltaPacket.Flag.ON_GROUND);
              }
 -            session.sendUpstreamPacket(moveEntityPacket);
-+            if (hasMovementOrRotation) {
++            if (dirtyOnGround || hasMovementOrRotation) {
 +                session.sendUpstreamPacket(moveEntityPacket);
 +            }
          }

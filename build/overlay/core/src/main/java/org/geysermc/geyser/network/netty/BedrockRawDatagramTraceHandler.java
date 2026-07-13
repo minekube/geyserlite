@@ -36,6 +36,8 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
 
     private static final boolean ENABLED = enabled("GEYSERLITE_BEDROCK_RAW_DATAGRAM_TRACE")
             || enabled("GEYSERLITE_BEDROCK_PACKET_TRACE");
+    private static final int MAX_REMOTE_STATS = 1_024;
+    private static final long REMOTE_STATS_TTL_MILLIS = 10 * 60 * 1_000L;
     private static final Map<String, Stats> STATS_BY_REMOTE = new ConcurrentHashMap<>();
 
     public static boolean enabled() {
@@ -49,12 +51,13 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
         return dumpSummaryForTesting(remoteAddress);
     }
 
-    static String dumpSummaryForTesting(SocketAddress remoteAddress) {
+    static synchronized String dumpSummaryForTesting(SocketAddress remoteAddress) {
         if (remoteAddress == null) {
             return "rawDatagram remote=null";
         }
-        Stats stats = STATS_BY_REMOTE.get(remoteAddress.toString());
         long now = System.currentTimeMillis();
+        expireInactive(now);
+        Stats stats = STATS_BY_REMOTE.get(remoteAddress.toString());
         if (stats == null) {
             return "rawDatagram remote=" + remoteAddress + " seen=false " + topRawRemotes(now, 6);
         }
@@ -77,18 +80,58 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
         super.write(ctx, msg, promise);
     }
 
-    private static void recordIn(SocketAddress remote, ByteBuf content) {
+    private static synchronized void recordIn(SocketAddress remote, ByteBuf content) {
         if (remote == null) {
             return;
         }
-        STATS_BY_REMOTE.computeIfAbsent(remote.toString(), ignored -> new Stats()).recordIn(content);
+        long now = System.currentTimeMillis();
+        statsFor(remote.toString(), now).recordIn(content, now);
     }
 
-    private static void recordOut(SocketAddress remote, ByteBuf content) {
+    private static synchronized void recordOut(SocketAddress remote, ByteBuf content) {
         if (remote == null) {
             return;
         }
-        STATS_BY_REMOTE.computeIfAbsent(remote.toString(), ignored -> new Stats()).recordOut(content);
+        long now = System.currentTimeMillis();
+        statsFor(remote.toString(), now).recordOut(content, now);
+    }
+
+    private static Stats statsFor(String remote, long now) {
+        Stats stats = STATS_BY_REMOTE.get(remote);
+        if (stats != null && !inactive(stats, now)) {
+            return stats;
+        }
+        STATS_BY_REMOTE.remove(remote);
+        expireInactive(now);
+        if (STATS_BY_REMOTE.size() >= MAX_REMOTE_STATS) {
+            evictOldest();
+        }
+        Stats created = new Stats();
+        STATS_BY_REMOTE.put(remote, created);
+        return created;
+    }
+
+    private static void expireInactive(long now) {
+        STATS_BY_REMOTE.entrySet().removeIf(entry -> inactive(entry.getValue(), now));
+    }
+
+    private static boolean inactive(Stats stats, long now) {
+        return now - stats.lastSeenAtMillis() >= REMOTE_STATS_TTL_MILLIS;
+    }
+
+    private static void evictOldest() {
+        String oldestRemote = null;
+        long oldestAtMillis = Long.MAX_VALUE;
+        for (Map.Entry<String, Stats> entry : STATS_BY_REMOTE.entrySet()) {
+            long lastSeenAtMillis = entry.getValue().lastSeenAtMillis();
+            if (lastSeenAtMillis < oldestAtMillis) {
+                oldestRemote = entry.getKey();
+                oldestAtMillis = lastSeenAtMillis;
+            }
+        }
+        if (oldestRemote != null) {
+            STATS_BY_REMOTE.remove(oldestRemote);
+        }
     }
 
     private static boolean enabled(String name) {
@@ -107,8 +150,7 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
         private int lastInPacketId = -1;
         private int lastOutPacketId = -1;
 
-        synchronized void recordIn(ByteBuf content) {
-            long now = System.currentTimeMillis();
+        synchronized void recordIn(ByteBuf content, long now) {
             if (firstAtMillis == 0) {
                 firstAtMillis = now;
             }
@@ -118,8 +160,7 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
             lastInPacketId = packetId(content);
         }
 
-        synchronized void recordOut(ByteBuf content) {
-            long now = System.currentTimeMillis();
+        synchronized void recordOut(ByteBuf content, long now) {
             if (firstAtMillis == 0) {
                 firstAtMillis = now;
             }
@@ -144,6 +185,10 @@ public final class BedrockRawDatagramTraceHandler extends ChannelDuplexHandler {
 
         synchronized long totalDatagrams() {
             return inDatagrams + outDatagrams;
+        }
+
+        synchronized long lastSeenAtMillis() {
+            return Math.max(lastInAtMillis, lastOutAtMillis);
         }
     }
 
