@@ -2,9 +2,9 @@
 # Clones Geyser at the pinned ref, applies our overlay + mutations.
 # Run from repo root. Idempotent; cleans up on rerun.
 #
-# Why no .patch files: line-based patches break on every upstream
-# settings.gradle.kts edit. We instead apply mutations by *intent* —
-# "ensure the include line is present" — which survives drift.
+# Why settings registration is not a .patch: line-based patches break on every
+# upstream settings.gradle.kts edit. We instead apply that mutation by *intent*
+# — "ensure the include line is present" — which survives drift.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

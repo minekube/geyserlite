@@ -11,7 +11,7 @@ products everything else in the repo wraps.
 | `geyser.version` | Pinned upstream `GeyserMC/Geyser` git ref. **Renovate-tracked.** |
 | `graalvm.version` | Pinned `ghcr.io/graalvm/native-image-community` image digest. Renovate-tracked. |
 | `Dockerfile` | Multi-stage GraalVM build that produces both the ELF and the `.so`. |
-| `apply-overlay.sh` | Clones Geyser at `geyser.version`, copies `overlay/` into the source tree, applies `patches/`. |
+| `apply-overlay.sh` | Clones Geyser at `geyser.version`, copies `overlay/`, then applies intent-based mutations and `patches/`. |
 | `flags.sh` | The full set of `native-image` flags we ship with, each annotated with what it costs/saves. Single source of truth — Dockerfile sources this. |
 | `overlay/` | Files **added** to upstream Geyser before build (additive — never overwrites). |
 | `patches/` | `.patch` files applied to upstream Geyser sources (numbered, applied in order). |

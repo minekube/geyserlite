@@ -316,21 +316,11 @@ geyserlite **does not contribute changes upstream**. We track Geyser
 master and re-apply our additions on every bump, automated via CI.
 This is set up in v0.1 — not deferred.
 
-### Patch surface area, ranked
+### Patch surface area
 
-1. **Pure additions in `build/overlay/`** — entirely new files written into
-   the Geyser source tree before build. No upstream conflict possible.
-   `GeyserBridge.java` lives here. Most of our changes are this kind.
-
-2. **Single-line patches to `settings.gradle.kts`** — registering our
-   overlay subproject. Geyser rarely touches this file's `include(...)`
-   block, so 3-way `git apply` succeeds across hundreds of upstream commits.
-
-3. **Surgical `.patch` files in `build/patches/`** — for cases where the
-   overlay can't avoid a real source modification (e.g., Geyser's
-   `System.exit(0)` shutdown path doesn't compose with in-process
-   embedding because `System.exit` would tear down the entire host).
-   Each patch is small and numbered.
+The current overlay, intent-based mutation, and contextual patch boundaries are
+owned by [`docs/architecture.md`](docs/architecture.md) and the contributor
+guides under [`build/`](build/README.md).
 
 ### Auto-sync flow
 

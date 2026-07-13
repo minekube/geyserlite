@@ -18,7 +18,9 @@ relative path it sits at here.
   `:standalone` module and exposes `@CEntryPoint`-annotated lifecycle
   methods (`geyser_init`, `geyser_run`, `geyser_shutdown`, etc.).
   GraalVM `native-image --shared` produces `libgeyserlite.so` from this.
+- `core/src/main/` — optional Bedrock packet and raw UDP tracing handlers.
+- `core/src/test/` — regression tests for overlay behavior and its patches.
 
-The single piece we *can't* express as pure addition is registering the
-new subproject in upstream's `settings.gradle.kts`. That lives in
-`../patches/0001-register-subproject.patch` as a one-line change.
+Changes to existing upstream files cannot live in the overlay. Stable
+intent-based mutations belong in `apply-overlay.sh`; contextual source changes
+live in the numbered files documented by [`../patches/README.md`](../patches/README.md).

@@ -10,11 +10,16 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
 - Each patch should be **rebase-safe** — `git apply --3way` should succeed even
   if context lines move slightly. Avoid relying on exact line numbers.
 - Prefer adding new files via `overlay/` over modifying existing files via patches.
+- Patch bytes must survive checkout unchanged. `.gitattributes` disables text
+  conversion for this directory; `task test:patches` guards the invariant with
+  a Windows-style checkout.
 
 ## Current patches
 
-- `0001-register-subproject.patch` — adds `include(":geyserlite-native")` to
-  `settings.gradle.kts` so our overlay's Gradle subproject is part of the build.
+- `0002-bedrock-packet-trace-debug.patch` — installs the optional Bedrock packet
+  and raw UDP trace handlers and dumps the packet trace on disconnect.
+- `0003-suppress-empty-move-entity-delta.patch` — skips no-op movement packets
+  while preserving on-ground state transitions.
 
 ## Generating new patches
 
