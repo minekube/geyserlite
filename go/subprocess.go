@@ -11,8 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -21,6 +22,12 @@ import (
 type subprocessRunner struct {
 	healthyFlag atomic.Bool
 }
+
+// stableRunThreshold is how long a subprocess must run before the
+// supervisor considers it stable and resets the crash-restart backoff.
+// Matches the Rust subprocess.rs threshold (5 minutes).
+const stableRunThreshold = 5 * time.Minute
+
 
 func (r *subprocessRunner) healthy() bool { return r.healthyFlag.Load() }
 
@@ -51,14 +58,21 @@ func (r *subprocessRunner) run(ctx context.Context, s *Server) error {
 	backoff := newBackoff(policy.MinBackoff, policy.MaxBackoff)
 
 	for attempt := 0; ; attempt++ {
-		if policy.MaxRetries > 0 && attempt >= policy.MaxRetries {
-			return fmt.Errorf("geyserlite: max retries (%d) exceeded", policy.MaxRetries)
-		}
-		err := r.runOnce(ctx, s, binary, workdir)
-		if err == nil || errors.Is(err, context.Canceled) {
-			return ctx.Err()
-		}
-		s.logger.Warn("geyser exited with error; restarting after backoff",
+			if policy.MaxRetries > 0 && attempt >= policy.MaxRetries {
+				return fmt.Errorf("geyserlite: max retries (%d) exceeded", policy.MaxRetries)
+			}
+			startedAt := time.Now()
+			err := r.runOnce(ctx, s, binary, workdir)
+			if err == nil || errors.Is(err, context.Canceled) {
+				return ctx.Err()
+			}
+			// If the subprocess stayed up long enough to look stable,
+			// reset backoff so a later crash loop doesn't inherit the
+			// max-backoff from a previous incident.
+			if time.Since(startedAt) >= stableRunThreshold {
+				backoff.reset()
+			}
+			s.logger.Warn("geyser exited with error; restarting after backoff",
 			slog.Any("err", err),
 			slog.Duration("backoff", backoff.peek()),
 			slog.Int("attempt", attempt+1),
@@ -77,7 +91,15 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = workdir
-	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return os.ErrProcessDone
+		}
+		// Signal the entire process group (not just the direct child) so
+		// grandchildren Geyser spawned are terminated too. On Unix the
+		// child is its own group leader (Setpgid), so -pid targets it.
+		return signalProcess(cmd.Process.Pid)
+	}
 	cmd.WaitDelay = s.opts.ShutdownTimeout
 	// Place the child in its own process group so we can signal it cleanly.
 	cmd.SysProcAttr = sysProcAttrNewGroup()
@@ -105,10 +127,28 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 	if err == nil {
 		return nil
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("geyserlite: subprocess exited %d: %w", exitErr.ExitCode(), err)
+	return fmt.Errorf("%s: %w", formatExitError(err), err)
+}
+
+// formatExitError renders an exec.Cmd failure as a human-readable prefix.
+// It distinguishes signal death (ExitCode -1) from ordinary nonzero exit
+// codes, since the raw -1 reads as a nonsensical "exited -1". On Unix it
+// also surfaces the terminating signal name when available.
+func formatExitError(err error) string {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return "geyserlite: wait subprocess"
 	}
-	return fmt.Errorf("geyserlite: wait subprocess: %w", err)
+	code := exitErr.ExitCode()
+	if code >= 0 {
+		return fmt.Sprintf("geyserlite: subprocess exited %d", code)
+	}
+	// code < 0 means the process was terminated by a signal (or otherwise
+	// didn't produce an exit code). Surface the signal if we can.
+	if sig := signalFromExitError(exitErr.ProcessState); sig != nil {
+		return fmt.Sprintf("geyserlite: subprocess killed by signal %s", sig)
+	}
+	return "geyserlite: subprocess killed by signal"
 }
 
 // pipeToLogger forwards each line from r to logger at the given level.
@@ -130,25 +170,21 @@ func pipeToLogger(r io.Reader, logger *slog.Logger, level slog.Level, readyFlag 
 
 // isGeyserReady detects Geyser's "Done (X.XXs)!" boot completion line.
 func isGeyserReady(line string) bool {
-	// Strip ANSI color codes to make the match resilient.
-	for i := 0; i < len(line); i++ {
-		if line[i] == '\x1b' {
-			// crude ANSI strip — find the first 'm' after ESC[
-			j := i + 1
-			for j < len(line) && line[j] != 'm' {
-				j++
-			}
-			line = line[:i] + line[min(j+1, len(line)):]
-			i--
-		}
-	}
-	// Look for the substring "Done (".
-	for i := 0; i+6 <= len(line); i++ {
-		if line[i:i+6] == "Done (" {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(stripANSI(line), "Done (")
+}
+
+// ansiRE matches CSI escape sequences. A CSI sequence starts with ESC [
+// (0x1b 0x5b) or the single-byte CSI (0x9b), followed by parameter bytes
+// (0x30..0x3f), intermediate bytes (0x20..0x2f), and a single final byte
+// in 0x40..0x7e (the command, e.g. 'm' for SGR color, 'K' for erase line,
+// 'H' for cursor position). The previous hand-rolled scanner only handled
+// 'm', which left sequences ending in K/J/H/etc. in readiness detection.
+var ansiRE = regexp.MustCompile(`(?:\x9b|\x1b\[)[0-?]*[ -/]*[@-~]`)
+
+// stripANSI removes ANSI CSI escape sequences from s. Truncated sequences
+// (an ESC[ with no final byte) are left intact, matching the Rust parser.
+func stripANSI(s string) string {
+	return ansiRE.ReplaceAllString(s, "")
 }
 
 // writeFloodgateKey writes the Floodgate AES-128 key to <workdir>/key.bin

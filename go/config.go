@@ -3,6 +3,7 @@ package geyserlite
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,8 +21,11 @@ import (
 // option reachable through ConfigOverrides for the long-tail of
 // settings the typed surface doesn't model.
 //
-// Geyser standalone reads config.yml from cwd; the runner sets cwd to
-// workdir before launch.
+// Geyser standalone reads config.yml from the path we pass; the runner
+// provides an absolute config path. Geyser's getConfigFolder() is patched
+// via apply-overlay.sh to return the config file's parent directory,
+// so relative-path lookups (permissions.yml, key.bin) resolve without
+// relying on process CWD.
 func renderConfig(workdir string, opts Options) error {
 	cfg, err := buildConfigMap(opts)
 	if err != nil {
@@ -46,8 +50,14 @@ func buildConfigMap(opts Options) (map[string]any, error) {
 		return nil, fmt.Errorf("geyserlite: parse baseline config: %w", err)
 	}
 
-	listenAddr, listenPort := splitHostPort(opts.Listen, "0.0.0.0", 19132)
-	upstreamAddr, upstreamPort := splitHostPort(opts.Upstream, "127.0.0.1", 25565)
+	listenAddr, listenPort, err := splitHostPort(opts.Listen, "0.0.0.0", 19132)
+	if err != nil {
+		return nil, err
+	}
+	upstreamAddr, upstreamPort, err := splitHostPort(opts.Upstream, "127.0.0.1", 25565)
+	if err != nil {
+		return nil, err
+	}
 
 	mergeMap(cfg, map[string]any{
 		"bedrock": map[string]any{
@@ -140,46 +150,82 @@ disable-compression: false
 config-version: 4
 `
 
-// splitHostPort splits "host:port"; missing pieces fall back to
-// defaults. Port comes out as int since YAML int is what Geyser
-// expects (a string would still parse but stir up type confusion in
-// ConfigOverrides merges).
-func splitHostPort(s, defaultHost string, defaultPort int) (string, int) {
+// splitHostPort parses "host:port" with defaults for missing pieces and
+// strict validation of explicit ports. Port comes out as int since YAML
+// int is what Geyser expects (a string would still parse but stir up type
+// confusion in ConfigOverrides merges).
+//
+// Supported shorthand forms (preserve existing API):
+//   - ""           → defaultHost, defaultPort
+//   - ":port"      → defaultHost, port
+//   - "host"       → host, defaultPort (bare host, no colon)
+//   - "[::1]"      → "::1", defaultPort (bracketed IPv6 without port)
+//
+// Anything with an explicit port that is non-numeric, out of range
+// (1..65535), or otherwise malformed returns an error rather than
+// silently falling back to the default.
+func splitHostPort(s, defaultHost string, defaultPort int) (string, int, error) {
 	if s == "" {
-		return defaultHost, defaultPort
+		return defaultHost, defaultPort, nil
 	}
-	host, portStr := splitHostPortStr(s)
+
+	// Bracketed IPv6: "[::1]" or "[::1]:port". Handle before
+	// net.SplitHostPort because that helper rejects a bare "[::1]"
+	// (no port) — which we support as default-port shorthand.
+	if strings.HasPrefix(s, "[") {
+		end := strings.IndexByte(s, ']')
+		if end < 0 {
+			return "", 0, fmt.Errorf("invalid endpoint %q: missing closing ']'", s)
+		}
+		host := s[1:end]
+		rest := s[end+1:]
+		if rest == "" {
+			// "[::1]" — bare bracketed IPv6, default port.
+			return host, defaultPort, nil
+		}
+		// Only ":port" is valid after the bracket.
+		if !strings.HasPrefix(rest, ":") {
+			return "", 0, fmt.Errorf("invalid endpoint %q: expected ':port' after ']'", s)
+		}
+		port, err := parsePort(rest[1:], s)
+		if err != nil {
+			return "", 0, err
+		}
+		return host, port, nil
+	}
+
+	// No bracket and no colon → bare host with default port.
+	if !strings.Contains(s, ":") {
+		return s, defaultPort, nil
+	}
+
+	// Everything else (including bare unbracketed IPv6, which is
+	// ambiguous and unsupported) goes through net.SplitHostPort for
+	// strict host:port parsing.
+	host, portStr, err := net.SplitHostPort(s)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid endpoint %q: %w", s, err)
+	}
 	if host == "" {
 		host = defaultHost
 	}
-	if portStr == "" {
-		return host, defaultPort
-	}
-	port, err := strconv.Atoi(portStr)
+	port, err := parsePort(portStr, s)
 	if err != nil {
-		return host, defaultPort
+		return "", 0, err
 	}
-	return host, port
+	return host, port, nil
 }
 
-func splitHostPortStr(s string) (host, port string) {
-	// IPv6 in brackets: "[::1]:25567"
-	if strings.HasPrefix(s, "[") {
-		end := strings.Index(s, "]")
-		if end < 0 {
-			return "", ""
-		}
-		rest := s[end+1:]
-		if !strings.HasPrefix(rest, ":") {
-			return s[1:end], ""
-		}
-		return s[1:end], rest[1:]
+// parsePort validates that portStr is a numeric port in 1..65535.
+func parsePort(portStr, endpoint string) (int, error) {
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port %q in endpoint %q", portStr, endpoint)
 	}
-	idx := strings.LastIndex(s, ":")
-	if idx < 0 {
-		return s, ""
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("port out of range %d in endpoint %q", port, endpoint)
 	}
-	return s[:idx], s[idx+1:]
+	return port, nil
 }
 
 func defaultStr(s, fallback string) string {

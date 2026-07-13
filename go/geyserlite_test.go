@@ -79,6 +79,35 @@ func TestOptionsValidateDefaults(t *testing.T) {
 	}
 }
 
+func TestOptionsValidateRejectsBadEndpoints(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		listen   string
+		upstream string
+	}{
+		{"bad listen port", ":abc", "127.0.0.1:25567"},
+		{"listen out of range", ":99999", "127.0.0.1:25567"},
+		{"listen port zero", ":0", "127.0.0.1:25567"},
+		{"bad upstream port", ":19132", "127.0.0.1:abc"},
+		{"upstream out of range", ":19132", "127.0.0.1:99999"},
+		{"malformed upstream", ":19132", "host:port:extra"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := Options{
+				Listen:       tc.listen,
+				Upstream:     tc.upstream,
+				AuthType:     Offline,
+			}.validate()
+			if err == nil {
+				t.Fatalf("expected validation error for listen=%q upstream=%q", tc.listen, tc.upstream)
+			}
+		})
+	}
+}
+
 func TestGenerateFloodgateKey(t *testing.T) {
 	t.Parallel()
 	k1, err := GenerateFloodgateKey()

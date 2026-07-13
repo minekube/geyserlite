@@ -2,6 +2,7 @@
 package geyserlite
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -17,6 +18,15 @@ func (o Options) validate() (Options, error) {
 	}
 	if o.Listen == "" {
 		o.Listen = ":19132"
+	}
+	// Validate endpoints strictly: reject malformed host:port strings,
+	// non-numeric ports, and out-of-range ports. Empty Listen was
+	// defaulted above; Upstream is required and always validated.
+	if _, _, err := splitHostPort(o.Listen, "", 0); err != nil {
+		return o, fmt.Errorf("geyserlite: invalid Listen %q: %w", o.Listen, err)
+	}
+	if _, _, err := splitHostPort(o.Upstream, "", 0); err != nil {
+		return o, fmt.Errorf("geyserlite: invalid Upstream %q: %w", o.Upstream, err)
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()

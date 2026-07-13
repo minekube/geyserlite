@@ -42,8 +42,8 @@ pub(crate) fn build_config(opts: &Options) -> Result<Mapping> {
     let mut cfg: Mapping = serde_yaml_ng::from_str(BASELINE_CONFIG_YAML)
         .map_err(|e| crate::Error::Io(std::io::Error::other(e)))?;
 
-    let (bedrock_addr, bedrock_port) = split_host_port(&opts.listen, "0.0.0.0", 19132);
-    let (upstream_addr, upstream_port) = split_host_port(&opts.upstream, "127.0.0.1", 25565);
+    let (bedrock_addr, bedrock_port) = split_host_port(&opts.listen, "0.0.0.0", 19132)?;
+    let (upstream_addr, upstream_port) = split_host_port(&opts.upstream, "127.0.0.1", 25565)?;
     let motd1 = if opts.motd.line1.is_empty() {
         "geyserlite".to_string()
     } else {
@@ -167,37 +167,97 @@ pub(crate) fn write_permissions_yml(workdir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Split `"host:port"` with defaults for missing pieces. Handles IPv6
-/// in brackets. Port comes out as `i64` because that's the YAML int
-/// type and lets `config_overrides` merge against the same shape
-/// without type confusion.
-pub(crate) fn split_host_port(s: &str, default_host: &str, default_port: i64) -> (String, i64) {
+/// Parse `"host:port"` with defaults for missing pieces and strict
+/// validation of explicit ports. Port comes out as `i64` because that's
+/// the YAML int type and lets `config_overrides` merge against the same
+/// shape without type confusion.
+///
+/// Supported shorthand forms (mirrors the Go splitHostPort):
+///  - `""`           → default host, default port
+///  - `":port"`      → default host, port
+///  - `"host"`       → host, default port (bare host, no colon)
+///  - `"[::1]"`      → `"::1"`, default port (bracketed IPv6 without port)
+///
+/// Anything with an explicit port that is non-numeric, out of range
+/// (1..=65535), or otherwise malformed returns an error rather than
+/// silently falling back to the default.
+pub(crate) fn split_host_port(
+    s: &str,
+    default_host: &str,
+    default_port: i64,
+) -> Result<(String, i64)> {
     if s.is_empty() {
-        return (default_host.into(), default_port);
+        return Ok((default_host.into(), default_port));
     }
-    let (host, port_str) = split_host_port_str(s);
+
+    // Bracketed IPv6: "[::1]" or "[::1]:port".
+    if let Some(rest) = s.strip_prefix('[') {
+        let Some(end) = rest.find(']') else {
+            return Err(invalid_endpoint(s, "missing closing ']'"));
+        };
+        let host = &rest[..end];
+        let after = &rest[end + 1..];
+        if after.is_empty() {
+            // "[::1]" — bare bracketed IPv6, default port.
+            return Ok((host.into(), default_port));
+        }
+        // Only ":port" is valid after the bracket.
+        let Some(port_str) = after.strip_prefix(':') else {
+            return Err(invalid_endpoint(s, "expected ':port' after ']'"));
+        };
+        let port = parse_port(port_str, s)?;
+        return Ok((host.into(), port));
+    }
+
+    // No bracket and no colon → bare host with default port.
+    if !s.contains(':') {
+        return Ok((s.into(), default_port));
+    }
+
+    // Everything else (including bare unbracketed IPv6, which is
+    // ambiguous and unsupported) is treated as host:port and parsed
+    // strictly. We split on the last ':' so a bare unbracketed IPv6
+    // (multiple colons) is rejected as ambiguous rather than silently
+    // mis-parsed.
+    let Some(idx) = s.rfind(':') else {
+        return Err(invalid_endpoint(s, "missing port"));
+    };
+    let host = &s[..idx];
+    let port_str = &s[idx + 1..];
+    // Reject forms with more than one ':' (unbracketed IPv6) as ambiguous.
+    if host.contains(':') {
+        return Err(invalid_endpoint(
+            s,
+            "unbracketed IPv6 must use [addr]:port form",
+        ));
+    }
     let host = if host.is_empty() {
         default_host.to_string()
     } else {
-        host
+        host.to_string()
     };
-    let port = port_str.parse::<i64>().unwrap_or(default_port);
-    (host, port)
+    let port = parse_port(port_str, s)?;
+    Ok((host, port))
 }
 
-fn split_host_port_str(s: &str) -> (String, String) {
-    if let Some(rest) = s.strip_prefix('[')
-        && let Some(end) = rest.find(']')
-    {
-        let host = &rest[..end];
-        let after = &rest[end + 1..];
-        let port = after.strip_prefix(':').unwrap_or("");
-        return (host.into(), port.into());
+fn parse_port(port_str: &str, endpoint: &str) -> Result<i64> {
+    let port: i64 = port_str.parse().map_err(|_| {
+        crate::Error::Io(std::io::Error::other(format!(
+            "invalid port {port_str:?} in endpoint {endpoint:?}"
+        )))
+    })?;
+    if !(1..=65535).contains(&port) {
+        return Err(crate::Error::Io(std::io::Error::other(format!(
+            "port out of range {port} in endpoint {endpoint:?}"
+        ))));
     }
-    if let Some(idx) = s.rfind(':') {
-        return (s[..idx].into(), s[idx + 1..].into());
-    }
-    (s.into(), String::new())
+    Ok(port)
+}
+
+fn invalid_endpoint(s: &str, why: &str) -> crate::Error {
+    crate::Error::Io(std::io::Error::other(format!(
+        "invalid endpoint {s:?}: {why}"
+    )))
 }
 
 #[cfg(test)]
@@ -271,29 +331,65 @@ mod tests {
     #[test]
     fn split_simple() {
         assert_eq!(
-            split_host_port("127.0.0.1:25567", "0.0.0.0", 19132),
+            split_host_port("127.0.0.1:25567", "0.0.0.0", 19132).unwrap(),
             ("127.0.0.1".into(), 25567)
         );
     }
     #[test]
     fn split_default_host() {
         assert_eq!(
-            split_host_port(":19132", "0.0.0.0", 19132),
+            split_host_port(":19132", "0.0.0.0", 19132).unwrap(),
             ("0.0.0.0".into(), 19132)
         );
     }
     #[test]
     fn split_ipv6() {
         assert_eq!(
-            split_host_port("[::1]:25567", "0.0.0.0", 19132),
+            split_host_port("[::1]:25567", "0.0.0.0", 19132).unwrap(),
             ("::1".into(), 25567)
         );
     }
     #[test]
     fn split_fly() {
         assert_eq!(
-            split_host_port("fly-global-services:19132", "0.0.0.0", 19132),
+            split_host_port("fly-global-services:19132", "0.0.0.0", 19132).unwrap(),
             ("fly-global-services".into(), 19132)
         );
+    }
+    #[test]
+    fn split_bare_ipv6_default_port() {
+        assert_eq!(
+            split_host_port("[::1]", "0.0.0.0", 19132).unwrap(),
+            ("::1".into(), 19132)
+        );
+    }
+    #[test]
+    fn split_bare_host_default_port() {
+        assert_eq!(
+            split_host_port("localhost", "0.0.0.0", 19132).unwrap(),
+            ("localhost".into(), 19132)
+        );
+    }
+    #[test]
+    fn split_empty_defaults() {
+        assert_eq!(
+            split_host_port("", "0.0.0.0", 19132).unwrap(),
+            ("0.0.0.0".into(), 19132)
+        );
+    }
+
+    #[test]
+    fn split_rejects_invalid_ports() {
+        // Non-numeric, out of range, and malformed endpoints must error
+        // loudly instead of silently falling back to defaults.
+        assert!(split_host_port(":abc", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("127.0.0.1:abc", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("127.0.0.1:99999", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("127.0.0.1:0", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("host:-1", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("host:12x", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("[::1", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("[::1]abc", "0.0.0.0", 19132).is_err());
+        assert!(split_host_port("::1:19132", "0.0.0.0", 19132).is_err());
     }
 }

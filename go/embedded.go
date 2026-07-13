@@ -63,19 +63,17 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	if err := renderConfig(workdir, s.opts); err != nil {
 		return err
 	}
-	if err := copyPermissionsYML(workdir); err != nil {
-		s.logger.Warn("could not stage permissions.yml", slog.String("err", err.Error()))
-	}
+		if err := copyPermissionsYML(workdir); err != nil {
+			s.logger.Warn("could not stage permissions.yml", slog.String("err", err.Error()))
+		}
 
-	// chdir into the workdir for Geyser's relative-path file access.
-	// We don't rely on global state — Geyser inside the isolate sees this cwd.
-	prev, _ := os.Getwd()
-	if err := os.Chdir(workdir); err != nil {
-		return fmt.Errorf("geyserlite: chdir: %w", err)
-	}
-	defer os.Chdir(prev)
+		// No os.Chdir here. Geyser's getConfigFolder() is patched (via
+		// apply-overlay.sh) to return the config file's parent directory
+		// instead of process CWD, so all relative-path lookups
+		// (permissions.yml, cache files, etc.) resolve correctly without
+		// mutating global state.
 
-	// GraalVM's IsolateThread* is thread-affine: every isolate call
+		// GraalVM's IsolateThread* is thread-affine: every isolate call
 	// must come from the OS thread that the thread handle was minted
 	// on. Go goroutines aren't pinned to OS threads by default, so we
 	// dedicate one OS-locked goroutine to the create/init/run chain
@@ -84,7 +82,7 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	// StackOverflowError on the first call from a stranger thread —
 	// it interprets the wrong-thread call as runaway native recursion.
 	configPath := filepath.Join(workdir, "config.yml")
-	cstr, free := cString(configPath)
+	cstr, free := pinString(configPath)
 	defer free()
 
 	type isolateRefs struct {
@@ -254,14 +252,7 @@ func (r *embeddedRunner) load(libpath string) error {
 	return loadErr
 }
 
-// cString allocates a NUL-terminated copy of s in C memory and returns a
-// pointer to it plus a free function. Caller must invoke free.
-func cString(s string) (uintptr, func()) {
-	// purego provides Calloc-style helpers but to avoid pulling in cgo,
-	// we use a Go []byte and unsafe.Pointer; libgeyserlite reads it in init
-	// before run blocks so the pointer remains valid.
-	b := append([]byte(s), 0)
-	// Pin via runtime.KeepAlive in the call site if we ever cross boundaries
-	// during a callback. For init/shutdown that doesn't happen.
-	return ptrOf(b), func() { _ = b }
-}
+// cString lives in embedded_helpers.go as pinString. The old cString
+// returned a raw uintptr into unpinned Go memory, which was GC-unsafe;
+// pinString pins the backing array via runtime.Pinner so libgeyserlite
+// can read it without the GC moving or reclaiming it first.

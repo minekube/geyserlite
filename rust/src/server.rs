@@ -31,15 +31,20 @@ impl Server {
 
     /// Start the server. Resolves when [`Server::stop`] is called or the
     /// underlying Geyser exits unrecoverably. Returns
-    /// [`Error::AlreadyStarted`] on the second call.
+    /// [`Error::AlreadyStarted`] if called while a previous run is
+    /// still in progress. After `start` resolves, the server may be
+    /// started again.
     pub async fn start(&self) -> Result<()> {
         if self.started.swap(true, Ordering::AcqRel) {
             return Err(Error::AlreadyStarted);
         }
-        match self.opts.mode {
+        let result = match self.opts.mode {
             Mode::Embedded => EmbeddedRunner.run(self).await,
             Mode::Subprocess => SubprocessRunner.run(self).await,
-        }
+        };
+        // Reset so the server can be restarted.
+        self.started.store(false, Ordering::Release);
+        result
     }
 
     /// Request graceful shutdown. Idempotent.
