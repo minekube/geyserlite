@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/minekube/geyserlite/compare/v0.3.27...v0.4.0) (2026-07-13)
+
+
+### Features
+
+* add opt-in Bedrock packet tracing ([#76](https://github.com/minekube/geyserlite/issues/76)) ([db33426](https://github.com/minekube/geyserlite/commit/db33426515777716c9b0a0b20ef2a414fe7d8af3))
+
 ## [0.3.27](https://github.com/minekube/geyserlite/compare/v0.3.26...v0.3.27) (2026-07-12)
 
 
