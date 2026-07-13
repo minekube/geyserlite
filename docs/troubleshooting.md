@@ -61,6 +61,30 @@ printf '\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\xfe\xfe\xfe\xfe\xfd
 
 Look for `MCPE;<your-motd>` in the response.
 
+### Bedrock sessions disconnect or stall intermittently
+
+For a limited staging reproduction, enable the packet trace before starting
+geyserlite:
+
+```sh
+GEYSERLITE_BEDROCK_PACKET_TRACE=1 ./geyserlite
+```
+
+The trace keeps the most recent 256 packet-metadata and channel-event records
+in memory and dumps them, packet counts, channel state, and raw UDP statistics
+when the session disconnects or raises an exception. It records packet types,
+IDs, flags, and sizes, but not decoded packet payloads. The logs still contain
+player names, socket addresses, disconnect reasons, event and exception
+messages, and timing data, so handle them as sensitive diagnostic output and
+disable the trace after collecting the reproduction.
+
+Optional settings:
+
+- `GEYSERLITE_BEDROCK_PACKET_TRACE_RING` changes the retained record count;
+  values are clamped to 16-4096, and invalid values use 256.
+- `GEYSERLITE_BEDROCK_PACKET_TRACE_VERBOSE=1` logs each packet-metadata and
+  channel-event record as it occurs and can produce high-volume output.
+
 ## Routing
 
 ### Player joins but lands in a different/unexpected world

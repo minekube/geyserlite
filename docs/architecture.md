@@ -40,9 +40,10 @@ We don't fork or contribute upstream. Our build pipeline:
 
 1. Clones `GeyserMC/Geyser` at the SHA pinned in `build/geyser.version`.
 2. Layers in `build/overlay/` — pure additions, never overwrites.
-3. Applies `build/patches/*.patch` — minimal surgical changes (currently a
-   one-line edit to `settings.gradle.kts` to register our overlay subproject).
-4. Runs `native-image` twice on Linux: once for the executable, once for the
+3. Applies stable source changes by intent, including registering the overlay
+   subproject and adapting the standalone bootstrap for embedding.
+4. Applies `build/patches/*.patch` for minimal contextual source changes.
+5. Runs `native-image` twice on Linux: once for the executable, once for the
    `.so`. Windows CI builds and smokes the subprocess `.exe` artifact.
 
 Renovate watches upstream master and opens a PR bumping `geyser.version` on
