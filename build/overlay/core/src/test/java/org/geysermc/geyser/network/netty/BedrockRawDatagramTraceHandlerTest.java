@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,9 +78,9 @@ class BedrockRawDatagramTraceHandlerTest {
         channel.writeInbound(new DatagramPacket(Unpooled.buffer(1).writeByte(1), local, remote));
 
         Object remoteStats = stats.get(remote.toString());
-        Field lastInAtMillis = remoteStats.getClass().getDeclaredField("lastInAtMillis");
-        lastInAtMillis.setAccessible(true);
-        lastInAtMillis.setLong(remoteStats, 1L);
+        Field lastSeenAtMillis = remoteStats.getClass().getDeclaredField("lastSeenAtMillis");
+        lastSeenAtMillis.setAccessible(true);
+        lastSeenAtMillis.setLong(remoteStats, 1L);
 
         String summary = BedrockRawDatagramTraceHandler.dumpSummaryForTesting(remote);
 
@@ -95,14 +97,65 @@ class BedrockRawDatagramTraceHandlerTest {
         channel.writeInbound(new DatagramPacket(Unpooled.buffer(1).writeByte(1), local, remote));
 
         Object remoteStats = stats.get(remote.toString());
-        Field lastInAtMillis = remoteStats.getClass().getDeclaredField("lastInAtMillis");
-        lastInAtMillis.setAccessible(true);
-        lastInAtMillis.setLong(remoteStats, 1L);
+        Field lastSeenAtMillis = remoteStats.getClass().getDeclaredField("lastSeenAtMillis");
+        lastSeenAtMillis.setAccessible(true);
+        lastSeenAtMillis.setLong(remoteStats, 1L);
         channel.writeInbound(new DatagramPacket(Unpooled.buffer(1).writeByte(1), local, remote));
 
         String summary = BedrockRawDatagramTraceHandler.dumpSummaryForTesting(remote);
 
         assertTrue(summary.contains("inDatagrams=1"), summary);
+    }
+
+    @Test
+    void knownRemoteUpdatesDoNotAcquireGlobalMaintenanceLock() throws ReflectiveOperationException, InterruptedException {
+        InetSocketAddress remote = new InetSocketAddress("203.0.113.50", 19132);
+        InetSocketAddress local = new InetSocketAddress("127.0.0.1", 19132);
+        EmbeddedChannel channel = new EmbeddedChannel(new BedrockRawDatagramTraceHandler());
+        channel.writeInbound(new DatagramPacket(Unpooled.buffer(1).writeByte(1), local, remote));
+        Object maintenanceLock = maintenanceLock();
+        CountDownLatch monitorHeld = new CountDownLatch(1);
+        CountDownLatch releaseMonitor = new CountDownLatch(1);
+        CountDownLatch updateDone = new CountDownLatch(1);
+
+        Thread holder = Thread.ofPlatform().start(() -> {
+            synchronized (maintenanceLock) {
+                monitorHeld.countDown();
+                try {
+                    releaseMonitor.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        Thread updater = null;
+        boolean completedWithoutGlobalLock = false;
+        try {
+            assertTrue(monitorHeld.await(1, TimeUnit.SECONDS));
+            updater = Thread.ofPlatform().start(() -> {
+                channel.writeInbound(new DatagramPacket(Unpooled.buffer(1).writeByte(1), local, remote));
+                updateDone.countDown();
+            });
+            completedWithoutGlobalLock = updateDone.await(1, TimeUnit.SECONDS);
+        } finally {
+            releaseMonitor.countDown();
+            holder.join();
+            if (updater != null) {
+                updater.join();
+            }
+        }
+
+        assertTrue(completedWithoutGlobalLock);
+    }
+
+    private static Object maintenanceLock() throws ReflectiveOperationException {
+        try {
+            Field field = BedrockRawDatagramTraceHandler.class.getDeclaredField("STATS_MAINTENANCE_LOCK");
+            field.setAccessible(true);
+            return field.get(null);
+        } catch (NoSuchFieldException ignored) {
+            return BedrockRawDatagramTraceHandler.class;
+        }
     }
 
     @SuppressWarnings("unchecked")

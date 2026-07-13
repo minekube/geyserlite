@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class BedrockPacketTraceHandlerTest {
@@ -51,6 +52,16 @@ class BedrockPacketTraceHandlerTest {
         } finally {
             wrapper.release();
         }
+    }
+
+    @Test
+    void clampsConfiguredRingSize() throws ReflectiveOperationException {
+        Method method = assertDoesNotThrow(() -> BedrockPacketTraceHandler.class.getDeclaredMethod(
+                "parseRingSize", String.class
+        ));
+        method.setAccessible(true);
+
+        assertEquals(4_096, method.invoke(null, Integer.toString(Integer.MAX_VALUE)));
     }
 
     private static String describe(Object message) throws ReflectiveOperationException {

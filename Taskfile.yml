@@ -91,9 +91,20 @@ tasks:
     cmds:
       - bash build/test-patch-checkout.sh
 
+  test:overlay:
+    desc: Apply the Geyser overlay and run its regression tests
+    cmds:
+      - task: overlay:apply
+      - >-
+        cd build/.work/Geyser && ./gradlew :core:test
+        --tests org.geysermc.geyser.entity.type.EntityMovementTest
+        --tests org.geysermc.geyser.network.BedrockPacketTraceHandlerTest
+        --tests org.geysermc.geyser.network.netty.BedrockRawDatagramTraceHandlerTest
+        --no-daemon
+
   test:
     desc: all tests
-    deps: [test:go, test:rust, test:patches]
+    deps: [test:go, test:rust, test:patches, test:overlay]
 
   # ─── Lint ────────────────────────────────────────────────────────────────
   lint:go:

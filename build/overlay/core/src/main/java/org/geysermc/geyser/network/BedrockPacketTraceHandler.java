@@ -48,7 +48,8 @@ public final class BedrockPacketTraceHandler extends ChannelDuplexHandler {
     private static final boolean ENABLED = enabled("GEYSERLITE_BEDROCK_PACKET_TRACE");
     private static final boolean VERBOSE = enabled("GEYSERLITE_BEDROCK_PACKET_TRACE_VERBOSE");
     private static final int DEFAULT_RING_SIZE = 256;
-    private static final int RING_SIZE = intEnv("GEYSERLITE_BEDROCK_PACKET_TRACE_RING", DEFAULT_RING_SIZE);
+    private static final int MAX_RING_SIZE = 4_096;
+    private static final int RING_SIZE = parseRingSize(System.getenv("GEYSERLITE_BEDROCK_PACKET_TRACE_RING"));
 
     private final GeyserImpl geyser;
     private final GeyserSession session;
@@ -309,15 +310,14 @@ public final class BedrockPacketTraceHandler extends ChannelDuplexHandler {
         return value != null && (value.equals("1") || Boolean.parseBoolean(value));
     }
 
-    private static int intEnv(String name, int fallback) {
-        String value = System.getenv(name);
+    private static int parseRingSize(String value) {
         if (value == null || value.isBlank()) {
-            return fallback;
+            return DEFAULT_RING_SIZE;
         }
         try {
-            return Math.max(16, Integer.parseInt(value));
+            return Math.min(MAX_RING_SIZE, Math.max(16, Integer.parseInt(value)));
         } catch (NumberFormatException ignored) {
-            return fallback;
+            return DEFAULT_RING_SIZE;
         }
     }
 }
