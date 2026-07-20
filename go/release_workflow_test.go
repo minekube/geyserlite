@@ -12,7 +12,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const approvedGateDispatchWorkflow = "minekube/actions/.github/workflows/dispatch-workflow.yml@1965ed6ae602a602f9f98edcb31fe177403e8d77"
+const gateDispatchWorkflowPath = "minekube/actions/.github/workflows/dispatch-workflow.yml"
+
+const gateDispatchWorkflowMajorTag = "v1"
 
 var immutableWorkflowRef = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
@@ -47,9 +49,6 @@ func TestReleaseGateDispatchWorkflowContract(t *testing.T) {
 	if !ok {
 		t.Fatal("dispatch-gate-bump job is missing")
 	}
-	if dispatch.Uses != approvedGateDispatchWorkflow {
-		t.Fatalf("dispatch workflow = %q, want %q", dispatch.Uses, approvedGateDispatchWorkflow)
-	}
 	if dispatch.Needs != "release" || dispatch.If != "startsWith(inputs.release_tag || github.ref_name, 'v')" {
 		t.Fatalf("dispatch release gate = needs %q, if %q", dispatch.Needs, dispatch.If)
 	}
@@ -60,9 +59,15 @@ func TestReleaseGateDispatchWorkflowContract(t *testing.T) {
 		t.Fatalf("dispatch secrets = %q, want inherit", dispatch.Secrets)
 	}
 
-	_, ref, ok := strings.Cut(dispatch.Uses, "@")
-	if !ok || !immutableWorkflowRef.MatchString(ref) {
-		t.Fatalf("dispatch workflow ref = %q, want a 40-character lowercase commit SHA", ref)
+	workflowRefPath, ref, ok := strings.Cut(dispatch.Uses, "@")
+	if !ok || workflowRefPath != gateDispatchWorkflowPath {
+		t.Fatalf("dispatch workflow path = %q, want %q", workflowRefPath, gateDispatchWorkflowPath)
+	}
+	if immutableWorkflowRef.MatchString(ref) {
+		t.Fatalf("dispatch workflow ref = %q, want intentional major tag %q instead of an immutable commit pin", ref, gateDispatchWorkflowMajorTag)
+	}
+	if ref != gateDispatchWorkflowMajorTag {
+		t.Fatalf("dispatch workflow ref = %q, want intentional major tag %q", ref, gateDispatchWorkflowMajorTag)
 	}
 
 	wantInputs := map[string]string{
