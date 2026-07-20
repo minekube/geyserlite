@@ -2,6 +2,7 @@
 package geyserlite
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"regexp"
@@ -16,7 +17,14 @@ const approvedGateDispatchWorkflow = "minekube/actions/.github/workflows/dispatc
 var immutableWorkflowRef = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 func TestReleaseGateDispatchWorkflowContract(t *testing.T) {
-	workflowBytes, err := os.ReadFile("../.github/workflows/release.yml")
+	const workflowPath = "../.github/workflows/release.yml"
+
+	workflowBytes, err := os.ReadFile(workflowPath)
+	if errors.Is(err, os.ErrNotExist) {
+		if _, checkoutErr := os.Stat("../.git"); errors.Is(checkoutErr, os.ErrNotExist) {
+			t.Skipf("%s is unavailable outside a repository checkout", workflowPath)
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
