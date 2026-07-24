@@ -40,7 +40,7 @@ serde_yaml_ng = "0.10"
 tokio = { version = "1", features = ["full"] }
 tracing-subscriber = "0.3"
 anyhow = "1"
-base64 = "0.22"
+base64 = "0.23"
 
 [[example]]
 name = "basic"
