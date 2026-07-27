@@ -110,7 +110,8 @@ resolves one file against `checksums.txt`; sibling `.so` files have nowhere
 to ride along. Taking it would also mean skins working on arm64 and not on
 amd64.
 
-So closing this needs one of the following, none of them a build-flag change:
+So closing this needs one of the following; these are not small,
+self-contained build-only changes:
 
 - **Upstream GraalVM**: static AWT linking, or AWT support under `--static`.
 - **Drop `--static --libc=musl` on amd64** and ship a multi-file artifact.
@@ -118,9 +119,12 @@ So closing this needs one of the following, none of them a build-flag change:
   the property the flag set was built around (see
   [`../ROADMAP.md`](../ROADMAP.md)) — and changes the release contract for
   every consumer.
-- **Pre-bake decoded skin data** into the image so `ImageIO` is never called
-  at run time. This needs a Geyser source change via `patches/`, not a flag,
-  and would also remove the ~39 MB per-boot Mojang download.
+- **Pre-bake decoded skin data** into the image so `ProvidedSkins` never calls
+  `ImageIO` at run time. This fixes the default-skin path and removes the
+  ~39 MB per-boot Mojang download, but `SkinProvider.requestImage` and
+  `downloadImage` still call `ImageIO.read` for Java player skins, so it is
+  not a complete fix for all runtime skin decoding. It needs a Geyser source
+  change via `patches/`, not a flag.
 
 Do not spend time on `-Djava.awt.headless=true` or on copying `libawt*.so`
 into the runtime stage: neither reaches the released amd64 binary.

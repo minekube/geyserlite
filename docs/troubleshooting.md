@@ -28,8 +28,10 @@ bytes), not RSA. See [`floodgate.md`](./floodgate.md).
 ### Last log line is `Downloading Minecraft JAR to extract required files`
 
 **This is not a startup stall, and the server is already up.** Geyser hands
-the client-JAR work to `CompletableFuture.runAsync`, so the RakNet listener
-binds and `Done (…s)!` prints *before* that line appears:
+the client-JAR work to `CompletableFuture.runAsync`. In practice, the Mojang
+manifest fetch usually outlasts local startup, so the RakNet listener binds
+and `Done (…s)!` normally prints *before* that line appears. The ordering is a
+race, not a guarantee:
 
 ```
 Started Geyser on UDP port 19132
@@ -37,7 +39,8 @@ Done (1.584s)! Run /geyser help for help!
 Downloading Minecraft JAR to extract required files, please wait...   <- last line
 ```
 
-The async task then dies silently on the missing-AWT limitation below —
+Either way, the async task does not block the listener from binding. It then
+dies silently on the missing-AWT limitation below —
 `downloadAndRunClientJarTasks` catches `Exception`, the failure is an
 `Error`, and the `CompletableFuture` result is never observed, so nothing is
 logged. Check the UDP port, not the log tail:
