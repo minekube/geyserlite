@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to publish or repair. Empty uses the workflow ref.
+        description: Existing release tag to repair. Empty publishes the workflow ref.
         required: false
         type: string
       skip_crates_publish:
@@ -150,12 +150,119 @@ jobs:
           done
 
       - name: Create GitHub Release
+        # Fresh releases only. A repair goes through the step below, which
+        # never touches release metadata.
+        if: ${{ !inputs.release_tag }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           generate_release_notes: true
           files: |
             artifacts/**/*
+
+      # Repairing an existing release must not go through
+      # softprops/action-gh-release: it calls PATCH /releases/{id} to sync
+      # release metadata BEFORE uploading anything, and that PATCH now returns
+      # "403 Resource not accessible by integration" for these releases. The
+      # upload is never even attempted -- four backfill runs for v0.3.6-v0.3.9
+      # died there with every artifact already built and signed.
+      #
+      # `gh release upload` only POSTs to /releases/{id}/assets. Confirmed
+      # working against the same 403-ing release with the same token.
+      - name: Repair release assets
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          # upload-artifact nests files per architecture; the released asset
+          # name is the basename. Duplicates across arch dirs (libgeyserlite.h)
+          # are byte-identical, so last-write-wins is safe here.
+          mkdir -p upload
+          find artifacts -type f -exec sh -c 'cp -f "$1" "upload/$(basename "$1")"' _ {} \;
+          ls -la upload/
+
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::No published release exists for $RELEASE_TAG to repair."
+            echo "::error::Repair fills holes in an existing release; it does not create one."
+            exit 1
+          fi
+
+          RELEASE_JSON=$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")
+
+          BUILD_FILTER='[.assets[]
+            | select(.state == "uploaded")
+            | select(.name | test(
+                "^checksums\\.txt$|^SHA(256|512)SUMS$|^LICENSE|^README|\\.sig$|\\.sigstore\\.json$|\\.attest\\.spdx\\.json$|\\.spdx\\.json$|\\.asc$|\\.pem$|\\.sha256$|\\.h$|\\.hpp$|\\.md$|\\.txt$"
+              ) | not)
+            | select(.size > 0)]'
+
+          EXISTING_BUILDS=$(echo "$RELEASE_JSON" | jq "$BUILD_FILTER | length")
+          HAS_CHECKSUMS=$(echo "$RELEASE_JSON" \
+            | jq '[.assets[] | select(.name == "checksums.txt" and .state == "uploaded" and .size > 0)] | length')
+
+          # GUARD 1: repair is for releases with missing artifacts. A release
+          # that already carries a real build and its manifest is complete;
+          # re-uploading over it would replace artifacts nobody asked us to
+          # touch, and those are what consumers have already checksummed.
+          if [ "$EXISTING_BUILDS" -gt 0 ] && [ "$HAS_CHECKSUMS" -gt 0 ]; then
+            echo "::error::Release $RELEASE_TAG already has $EXISTING_BUILDS build artifact(s) and checksums.txt."
+            echo "::error::Refusing to modify a complete release. Repair fills holes only."
+            exit 1
+          fi
+
+          # GUARD 2: never clobber an existing GOOD asset. Only names that are
+          # absent, or present in a non-uploaded/zero-byte (failed upload)
+          # state, are eligible. --clobber then applies solely to those holes.
+          UPLOAD_LIST=""
+          SKIPPED=""
+          for f in upload/*; do
+            [ -f "$f" ] || continue
+            base="$(basename "$f")"
+            good=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
+              '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
+            if [ "$good" -gt 0 ]; then
+              asset_url=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
+                '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | first | .url // empty')
+              if [ -z "$asset_url" ]; then
+                echo "::error::Could not resolve the published asset endpoint for $base."
+                exit 1
+              fi
+              remote_tmp=$(mktemp)
+              if ! gh api -H "Accept: application/octet-stream" "$asset_url" >"$remote_tmp"; then
+                rm -f "$remote_tmp"
+                echo "::error::Could not download the published asset $base for reconciliation."
+                exit 1
+              fi
+              local_hash=$(sha256sum "$f" | awk '{print $1}')
+              remote_hash=$(sha256sum "$remote_tmp" | awk '{print $1}')
+              rm -f "$remote_tmp"
+              if [ "$local_hash" != "$remote_hash" ]; then
+                echo "::error::Asset $base differs from the local build."
+                echo "::error::$base local SHA-256: $local_hash"
+                echo "::error::$base published SHA-256: $remote_hash"
+                exit 1
+              fi
+              SKIPPED="$SKIPPED $base"
+            else
+              UPLOAD_LIST="$UPLOAD_LIST $f"
+            fi
+          done
+
+          if [ -n "$SKIPPED" ]; then
+            echo "Keeping existing good assets (not clobbered):$SKIPPED"
+          fi
+
+          if [ -z "$UPLOAD_LIST" ]; then
+            echo "::error::Nothing to upload for $RELEASE_TAG: every built file is already published."
+            exit 1
+          fi
+
+          echo "Uploading missing assets:$UPLOAD_LIST"
+          # shellcheck disable=SC2086
+          gh release upload "$RELEASE_TAG" $UPLOAD_LIST --clobber --repo "$GITHUB_REPOSITORY"
 
       # A release that publishes no downloadable asset is indistinguishable
       # from a healthy one: the run is green, the release page exists, and

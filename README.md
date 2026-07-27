@@ -187,9 +187,11 @@ for the unhappy ones:
   commit with `git commit --allow-empty -m "fix: <reason>"`.
 - **Force a major bump** before 1.0: amend the release-please PR title
   to start with `feat!:` or include `BREAKING CHANGE:` in the body.
-- **Re-fire `release.yml` for an existing tag**: `gh workflow run
-  release.yml --ref v0.1.x` (the trigger-release job uses the same
-  workflow_dispatch surface).
+- **Repair missing assets on an existing release**: `gh workflow run
+  release.yml --ref v0.1.x -f release_tag=v0.1.x -f
+  skip_crates_publish=true`. The `release_tag` field selects repair mode,
+  which fills missing or failed-upload assets, refuses complete releases, and
+  keeps existing good assets.
 
 ### Trust signals
 
