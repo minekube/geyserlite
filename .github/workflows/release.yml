@@ -177,17 +177,52 @@ jobs:
 
           # Asset visibility is eventually consistent right after upload, so
           # poll briefly before declaring the release empty.
+          ASSET_COUNT=0
+          CHECKSUMS_ID=""
+          CHECKSUMS_READ=false
+          MISSING=""
+          CHECKSUMS_FILE=/tmp/published-checksums.txt
+
           for attempt in $(seq 1 12); do
             RELEASE_JSON=$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")
             ASSET_COUNT=$(echo "$RELEASE_JSON" | jq '[.assets[] | select(.state == "uploaded")] | length')
-            if [ "$ASSET_COUNT" -gt 0 ]; then
+            CHECKSUMS_ID=$(echo "$RELEASE_JSON" \
+              | jq -r '.assets[] | select(.name == "checksums.txt" and .state == "uploaded") | .id' \
+              | head -n1)
+            CHECKSUMS_READ=false
+            MISSING=""
+            : > "$CHECKSUMS_FILE"
+
+            if [ -n "$CHECKSUMS_ID" ] && gh api "/repos/$GITHUB_REPOSITORY/releases/assets/$CHECKSUMS_ID" \
+              -H 'Accept: application/octet-stream' > "$CHECKSUMS_FILE"; then
+              CHECKSUMS_READ=true
+
+              while read -r _ name; do
+                [ -n "$name" ] || continue
+                present=$(echo "$RELEASE_JSON" \
+                  | jq -r --arg n "$name" \
+                    '[.assets[] | select(.name == $n and .state == "uploaded")] | length')
+                if [ "$present" -eq 0 ]; then
+                  MISSING="$MISSING $name"
+                fi
+              done < "$CHECKSUMS_FILE"
+            fi
+
+            if [ "$ASSET_COUNT" -gt 0 ] && [ -n "$CHECKSUMS_ID" ] \
+              && [ "$CHECKSUMS_READ" = true ] && [ -z "$MISSING" ]; then
               break
             fi
-            echo "No uploaded assets visible on $RELEASE_TAG yet (attempt $attempt); waiting..."
+
+            echo "Published assets are incomplete on $RELEASE_TAG (attempt $attempt); waiting..."
             sleep 10
           done
 
           echo "$RELEASE_JSON" | jq -r '.assets[] | "\(.name)\t\(.size)\t\(.state)"'
+          if [ "$CHECKSUMS_READ" = true ]; then
+            cat "$CHECKSUMS_FILE"
+          else
+            echo "checksums.txt contents unavailable."
+          fi
 
           if [ "$ASSET_COUNT" -eq 0 ]; then
             echo "::error::Release $RELEASE_TAG published with ZERO downloadable assets."
@@ -198,33 +233,20 @@ jobs:
           # checksums.txt is the manifest every auto-download path fetches
           # first (go/download.go, rust/), so a release without it is
           # unusable even if other assets are present.
-          CHECKSUMS_ID=$(echo "$RELEASE_JSON" \
-            | jq -r '.assets[] | select(.name == "checksums.txt" and .state == "uploaded") | .id' \
-            | head -n1)
           if [ -z "$CHECKSUMS_ID" ]; then
             echo "::error::Release $RELEASE_TAG has $ASSET_COUNT asset(s) but no uploaded checksums.txt."
             echo "::error::Consumer auto-download resolves <tag>/checksums.txt first and will 404."
             exit 1
           fi
 
+          if [ "$CHECKSUMS_READ" != true ]; then
+            echo "::error::Uploaded checksums.txt on $RELEASE_TAG could not be downloaded."
+            exit 1
+          fi
+
           # Every artifact the manifest promises must actually be downloadable.
           # A checksums.txt that references missing assets 404s just as hard as
           # no release at all, only later and less visibly.
-          gh api "/repos/$GITHUB_REPOSITORY/releases/assets/$CHECKSUMS_ID" \
-            -H 'Accept: application/octet-stream' > /tmp/published-checksums.txt
-          cat /tmp/published-checksums.txt
-
-          MISSING=""
-          while read -r _ name; do
-            [ -n "$name" ] || continue
-            present=$(echo "$RELEASE_JSON" \
-              | jq -r --arg n "$name" \
-                '[.assets[] | select(.name == $n and .state == "uploaded")] | length')
-            if [ "$present" -eq 0 ]; then
-              MISSING="$MISSING $name"
-            fi
-          done < /tmp/published-checksums.txt
-
           if [ -n "$MISSING" ]; then
             echo "::error::checksums.txt on $RELEASE_TAG references assets that are not published:$MISSING"
             exit 1
