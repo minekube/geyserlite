@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to publish or repair. Empty uses the workflow ref.
+        description: Existing release tag to repair. Empty publishes the workflow ref.
         required: false
         type: string
       skip_crates_publish:
@@ -194,7 +194,9 @@ jobs:
 
           BUILD_FILTER='[.assets[]
             | select(.state == "uploaded")
-            | select(.name | test("^checksums\\.txt$|^SHA(256|512)SUMS$|^LICENSE|^README|\\.sig$|\\.sigstore\\.json$|\\.attest\\.spdx\\.json$|\\.spdx\\.json$|\\.asc$|\\.pem$|\\.sha256$|\\.h$|\\.hpp$|\\.md$|\\.txt$") | not)
+            | select(.name | test(
+                "^checksums\\.txt$|^SHA(256|512)SUMS$|^LICENSE|^README|\\.sig$|\\.sigstore\\.json$|\\.attest\\.spdx\\.json$|\\.spdx\\.json$|\\.asc$|\\.pem$|\\.sha256$|\\.h$|\\.hpp$|\\.md$|\\.txt$"
+              ) | not)
             | select(.size > 0)]'
 
           EXISTING_BUILDS=$(echo "$RELEASE_JSON" | jq "$BUILD_FILTER | length")
