@@ -4,6 +4,7 @@ package geyserlite
 import (
 	"errors"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -148,10 +149,21 @@ func TestReleaseVerificationRequiresRealBuildArtifact(t *testing.T) {
 
 	// The metadata types that must NOT satisfy the guard on their own.
 	for _, excluded := range []string{
+		`^checksums\\.txt$`,        // the manifest itself
+		`^SHA(256|512)SUMS$`,       // checksum manifests
+		`^LICENSE`,                 // license metadata
+		`^README`,                  // readme metadata
+		`\\.sig$`,                  // detached signatures
 		`\\.sigstore\\.json$`,      // signature bundles
 		`\\.attest\\.spdx\\.json$`, // SBOM attestations
-		`\\.h$`,                    // the C header that faked a repair
-		`^checksums\\.txt$`,        // the manifest itself
+		`\\.spdx\\.json$`,          // SBOM metadata
+		`\\.asc$`,                  // armored signatures
+		`\\.pem$`,                  // certificate metadata
+		`\\.sha256$`,               // checksum sidecars
+		`\\.h$`,                    // C headers
+		`\\.hpp$`,                  // C++ headers
+		`\\.md$`,                   // markdown metadata
+		`\\.txt$`,                  // text metadata
 	} {
 		if !strings.Contains(script, excluded) {
 			t.Errorf("build-artifact classifier does not exclude %s; a release of pure "+
@@ -160,10 +172,8 @@ func TestReleaseVerificationRequiresRealBuildArtifact(t *testing.T) {
 	}
 
 	// And it must actually gate on the classified count, not just compute it.
-	for _, want := range []string{"BUILD_COUNT", "-eq 0"} {
-		if !strings.Contains(script, want) {
-			t.Errorf("guard does not fail on a zero build-artifact count (missing %q)", want)
-		}
+	if !regexp.MustCompile(`BUILD_COUNT"\s*-eq\s*0`).MatchString(script) {
+		t.Error("guard does not fail on the classified zero build-artifact count")
 	}
 }
 

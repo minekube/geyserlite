@@ -183,6 +183,10 @@ jobs:
           CHECKSUMS_ID=""
           CHECKSUMS_READ=false
           MISSING=""
+          MANIFEST_BUILDS=0
+          PROBE=""
+          PROBE_URL=""
+          PROBE_CODE=""
           CHECKSUMS_FILE=/tmp/published-checksums.txt
 
           # A non-empty asset list is NOT proof of a usable release. A release
@@ -223,9 +227,32 @@ jobs:
               done < "$CHECKSUMS_FILE"
             fi
 
-            if [ "$ASSET_COUNT" -gt 0 ] && [ "$BUILD_COUNT" -gt 0 ] && [ -n "$CHECKSUMS_ID" ] \
-              && [ "$CHECKSUMS_READ" = true ] && [ -z "$MISSING" ]; then
-              break
+            MANIFEST_BUILDS=0
+            PROBE=""
+            PROBE_URL=""
+            PROBE_CODE=""
+            if [ "$BUILD_COUNT" -gt 0 ] && [ "$CHECKSUMS_READ" = true ] \
+              && [ -z "$MISSING" ]; then
+              while read -r _ name; do
+                [ -n "$name" ] || continue
+                if echo "$BUILD_NAMES" | grep -Fxq "$name"; then
+                  MANIFEST_BUILDS=$((MANIFEST_BUILDS + 1))
+                fi
+              done < "$CHECKSUMS_FILE"
+
+              PROBE=$(echo "$BUILD_NAMES" | head -n1)
+              PROBE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$PROBE"
+              if ! PROBE_CODE=$(curl -sSL -o /dev/null -w '%{http_code}' -r 0-0 "$PROBE_URL"); then
+                PROBE_CODE="000"
+              fi
+            fi
+
+            if [ "$ASSET_COUNT" -gt 0 ] && [ "$BUILD_COUNT" -gt 0 ] \
+              && [ -n "$CHECKSUMS_ID" ] && [ "$CHECKSUMS_READ" = true ] \
+              && [ -z "$MISSING" ] && [ "$MANIFEST_BUILDS" -gt 0 ]; then
+              case "$PROBE_CODE" in
+                200|206) break ;;
+              esac
             fi
 
             echo "Published assets are incomplete on $RELEASE_TAG (attempt $attempt); waiting..."
@@ -261,13 +288,13 @@ jobs:
           # first (go/download.go, rust/), so a release without it is
           # unusable even if other assets are present.
           if [ -z "$CHECKSUMS_ID" ]; then
-            echo "::error::Release $RELEASE_TAG has $ASSET_COUNT asset(s) but no uploaded checksums.txt."
+            echo "::error::Release $RELEASE_TAG has $ASSET_COUNT asset(s) but no uploaded checksums.txt; the manifest is unresolvable."
             echo "::error::Consumer auto-download resolves <tag>/checksums.txt first and will 404."
             exit 1
           fi
 
           if [ "$CHECKSUMS_READ" != true ]; then
-            echo "::error::Uploaded checksums.txt on $RELEASE_TAG could not be downloaded."
+            echo "::error::Uploaded checksums.txt on $RELEASE_TAG could not be downloaded; the manifest is unresolvable."
             exit 1
           fi
 
@@ -275,34 +302,23 @@ jobs:
           # A checksums.txt that references missing assets 404s just as hard as
           # no release at all, only later and less visibly.
           if [ -n "$MISSING" ]; then
-            echo "::error::checksums.txt on $RELEASE_TAG references assets that are not published:$MISSING"
+            echo "::error::checksums.txt on $RELEASE_TAG references assets that are not published; the manifest is unresolvable:$MISSING"
             exit 1
           fi
 
           # The manifest must promise a real build too. A checksums.txt that
           # lists only libgeyserlite.h resolves perfectly and still leaves
           # every consumer without a binary.
-          MANIFEST_BUILDS=0
-          while read -r _ name; do
-            [ -n "$name" ] || continue
-            if echo "$BUILD_NAMES" | grep -Fxq "$name"; then
-              MANIFEST_BUILDS=$((MANIFEST_BUILDS + 1))
-            fi
-          done < "$CHECKSUMS_FILE"
-
           if [ "$MANIFEST_BUILDS" -eq 0 ]; then
-            echo "::error::checksums.txt on $RELEASE_TAG references no real build artifact."
+            echo "::error::checksums.txt on $RELEASE_TAG references no real build artifact; the manifest is unresolvable."
             exit 1
           fi
 
           # Finally prove one build is actually served, not merely listed by
           # the API. Range-request the first byte: a released asset that 404s
           # or is empty fails here rather than in a user's download.
-          PROBE=$(echo "$BUILD_NAMES" | head -n1)
-          PROBE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$PROBE"
-          PROBE_CODE=$(curl -sSL -o /dev/null -w '%{http_code}' -r 0-0 "$PROBE_URL")
           if [ "$PROBE_CODE" != "200" ] && [ "$PROBE_CODE" != "206" ]; then
-            echo "::error::Build artifact $PROBE is listed on $RELEASE_TAG but not downloadable (HTTP $PROBE_CODE)."
+            echo "::error::Build artifact $PROBE is listed on $RELEASE_TAG but not downloadable (HTTP $PROBE_CODE); the build is undownloadable."
             echo "::error::$PROBE_URL"
             exit 1
           fi
