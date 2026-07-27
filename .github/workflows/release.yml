@@ -199,7 +199,7 @@ jobs:
 
           EXISTING_BUILDS=$(echo "$RELEASE_JSON" | jq "$BUILD_FILTER | length")
           HAS_CHECKSUMS=$(echo "$RELEASE_JSON" \
-            | jq '[.assets[] | select(.name == "checksums.txt" and .state == "uploaded")] | length')
+            | jq '[.assets[] | select(.name == "checksums.txt" and .state == "uploaded" and .size > 0)] | length')
 
           # GUARD 1: repair is for releases with missing artifacts. A release
           # that already carries a real build and its manifest is complete;
@@ -222,6 +222,27 @@ jobs:
             good=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
               '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
             if [ "$good" -gt 0 ]; then
+              asset_url=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
+                '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | first | .url // empty')
+              if [ -z "$asset_url" ]; then
+                echo "::error::Could not resolve the published asset endpoint for $base."
+                exit 1
+              fi
+              remote_tmp=$(mktemp)
+              if ! gh api -H "Accept: application/octet-stream" "$asset_url" >"$remote_tmp"; then
+                rm -f "$remote_tmp"
+                echo "::error::Could not download the published asset $base for reconciliation."
+                exit 1
+              fi
+              local_hash=$(sha256sum "$f" | awk '{print $1}')
+              remote_hash=$(sha256sum "$remote_tmp" | awk '{print $1}')
+              rm -f "$remote_tmp"
+              if [ "$local_hash" != "$remote_hash" ]; then
+                echo "::error::Asset $base differs from the local build."
+                echo "::error::$base local SHA-256: $local_hash"
+                echo "::error::$base published SHA-256: $remote_hash"
+                exit 1
+              fi
               SKIPPED="$SKIPPED $base"
             else
               UPLOAD_LIST="$UPLOAD_LIST $f"

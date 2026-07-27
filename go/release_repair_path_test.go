@@ -110,6 +110,9 @@ func TestRepairPathOnlyTouchesIncompleteReleases(t *testing.T) {
 	if !regexp.MustCompile(`HAS_CHECKSUMS"?\s*-gt\s*0`).MatchString(script) {
 		t.Error("repair does not check whether the release already has checksums.txt")
 	}
+	if !strings.Contains(script, `.name == "checksums.txt" and .state == "uploaded" and .size > 0`) {
+		t.Error("repair treats a zero-byte checksums.txt as a complete manifest")
+	}
 	if !strings.Contains(script, "Refusing to modify a complete release") {
 		t.Error("repair does not refuse a release that is already complete")
 	}
@@ -141,5 +144,33 @@ func TestRepairPathNeverClobbersGoodAssets(t *testing.T) {
 	}
 	if !regexp.MustCompile(`gh release upload "\$RELEASE_TAG" \$UPLOAD_LIST`).MatchString(script) {
 		t.Error("repair does not upload the filtered missing-asset list")
+	}
+}
+
+func TestRepairPathReconcilesRetainedAssets(t *testing.T) {
+	script := repairStep(t).Run
+
+	for _, required := range []string{
+		`gh api -H "Accept: application/octet-stream" "$asset_url"`,
+		`local_hash=$(sha256sum "$f"`,
+		`remote_hash=$(sha256sum "$remote_tmp"`,
+		`if [ "$local_hash" != "$remote_hash" ]; then`,
+		`Asset $base differs`,
+		`local SHA-256: $local_hash`,
+		`published SHA-256: $remote_hash`,
+	} {
+		if !strings.Contains(script, required) {
+			t.Errorf("repair is missing retained-asset reconciliation: %q", required)
+		}
+	}
+
+	compare := strings.Index(script, `if [ "$local_hash" != "$remote_hash" ]; then`)
+	skip := strings.Index(script, `SKIPPED="$SKIPPED $base"`)
+	upload := strings.Index(script, `gh release upload "$RELEASE_TAG" $UPLOAD_LIST`)
+	if compare < 0 || skip < 0 || compare > skip {
+		t.Error("repair can retain a good asset before comparing its published bytes")
+	}
+	if upload < 0 || compare > upload {
+		t.Error("repair compares retained assets after the upload call")
 	}
 }
