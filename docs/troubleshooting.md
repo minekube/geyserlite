@@ -52,15 +52,17 @@ go run go.minekube.com/geyserlite/cmd/bedrock-probe@latest <ip>:19132
 ### Default player skins fall back to the empty skin
 
 **Known limitation of the native build. Gameplay is unaffected — this is
-cosmetic.** Bedrock players join, move, and interact normally; only the
-*default* player skins render as the fallback skin.
+cosmetic.** Bedrock players join, move, and interact normally; affected skin
+textures render as the fallback skin. This includes the 18 *default* player
+skins and Java player skins fetched at join time.
 
 Geyser's `ProvidedSkins` decodes the 18 default skin PNGs with
 `ImageIO.read`, which needs the JDK's AWT native libraries. Our GraalVM
 native image ships without them, so the decode throws
 `UnsatisfiedLinkError: Can't load library: awt` and `ProvidedSkin.getData()`
 falls back to `SkinProvider.EMPTY_SKIN`. The same applies to the per-join
-skin fetches in `SkinProvider` (`requestImage`/`downloadImage`).
+skin fetches in `SkinProvider` (`requestImage`/`downloadImage`), based on the
+Geyser source path rather than a direct probe.
 
 What is **not** affected: block and item mappings ship as bundled image
 resources (`-H:IncludeResources` in [`flags.sh`](../build/flags.sh)) and load
