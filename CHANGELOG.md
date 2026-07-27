@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.11](https://github.com/minekube/geyserlite/compare/v0.4.10...v0.4.11) (2026-07-27)
+
+
+### Bug Fixes
+
+* repair releases through the GitHub asset endpoint ([#138](https://github.com/minekube/geyserlite/issues/138)) ([954b30b](https://github.com/minekube/geyserlite/commit/954b30bc8c91209f9a1fc15291cbab0323077a58))
+
 ## [0.4.10](https://github.com/minekube/geyserlite/compare/v0.4.9...v0.4.10) (2026-07-27)
 
 
