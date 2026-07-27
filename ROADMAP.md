@@ -385,7 +385,7 @@ total                   : ~138 MB / 207 MB usable on a 256 MB Fly VM
 |---|---|---|
 | `ci.yml` | every push/PR | `mise install` → `task setup lint test`. Same exact commands run locally. |
 | `native-image.yml` | changes to `build/**` or daily Renovate PR | GraalVM build (Dockerfile target `image` + `shared`); multi-arch manifest; smoke probe |
-| `release.yml` | tag push | Pull native artifacts from native-image run + cosign-sign + GH Release + `cargo publish` |
+| `release.yml` | tag push | Pull native artifacts from native-image run + cosign-sign + GH Release + verify published assets + `cargo publish` |
 
 CI uses [`mise`](https://mise.jdx.dev) to install pinned tooling (same as
 local dev) and [`task`](https://taskfile.dev) as the entry point for

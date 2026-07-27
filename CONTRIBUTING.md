@@ -99,8 +99,9 @@ Add `[skip ci]` to commits that don't need CI to run.
   GHA caches.
 - `native-image.yml` runs only when `build/**` changes (path-filtered).
   This is the slow ~3 min GraalVM build.
-- `release.yml` runs on tag push: signs, publishes Rust crate, creates
-  GH Release.
+- `release.yml` runs on tag push: signs artifacts, creates the GH Release,
+  re-reads the published assets to verify the release manifest, then
+  publishes the Rust crate.
 
 If your PR touches `build/**` and the slow native-image job spotlights
 a regression, pinning the previous Geyser SHA in `build/geyser.version`

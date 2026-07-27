@@ -157,7 +157,8 @@ release.yml
   ├─ pulls signed artifacts from the latest native-image run
   ├─ cosign sign-blob + attest each asset
   ├─ uploads to GitHub Release
-  └─ cargo publish via crates.io OIDC Trusted Publishing
+  └─ verifies the published assets before the crates.io OIDC publish
+     (see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the release contract)
 ```
 
 Conventional Commit prefixes drive what release-please decides:
