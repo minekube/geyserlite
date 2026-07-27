@@ -160,8 +160,9 @@ jobs:
       # A release that publishes no downloadable asset is indistinguishable
       # from a healthy one: the run is green, the release page exists, and
       # the hole only surfaces weeks later when a consumer's auto-download
-      # 404s on checksums.txt. That is exactly how v0.3.3, v0.3.6-v0.3.9 and
-      # v0.3.20-v0.4.8 shipped empty without anyone noticing.
+      # 404s on checksums.txt. That is exactly how v0.3.3, v0.3.7-v0.3.9 and
+      # v0.3.20-v0.4.8 shipped without a real build, while v0.3.6 shipped
+      # only the C header, without anyone noticing.
       #
       # This re-reads the PUBLISHED release from the API instead of trusting
       # the upload step above. Trusting the step we just ran would rebuild
@@ -197,7 +198,12 @@ jobs:
           # classify by name/type and require a real downloadable BUILD.
           BUILD_FILTER='[.assets[]
             | select(.state == "uploaded")
-            | select(.name | test("^checksums\\.txt$|^SHA(256|512)SUMS$|^LICENSE|^README|\\.sig$|\\.sigstore\\.json$|\\.attest\\.spdx\\.json$|\\.spdx\\.json$|\\.asc$|\\.pem$|\\.sha256$|\\.h$|\\.hpp$|\\.md$|\\.txt$") | not)
+            | select(.name | test(
+                "^checksums\\.txt$|^SHA(256|512)SUMS$|^LICENSE|^README|"
+                + "\\.sig$|\\.sigstore\\.json$|\\.attest\\.spdx\\.json$|"
+                + "\\.spdx\\.json$|\\.asc$|\\.pem$|\\.sha256$|"
+                + "\\.h$|\\.hpp$|\\.md$|\\.txt$"
+              ) | not)
             | select(.size > 0)]'
 
           for attempt in $(seq 1 12); do

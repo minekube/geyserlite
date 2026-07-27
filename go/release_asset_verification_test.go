@@ -12,9 +12,10 @@ import (
 )
 
 // The release workflow used to end at "upload the artifacts and hope".
-// v0.3.3, v0.3.6-v0.3.9 and v0.3.20-v0.4.8 all published with zero assets
-// while their runs looked normal, because nothing ever re-read the release
-// that actually landed. These tests pin the guard that closes that gap.
+// v0.3.3, v0.3.7-v0.3.9 and v0.3.20-v0.4.8 published with zero assets, while
+// v0.3.6 published only a C header; their runs looked normal because nothing
+// ever re-read the release that actually landed. These tests pin the guard
+// that closes that gap.
 
 const (
 	verifyAssetsStepName  = "Verify published release assets"
