@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.10](https://github.com/minekube/geyserlite/compare/v0.4.9...v0.4.10) (2026-07-27)
+
+
+### Bug Fixes
+
+* guard releases against missing build artifacts ([#136](https://github.com/minekube/geyserlite/issues/136)) ([fef3324](https://github.com/minekube/geyserlite/commit/fef3324b6a5fbfd36a0315acdf07236cdc6cc1bd))
+
 ## [0.4.9](https://github.com/minekube/geyserlite/compare/v0.4.8...v0.4.9) (2026-07-25)
 
 
