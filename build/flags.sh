@@ -12,7 +12,7 @@
 # flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
 #
 # Static musl linking is only applied on amd64. On aarch64 the GraalVM
-# 21-ol9 image doesn't ship the static JDK pieces required for
+# 25-ol9 image doesn't ship the static JDK pieces required for
 # --libc=musl, so we fall back to dynamic glibc (still produces a clean
 # ELF, just one with the standard glibc runtime dependency).
 NI_LIBC_FLAGS=()
@@ -41,6 +41,7 @@ esac
 NI_BUILD_JVM_XMX="${NI_BUILD_JVM_XMX:-14g}"
 
 # Flags shared by both the ELF and the .so build.
+# shellcheck disable=SC2034,SC2054
 NI_FLAGS_COMMON=(
     # Reflection / JNI metadata captured by the tracing agent.
     -H:ConfigurationFileDirectories=agent-config
@@ -78,7 +79,7 @@ NI_FLAGS_COMMON=(
     # native-image flags links AWT statically, and the amd64 build below is
     # --static, so it cannot dlopen the libraries either. Before adding
     # -Djava.awt.headless=true or shipping libawt*.so, read
-    # "Why AWT cannot be enabled" in ./README.md — the experiment is already
+    # "Why AWT cannot be enabled" in build/README.md — the experiment is already
     # written up there.
     --initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints
 
@@ -88,7 +89,7 @@ NI_FLAGS_COMMON=(
 
     # Linkage: amd64 statically links musl for a single-file ELF with no
     # glibc dependency. aarch64 falls back to dynamic glibc because the
-    # GraalVM 21-ol9 image doesn't ship the static JDK pieces required
+    # GraalVM 25-ol9 image doesn't ship the static JDK pieces required
     # for --libc=musl on aarch64. NI_LIBC_FLAGS is empty there.
     "${NI_LIBC_FLAGS[@]}"
 
@@ -118,12 +119,14 @@ NI_FLAGS_COMMON=(
 )
 
 # Flags specific to the standalone executable build.
+# shellcheck disable=SC2034
 NI_FLAGS_EXECUTABLE=(
     # Geyser's main class.
     --no-fallback
 )
 
 # Flags specific to the shared library build.
+# shellcheck disable=SC2034
 NI_FLAGS_SHARED=(
     --shared
     # @CEntryPoint exports declared in

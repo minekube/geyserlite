@@ -14,7 +14,7 @@ FROM ${GRAALVM_IMAGE} AS builder
 
 # musl + static zlib for --libc=musl static linking.
 #
-# The GraalVM 21-ol9 image baked-in glibc-static 2.34-83 from @System,
+# The GraalVM 25-ol9 image baked-in glibc-static 2.34-83 from @System,
 # which depsolves against glibc-devel 2.34-83 only — but ol9_appstream
 # has moved on to 2.34-231 and refuses to coexist. microdnf doesn't
 # support --allowerasing, so we instead remove the stale static libs
