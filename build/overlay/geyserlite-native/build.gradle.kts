@@ -12,14 +12,14 @@ dependencies {
 
     // GraalVM SDK provides the @CEntryPoint annotation and the
     // CCharPointer / CTypeConversion C-type helpers GeyserBridge.java
-    // imports. The native-image-community:21-ol9 image already has
+    // imports. The GraalVM native-image image already has
     // these classes on the BUILD classpath (substratevm bundles them),
     // but javac at *compile time* doesn't see them unless we pull them
     // in via Maven. compileOnly is enough — the runtime JDK provides
     // the same classes; we just need the symbols at compile time.
     //
-    // Version 23.1.x is the SDK series matching GraalVM 21 LTS; pin
-    // the latest patch in that series.
+    // The compileOnly SDK pin is separate from the native-image container;
+    // only these API symbols are needed to compile the bridge.
     compileOnly("org.graalvm.sdk:graal-sdk:23.1.7")
 
     // GeyserBridge sets Log4j's StatusLogger level before bootstrap

@@ -102,7 +102,7 @@ day 1.
 
 | Artifact | Format | Acquisition | Audience |
 |---|---|---|---|
-| Native binary | static ELF (linux/amd64, linux/arm64) | GitHub Release, sha256 + cosign | self-hosters, package builders |
+| Native binary | static musl ELF (linux/amd64); glibc-dynamic ELF (linux/arm64) | GitHub Release, sha256 + cosign | self-hosters, package builders |
 | Shared library | `.so` (linux/amd64, linux/arm64) + `.h` header | GitHub Release | language bindings (Go, Rust, anyone) |
 | OCI image | `ghcr.io/minekube/geyserlite:<tag>` | `docker pull` | Docker users |
 | Go module | `go.minekube.com/geyserlite` | `go get` | Go MC proxy authors |
@@ -431,7 +431,7 @@ Caching:
 
 ## Open questions
 
-- **Architecture matrix**: do we want a tier-2 `linux/arm64-musl` distinct from `linux/arm64-glibc`? Probably not — static-link makes it irrelevant.
+- **Architecture matrix**: do we want a tier-2 `linux/arm64-musl` alongside the shipped `linux/arm64-glibc` build? Not currently; the release ships only the dynamic glibc target.
 - **Mirror strategy**: do we host a CDN mirror for binary downloads, or rely on GitHub Release infra? Start with GH only.
 - **Floodgate key rotation**: hot reload, or kill-and-restart on key change? Start with restart; revisit if anyone asks.
 - **macOS support**: dev-only Cmd-line binaries, or full integration tests? Start dev-only.

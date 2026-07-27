@@ -25,6 +25,57 @@ locally-built binary, your build flags are missing that.
 Your Floodgate key is the wrong shape. Floodgate uses **AES-128** (16 raw
 bytes), not RSA. See [`floodgate.md`](./floodgate.md).
 
+### Last log line is `Downloading Minecraft JAR to extract required files`
+
+**This is not a startup stall, and the server is already up.** Geyser hands
+the client-JAR work to `CompletableFuture.runAsync`. In practice, the Mojang
+manifest fetch usually outlasts local startup, so the RakNet listener binds
+and `Done (…s)!` normally prints *before* that line appears. The ordering is a
+race, not a guarantee:
+
+```
+Started Geyser on UDP port 19132
+Done (1.584s)! Run /geyser help for help!
+Downloading Minecraft JAR to extract required files, please wait...   <- last line
+```
+
+Either way, the async task does not block the listener from binding. It then
+dies silently on the missing-AWT limitation below —
+`downloadAndRunClientJarTasks` catches `Exception`, the failure is an
+`Error`, and the `CompletableFuture` result is never observed, so nothing is
+logged. Check the UDP port, not the log tail:
+
+```sh
+go run go.minekube.com/geyserlite/cmd/bedrock-probe@latest <ip>:19132
+```
+
+### Default player skins fall back to the empty skin
+
+**Known limitation of the native build. Gameplay is unaffected — this is
+cosmetic.** Bedrock players join, move, and interact normally; affected skin
+textures render as the fallback skin. This includes the 18 *default* player
+skins and Java player skins fetched at join time.
+
+Geyser's `ProvidedSkins` decodes the 18 default skin PNGs with
+`ImageIO.read`, which needs the JDK's AWT native libraries. Our GraalVM
+native image ships without them, so the decode throws
+`UnsatisfiedLinkError: Can't load library: awt` and `ProvidedSkin.getData()`
+falls back to `SkinProvider.EMPTY_SKIN`. The same applies to the per-join
+skin fetches in `SkinProvider` (`requestImage`/`downloadImage`), based on the
+Geyser source path rather than a direct probe.
+
+What is **not** affected: block and item mappings ship as bundled image
+resources (`-H:IncludeResources` in [`flags.sh`](../build/flags.sh)) and load
+before the port bind. The client JAR feeds only locales and default skins —
+`AssetUtils.addTask` has exactly two callers, `MinecraftLocale` and
+`ProvidedSkins` — and the locale files do load fine. Two operational
+side effects do follow, because the task dies before writing its cache
+marker: the ~39 MB client JAR is re-downloaded from Mojang on every boot, and
+a `tmp_locale.jar` is left in the work directory.
+
+Why we don't just bundle `libawt.so`: see
+[Why AWT cannot be enabled](../build/README.md#why-awt-cannot-be-enabled).
+
 ## Network
 
 ### Bedrock client can't connect on Fly.io but TCP services work

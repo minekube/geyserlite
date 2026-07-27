@@ -5,14 +5,17 @@
 #
 # Usage:
 #   source build/flags.sh
-#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_EXECUTABLE[@]}" -o geyserlite -jar Geyser-Standalone.jar
-#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_SHARED[@]}" -o libgeyserlite ...
+#   native-image "${NI_FLAGS_COMMON[@]}" -o geyserlite -jar Geyser-Standalone.jar
+#
+# NI_FLAGS_EXECUTABLE and NI_FLAGS_SHARED remain declared as per-target
+# interfaces for a future wiring decision; see the comments below. The shared
+# library is currently built by the Gradle nativeCompile task.
 
 # Architecture-specific flags. Detected from `uname -m` so the same
 # flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
 #
 # Static musl linking is only applied on amd64. On aarch64 the GraalVM
-# 21-ol9 image doesn't ship the static JDK pieces required for
+# 25-ol9 image doesn't ship the static JDK pieces required for
 # --libc=musl, so we fall back to dynamic glibc (still produces a clean
 # ELF, just one with the standard glibc runtime dependency).
 NI_LIBC_FLAGS=()
@@ -41,6 +44,15 @@ esac
 NI_BUILD_JVM_XMX="${NI_BUILD_JVM_XMX:-14g}"
 
 # Flags shared by both the ELF and the .so build.
+#
+# Both suppressions below are false positives, kept deliberately:
+#   SC2034 (appears unused) — this file is only ever `source`d; the array is
+#     expanded by build/Dockerfile. shellcheck analyses one file at a time and
+#     cannot see across that source boundary.
+#   SC2054 (use spaces, not commas) — the commas are *inside* single
+#     native-image flag values (e.g. --enable-url-protocols=https,http), not
+#     element separators. Splitting on them would corrupt the flags.
+# shellcheck disable=SC2034,SC2054
 NI_FLAGS_COMMON=(
     # Reflection / JNI metadata captured by the tracing agent.
     -H:ConfigurationFileDirectories=agent-config
@@ -70,6 +82,16 @@ NI_FLAGS_COMMON=(
 
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
+    #
+    # These keep the image building; they do NOT give it a working AWT. The
+    # binary has no AWT natives, so Geyser's ImageIO.read calls fail and
+    # default player skins fall back to the empty skin (cosmetic — joins and
+    # mappings are unaffected). That is not fixable here: no combination of
+    # native-image flags links AWT statically, and the amd64 build below is
+    # --static, so it cannot dlopen the libraries either. Before adding
+    # -Djava.awt.headless=true or shipping libawt*.so, read
+    # "Why AWT cannot be enabled" in build/README.md — the experiment is already
+    # written up there.
     --initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints
 
     # Stricter image-heap policy. Catches accidentally retained mutable state at
@@ -78,7 +100,7 @@ NI_FLAGS_COMMON=(
 
     # Linkage: amd64 statically links musl for a single-file ELF with no
     # glibc dependency. aarch64 falls back to dynamic glibc because the
-    # GraalVM 21-ol9 image doesn't ship the static JDK pieces required
+    # GraalVM 25-ol9 image doesn't ship the static JDK pieces required
     # for --libc=musl on aarch64. NI_LIBC_FLAGS is empty there.
     "${NI_LIBC_FLAGS[@]}"
 
@@ -108,12 +130,23 @@ NI_FLAGS_COMMON=(
 )
 
 # Flags specific to the standalone executable build.
+#
+# No shellcheck suppression here on purpose: SC2034 (appears unused) is a TRUE
+# positive today. Nothing expands this array — build/Dockerfile passes only
+# NI_FLAGS_COMMON, which already carries --no-fallback. It is kept as the
+# declared per-target interface documented at the top of this file. Wire it
+# into the Dockerfile's executable build or delete it; do not silence it.
 NI_FLAGS_EXECUTABLE=(
     # Geyser's main class.
     --no-fallback
 )
 
 # Flags specific to the shared library build.
+#
+# Same as above: SC2034 is a TRUE positive and is left unsuppressed. The .so is
+# built by `./gradlew :geyserlite-native:nativeCompile`, which supplies --shared
+# itself and mirrors the flags in overlay/geyserlite-native/build.gradle.kts, so
+# nothing sources this array. Wire it up or delete it; do not silence it.
 NI_FLAGS_SHARED=(
     --shared
     # @CEntryPoint exports declared in
