@@ -41,6 +41,14 @@ esac
 NI_BUILD_JVM_XMX="${NI_BUILD_JVM_XMX:-14g}"
 
 # Flags shared by both the ELF and the .so build.
+#
+# Both suppressions below are false positives, kept deliberately:
+#   SC2034 (appears unused) — this file is only ever `source`d; the array is
+#     expanded by build/Dockerfile. shellcheck analyses one file at a time and
+#     cannot see across that source boundary.
+#   SC2054 (use spaces, not commas) — the commas are *inside* single
+#     native-image flag values (e.g. --enable-url-protocols=https,http), not
+#     element separators. Splitting on them would corrupt the flags.
 # shellcheck disable=SC2034,SC2054
 NI_FLAGS_COMMON=(
     # Reflection / JNI metadata captured by the tracing agent.
@@ -119,14 +127,23 @@ NI_FLAGS_COMMON=(
 )
 
 # Flags specific to the standalone executable build.
-# shellcheck disable=SC2034
+#
+# No shellcheck suppression here on purpose: SC2034 (appears unused) is a TRUE
+# positive today. Nothing expands this array — build/Dockerfile passes only
+# NI_FLAGS_COMMON, which already carries --no-fallback. It is kept as the
+# declared per-target interface documented at the top of this file. Wire it
+# into the Dockerfile's executable build or delete it; do not silence it.
 NI_FLAGS_EXECUTABLE=(
     # Geyser's main class.
     --no-fallback
 )
 
 # Flags specific to the shared library build.
-# shellcheck disable=SC2034
+#
+# Same as above: SC2034 is a TRUE positive and is left unsuppressed. The .so is
+# built by `./gradlew :geyserlite-native:nativeCompile`, which supplies --shared
+# itself and mirrors the flags in overlay/geyserlite-native/build.gradle.kts, so
+# nothing sources this array. Wire it up or delete it; do not silence it.
 NI_FLAGS_SHARED=(
     --shared
     # @CEntryPoint exports declared in
