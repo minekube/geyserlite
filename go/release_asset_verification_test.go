@@ -111,9 +111,10 @@ func TestReleaseVerificationReadsPublishedRelease(t *testing.T) {
 	script := steps[verifyAt].Run
 
 	for _, want := range []string{
-		"/releases/tags/", // re-reads the published release by tag
-		"checksums.txt",   // the manifest every auto-download path needs
-		`"uploaded"`,      // only fully-uploaded assets count
+		"/releases/tags/",    // re-reads the published release by tag
+		"checksums.txt",      // the manifest every auto-download path needs
+		`"uploaded"`,         // only fully-uploaded assets count
+		"releases/download/", // proves a build is actually served, not just listed
 	} {
 		if !strings.Contains(script, want) {
 			t.Errorf("%q script does not reference %q; it must assert on the "+
@@ -126,6 +127,43 @@ func TestReleaseVerificationReadsPublishedRelease(t *testing.T) {
 	localOnly := !strings.Contains(script, "gh api")
 	if localOnly {
 		t.Error("verification must call the GitHub API to read the published release")
+	}
+}
+
+// TestReleaseVerificationRequiresRealBuildArtifact pins the second failure
+// condition. A non-empty asset list is not proof of a usable release: a
+// release carrying only checksums.txt, signature bundles, SBOMs or the
+// libgeyserlite.h C header has a positive asset count and still offers
+// nothing anyone can run. v0.3.6 was briefly in exactly that state - one
+// asset, no build - so the guard must classify by name/type rather than
+// count.
+func TestReleaseVerificationRequiresRealBuildArtifact(t *testing.T) {
+	steps := readReleaseJobSteps(t)
+
+	verifyAt := stepIndex(steps, verifyAssetsStepName)
+	if verifyAt < 0 {
+		t.Fatalf("release job is missing the %q step", verifyAssetsStepName)
+	}
+	script := steps[verifyAt].Run
+
+	// The metadata types that must NOT satisfy the guard on their own.
+	for _, excluded := range []string{
+		`\\.sigstore\\.json$`,      // signature bundles
+		`\\.attest\\.spdx\\.json$`, // SBOM attestations
+		`\\.h$`,                    // the C header that faked a repair
+		`^checksums\\.txt$`,        // the manifest itself
+	} {
+		if !strings.Contains(script, excluded) {
+			t.Errorf("build-artifact classifier does not exclude %s; a release of pure "+
+				"metadata would pass the guard", excluded)
+		}
+	}
+
+	// And it must actually gate on the classified count, not just compute it.
+	for _, want := range []string{"BUILD_COUNT", "-eq 0"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("guard does not fail on a zero build-artifact count (missing %q)", want)
+		}
 	}
 }
 
