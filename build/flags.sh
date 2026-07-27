@@ -5,8 +5,11 @@
 #
 # Usage:
 #   source build/flags.sh
-#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_EXECUTABLE[@]}" -o geyserlite -jar Geyser-Standalone.jar
-#   native-image "${NI_FLAGS_COMMON[@]}" "${NI_FLAGS_SHARED[@]}" -o libgeyserlite ...
+#   native-image "${NI_FLAGS_COMMON[@]}" -o geyserlite -jar Geyser-Standalone.jar
+#
+# NI_FLAGS_EXECUTABLE and NI_FLAGS_SHARED remain declared as per-target
+# interfaces for a future wiring decision; see the comments below. The shared
+# library is currently built by the Gradle nativeCompile task.
 
 # Architecture-specific flags. Detected from `uname -m` so the same
 # flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
