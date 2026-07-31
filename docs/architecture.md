@@ -20,8 +20,10 @@ artifacts:
   `@CEntryPoint`-annotated lifecycle functions. Loaded via `dlopen` by the Go
   (`purego`) and Rust (`libloading`) libraries for in-process embedding.
 
-Both ship from a single CI run, so they always agree on Geyser version,
-flags, and reflection metadata.
+Both ship from a single CI run, so they always agree on Geyser version and
+reflection metadata. Their native-image invocations differ by artifact: the
+shared-library Gradle build mirrors the executable's compatible flags and
+owns shared-only settings.
 
 ## Why native, why these flags
 

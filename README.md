@@ -20,7 +20,7 @@ Fly machine (256 MB), so adding Bedrock cross-play to a Java proxy
 historically meant running it as its own VM — extra cost, extra IP, extra
 surface. `geyserlite` ships Geyser standalone compiled with **GraalVM
 `native-image`** (musl-static on amd64, glibc-dynamic on arm64), tuned
-flags, and a baked 192 MB heap, so the same workload fits in **~110 MB
+flags, and a baked 256 MB heap, so the same workload fits in **~110 MB
 idle / ~175 MB peak** alongside a Go or Rust proxy on the same machine.
 
 Two flagship language libraries (Go and Rust, peers, same release cycle)
