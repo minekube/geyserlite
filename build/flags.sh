@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Single source of truth for native-image flags.
-# Sourced by build/Dockerfile. Each flag is annotated with what it does
-# and what we measured it saving. See ../ROADMAP.md for the full memory journey.
+# Native-image flags for the standalone executable.
+# Sourced by build/Dockerfile and mirrored where compatible by
+# build/overlay/geyserlite-native/build.gradle.kts for the shared library.
+# Each flag is annotated with what it does and what we measured it saving.
+# See ../ROADMAP.md for the full memory journey.
 #
 # Usage:
 #   source build/flags.sh
 #   native-image "${NI_FLAGS_COMMON[@]}" -o geyserlite -jar Geyser-Standalone.jar
-#
-# NI_FLAGS_EXECUTABLE and NI_FLAGS_SHARED remain declared as per-target
-# interfaces for a future wiring decision; see the comments below. The shared
-# library is currently built by the Gradle nativeCompile task.
 
 # Architecture-specific flags. Detected from `uname -m` so the same
 # flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
@@ -43,7 +41,7 @@ esac
 
 NI_BUILD_JVM_XMX="${NI_BUILD_JVM_XMX:-14g}"
 
-# Flags shared by both the ELF and the .so build.
+# Flags used by the executable and mirrored where compatible by the .so build.
 #
 # Both suppressions below are false positives, kept deliberately:
 #   SC2034 (appears unused) — this file is only ever `source`d; the array is
@@ -127,30 +125,6 @@ NI_FLAGS_COMMON=(
 
     # Build-time resources (CPU on the build host, not runtime).
     "-J-Xmx${NI_BUILD_JVM_XMX}"
-)
-
-# Flags specific to the standalone executable build.
-#
-# No shellcheck suppression here on purpose: SC2034 (appears unused) is a TRUE
-# positive today. Nothing expands this array — build/Dockerfile passes only
-# NI_FLAGS_COMMON, which already carries --no-fallback. It is kept as the
-# declared per-target interface documented at the top of this file. Wire it
-# into the Dockerfile's executable build or delete it; do not silence it.
-NI_FLAGS_EXECUTABLE=(
-    # Geyser's main class.
-    --no-fallback
-)
-
-# Flags specific to the shared library build.
-#
-# Same as above: SC2034 is a TRUE positive and is left unsuppressed. The .so is
-# built by `./gradlew :geyserlite-native:nativeCompile`, which supplies --shared
-# itself and mirrors the flags in overlay/geyserlite-native/build.gradle.kts, so
-# nothing sources this array. Wire it up or delete it; do not silence it.
-NI_FLAGS_SHARED=(
-    --shared
-    # @CEntryPoint exports declared in
-    # build/overlay/geyserlite-native/.../GeyserBridge.java are picked up automatically.
 )
 
 # PGO is NOT in the CI build because it requires a live load run.

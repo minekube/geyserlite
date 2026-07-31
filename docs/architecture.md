@@ -32,7 +32,8 @@ The full memory journey is in [`../ROADMAP.md`](../ROADMAP.md). Headlines:
 - Tuning the Netty allocator, capping direct memory, lowering thread counts,
   and using `--strict-image-heap` + `--static --libc=musl` brings it to
   **~80 MB RSS** under load with the binary at **~107 MB**.
-- All flags live in [`../build/flags.sh`](../build/flags.sh), each annotated.
+- Executable flags live in [`../build/flags.sh`](../build/flags.sh), each
+  annotated; the shared-library Gradle build mirrors the compatible set.
 
 ## Soft fork without contributions
 
