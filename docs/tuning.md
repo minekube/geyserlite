@@ -6,7 +6,10 @@ budget, many concurrent players, latency-critical — the knobs are below.
 
 ## Build-time flags
 
-All in [`../build/flags.sh`](../build/flags.sh) with annotations. The big ones:
+The standalone executable's build-time flags are annotated in
+[`../build/flags.sh`](../build/flags.sh). The shared-library Gradle build
+mirrors the compatible options and owns its shared-only settings. The big
+executable flags are:
 
 | Flag | Effect |
 |---|---|
@@ -14,7 +17,7 @@ All in [`../build/flags.sh`](../build/flags.sh) with annotations. The big ones:
 | `--static --libc=musl` | Single static ELF; no glibc dep. Slightly larger binary, removes runtime deps. |
 | `-march=x86-64-v2` | CPU instruction baseline. v3 is faster but excludes some hosts. |
 | `-O2` | Optimization level. `-Ob` is faster to build, smaller, but slower at runtime. |
-| `-R:MaxHeapSize=64m` | Bake heap size into image. Override at runtime with `-Xmx`. |
+| `-R:MaxHeapSize=256m` | Bake the maximum heap ceiling into the image. Override at runtime with `-Xmx`. |
 
 PGO (Profile-Guided Optimization) is **not** in the CI build because it
 requires capturing a profile from a live load run. Locally:

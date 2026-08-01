@@ -12,7 +12,7 @@ products everything else in the repo wraps.
 | `graalvm.version` | Pinned `ghcr.io/graalvm/native-image-community` image digest. Renovate-tracked. |
 | `Dockerfile` | Multi-stage GraalVM build that produces both the ELF and the `.so`. |
 | `apply-overlay.sh` | Clones Geyser at `geyser.version`, copies `overlay/`, then applies intent-based mutations and `patches/`. |
-| `flags.sh` | The full set of `native-image` flags we ship with, each annotated with what it costs/saves. Single source of truth — Dockerfile sources this. |
+| `flags.sh` | Annotated `native-image` flags for the standalone executable. The shared-library Gradle build mirrors the compatible flags. |
 | `overlay/` | Files **added** to upstream Geyser before build (additive — never overwrites). |
 | `patches/` | `.patch` files applied to upstream Geyser sources (numbered, applied in order). |
 | `agent-config/` | GraalVM tracing-agent reflection metadata captured from a real login. Required for native-image to know what classes Gson/Netty/Floodgate reflect. |
@@ -27,7 +27,8 @@ The `Dockerfile` runs `native-image` twice on the same Geyser source tree:
    `--shared` from the same code, exporting the `@CEntryPoint`-annotated
    functions in `overlay/geyserlite-native/.../GeyserBridge.java`.
 
-Both share the same flags (`flags.sh`) so they have the same memory profile.
+The executable sources `flags.sh`. The shared-library Gradle build mirrors
+the compatible flags and owns shared-only settings such as `--shared`.
 
 ## Soft-fork pattern
 
