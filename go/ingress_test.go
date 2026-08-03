@@ -3,7 +3,9 @@ package geyserlite
 
 import (
 	"errors"
+	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,6 +148,17 @@ func TestIngressBrokerOverflowFailsClosedAndCleansGeneration(t *testing.T) {
 
 func TestServerNeverAcceptsCallerConstructedVerifiedClaim(t *testing.T) {
 	serverTypeHasNoVerifiedIngressSetter(t)
+}
+
+func TestVerifiedFrameCannotBeConstructedOutsidePackage(t *testing.T) {
+	cmd := exec.Command("go", "test", "./testdata/compilefail")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("external forged VerifiedFrame compiled successfully:\n%s", output)
+	}
+	if text := string(output); !strings.Contains(text, "unexported method verifiedIngressFrame") {
+		t.Fatalf("compile failed for the wrong reason: %v\n%s", err, text)
+	}
 }
 
 func serverTypeHasNoVerifiedIngressSetter(t *testing.T) {

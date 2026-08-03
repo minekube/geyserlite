@@ -9,3 +9,8 @@ linters:
       - linters: [errcheck]
         path: '\.go$'
         text: 'Error return value of .+(Close|RemoveAll|Chdir).+ is not checked'
+      # The frozen native callback ABI delivers validated native memory as
+      # integer addresses; copyNativeBytes synchronously copies and retains no pointer.
+      - linters: [govet]
+        path: '^embedded_ingress\.go$'
+        text: 'possible misuse of unsafe.Pointer'

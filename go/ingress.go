@@ -257,16 +257,6 @@ func (b *ingressBroker) deliverCallback(generation uint64, correlation [geyserli
 	return b.deliver(generation, correlation, frame, expiresUnixMS)
 }
 
-func (b *ingressBroker) deliverIPC(generation, handle uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte, expiresUnixMS uint64) error {
-	b.mu.Lock()
-	pending, ok := b.correlations[correlation]
-	b.mu.Unlock()
-	if !ok || pending.handle != handle {
-		return ErrIngressMismatch
-	}
-	return b.deliver(generation, correlation, frame, expiresUnixMS)
-}
-
 func (b *ingressBroker) deliverIPCFrame(generation, handle uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte) error {
 	b.mu.Lock()
 	pending, ok := b.correlations[correlation]
