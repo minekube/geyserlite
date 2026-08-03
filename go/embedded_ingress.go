@@ -93,6 +93,7 @@ func newCallbackRoots(newPointer func(any) uintptr) *callbackRoots {
 			return
 		}
 		if frameLen < geyserliteabi.MinIngressFrameBytes || frameLen > geyserliteabi.MaxIngressFrameBytes {
+			g.broker.failGeneration(g.id)
 			g.fail(ErrIngressFrame)
 			return
 		}

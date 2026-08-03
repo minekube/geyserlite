@@ -148,6 +148,30 @@ func (b *ingressBroker) clearLocked() {
 		delete(b.correlations, correlation)
 	}
 	clear(b.handles)
+drainOpened:
+	for {
+		select {
+		case <-b.opened:
+		default:
+			break drainOpened
+		}
+	}
+drainVerified:
+	for {
+		select {
+		case <-b.verified:
+		default:
+			break drainVerified
+		}
+	}
+}
+
+func (b *ingressBroker) failGeneration(generation uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if generation == b.generation {
+		b.clearLocked()
+	}
 }
 
 func (b *ingressBroker) open(generation, handle uint64) error {
@@ -318,6 +342,7 @@ func (b *ingressBroker) deliverIPCFrame(generation, handle uint64, correlation [
 
 func (b *ingressBroker) deliver(generation uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte, expiresUnixMS uint64) error {
 	if len(frame) < geyserliteabi.MinIngressFrameBytes || len(frame) > geyserliteabi.MaxIngressFrameBytes {
+		b.closeCorrelation(generation, correlation)
 		return ErrIngressFrame
 	}
 	expiresAt := time.UnixMilli(int64(expiresUnixMS))

@@ -2,17 +2,29 @@ diff --git a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java b/core/src/m
 index 1896cecc5..1896cecc5 100644
 --- a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
 +++ b/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
-@@ -55,6 +55,7 @@ import org.geysermc.geyser.api.util.MinecraftVersion;
+@@ -55,4 +55,6 @@ import org.geysermc.geyser.api.util.MinecraftVersion;
  import org.geysermc.geyser.api.util.PlatformType;
-+import com.minekube.geyserlite.bridge.VerifiedIngressSubprocess;
++import org.geysermc.geyser.util.VerifiedIngressSubprocess;
 +import com.minekube.geyserlite.bridge.VerifiedIngressHooks;
  import org.geysermc.geyser.command.CommandRegistry;
  import org.geysermc.geyser.configuration.GeyserConfig;
  import org.geysermc.geyser.configuration.GeyserPluginConfig;
-@@ -223,6 +223,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
+@@ -223,4 +223,6 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
  
      public void initialize() {
          // Setup encryption early so we don't start if we can't auth
 +        VerifiedIngressSubprocess.startIfPresent();
 +        VerifiedIngressHooks.install(this);
          if (config().advanced().bedrock().validateBedrockLogin()) {
+diff --git a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java b/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
+index 7675c509c..7675c509c 100644
+--- a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
++++ b/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
+@@ -117,3 +117,7 @@ public class LoginEncryptionUtils {
+             try {
+                 startEncryptionHandshake(session, identityPublicKey);
++                GeyserLiteVerifiedIngressProducer.authenticated(session,
++                        authPayload instanceof CertificateChainPayload
++                                ? "minecraft_legacy_chain+client_jwt+ecdh_v1"
++                                : "minecraft_full_jwks+client_jwt+ecdh_v1");
+             } catch (Throwable e) {

@@ -3,10 +3,9 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package com.minekube.geyserlite.bridge;
+package org.geysermc.geyser.util;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -21,6 +20,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import com.minekube.geyserlite.bridge.VerifiedIngressHooks;
 import org.geysermc.geyser.api.connection.GeyserConnection;
 
 public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sink {
@@ -92,7 +92,7 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
 
     private boolean start() {
         try {
-            input = new FileInputStream("/proc/self/fd/3");
+            input = InheritedSocket.openInput(3);
             output = new FileOutputStream(input.getFD());
             byte[] bootstrap = read(BOOTSTRAP_BYTES);
             if (bootstrap == null || bootstrap.length != BOOTSTRAP_BYTES || bootstrap[0] != VERSION) {
@@ -110,10 +110,6 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
             reader.setDaemon(true);
             reader.start();
             return true;
-        } catch (FileNotFoundException e) {
-            input = null;
-            output = null;
-            return false;
         } catch (IOException e) {
             closeTransport();
             throw new IllegalStateException("verified ingress bootstrap failed", e);
@@ -150,6 +146,7 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
     }
 
     private synchronized void close(GeyserConnection connection) {
+        GeyserLiteVerifiedIngressProducer.forget(connection);
         Long handle = handles.remove(connection);
         if (handle == null) {
             return;
@@ -160,11 +157,6 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
             cancelExpiry(assignment);
             correlations.remove(correlationKey(assignment.correlation));
         }
-    }
-
-    @Override
-    public void onVerified(GeyserConnection connection, byte[] frame) {
-        publishVerified(connection, frame);
     }
 
     void publishVerified(GeyserConnection connection, byte[] frame) {
@@ -249,7 +241,7 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
             if (connection == null) {
                 return null;
             }
-            frame = VerifiedIngressHooks.verify(connection, correlation, expires, remaining);
+            frame = GeyserLiteVerifiedIngressProducer.produce(connection, correlation, expires);
         } catch (Throwable e) {
             throw new IOException("verified ingress verification failed", e);
         }
@@ -371,6 +363,11 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         }
         assignments.clear();
         correlations.clear();
+        for (GeyserConnection connection : connections.values()) {
+            GeyserLiteVerifiedIngressProducer.forget(connection);
+        }
+        connections.clear();
+        handles.clear();
         if (key != null) {
             Arrays.fill(key, (byte) 0);
             key = null;

@@ -181,6 +181,69 @@ func TestIngressBrokerDuplicateAssignmentClearsHandleAndCorrelation(t *testing.T
 	}
 }
 
+func TestIngressBrokerMalformedFrameConsumesMatchingAssignment(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	b := newIngressBroker(2, func() time.Time { return now })
+	b.activate(8, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	if err := b.open(8, 31); err != nil {
+		t.Fatal(err)
+	}
+	<-b.opened
+	corr := [geyserliteabi.CorrelationBytes]byte{4}
+	expires := now.Add(time.Second)
+	if err := b.assign(ConnectionAssignment{
+		Generation:       8,
+		ConnectionHandle: 31,
+		CorrelationID:    corr,
+		ExpiresAt:        expires,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.deliverCallback(8, corr, nil, uint64(expires.UnixMilli())); !errors.Is(err, ErrIngressFrame) {
+		t.Fatalf("malformed frame error = %v, want ErrIngressFrame", err)
+	}
+	if err := b.open(8, 31); err != nil {
+		t.Fatalf("malformed frame retained assignment state: %v", err)
+	}
+}
+
+func TestIngressBrokerClearsQueuedEventsAcrossGenerations(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	b := newIngressBroker(2, func() time.Time { return now })
+	b.activate(9, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	if err := b.open(9, 41); err != nil {
+		t.Fatal(err)
+	}
+	opened := <-b.opened
+	corr := [geyserliteabi.CorrelationBytes]byte{5}
+	expires := now.Add(time.Second)
+	if err := b.assign(ConnectionAssignment{
+		Generation:       opened.Generation,
+		ConnectionHandle: opened.ConnectionHandle,
+		CorrelationID:    corr,
+		ExpiresAt:        expires,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.deliverCallback(9, corr, []byte{1}, uint64(expires.UnixMilli())); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.open(9, 42); err != nil {
+		t.Fatal(err)
+	}
+	b.activate(10, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	select {
+	case <-b.opened:
+		t.Fatal("stale connection-open escaped generation teardown")
+	default:
+	}
+	select {
+	case <-b.verified:
+		t.Fatal("stale verified frame escaped generation teardown")
+	default:
+	}
+}
+
 func TestIngressBrokerOverflowFailsClosedAndCleansGeneration(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	fatal := make(chan error, 1)

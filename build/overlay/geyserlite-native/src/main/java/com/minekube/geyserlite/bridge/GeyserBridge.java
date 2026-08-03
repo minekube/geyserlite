@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.geysermc.geyser.platform.standalone.GeyserStandaloneBootstrap;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.graalvm.nativeimage.IsolateThread;
+import org.geysermc.geyser.util.IngressTransport;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
@@ -207,7 +208,8 @@ public final class GeyserBridge {
     @CEntryPoint(name = "geyserlite_set_ingress_callbacks_v1")
     public static int setIngressCallbacks(IsolateThread thread, IngressTransport.OpenCallback open,
                                           IngressTransport.VerifiedCallback verified) {
-        return ingress == null ? IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
+        return ingress == null ? open == null && verified == null ? IngressTransport.CALLBACK_REGISTRATION_OK
+                : IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
                 : ingress.setCallbacks(open, verified);
     }
 

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package com.minekube.geyserlite.bridge;
+package org.geysermc.geyser.util;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -21,6 +21,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import com.minekube.geyserlite.bridge.VerifiedIngressHooks;
 import org.geysermc.geyser.api.connection.GeyserConnection;
 import org.graalvm.nativeimage.c.function.CFunctionPointer;
 import org.graalvm.nativeimage.c.function.InvokeCFunctionPointer;
@@ -28,12 +29,12 @@ import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
 
 public final class IngressTransport implements VerifiedIngressHooks.Sink {
-    static final int CALLBACK_REGISTRATION_OK = 0;
-    static final int ASSIGN_OK = 0;
-    static final int ASSIGN_UNKNOWN_OR_CLOSED_HANDLE = -1;
-    static final int ASSIGN_DUPLICATE_HANDLE_OR_CORRELATION = -2;
-    static final int ASSIGN_INVALID_OR_EXPIRED_TIME = -3;
-    static final int ASSIGN_WRONG_CONNECTION_STATE = -4;
+    public static final int CALLBACK_REGISTRATION_OK = 0;
+    public static final int ASSIGN_OK = 0;
+    public static final int ASSIGN_UNKNOWN_OR_CLOSED_HANDLE = -1;
+    public static final int ASSIGN_DUPLICATE_HANDLE_OR_CORRELATION = -2;
+    public static final int ASSIGN_INVALID_OR_EXPIRED_TIME = -3;
+    public static final int ASSIGN_WRONG_CONNECTION_STATE = -4;
 
     static final int CORRELATION_BYTES = 16;
     static final int MIN_FRAME_BYTES = 1;
@@ -107,7 +108,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     private long subprocessWriteSequence;
     private boolean subprocessRunning;
 
-    synchronized int setCallbacks(OpenCallback open, VerifiedCallback verified) {
+    public synchronized int setCallbacks(OpenCallback open, VerifiedCallback verified) {
         if (open == null && verified == null) {
             openCallback = null;
             verifiedCallback = null;
@@ -122,7 +123,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         return CALLBACK_REGISTRATION_OK;
     }
 
-    int assign(long handle, CCharPointer correlationPointer, long expiresUnixMs) {
+    public int assign(long handle, CCharPointer correlationPointer, long expiresUnixMs) {
         if (correlationPointer == null) {
             return ASSIGN_WRONG_CONNECTION_STATE;
         }
@@ -141,11 +142,6 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     @Override
     public void onConnectionClosed(GeyserConnection connection) {
         closeConnection(connection);
-    }
-
-    @Override
-    public void onVerified(GeyserConnection connection, byte[] frame) {
-        publishVerified(connection, frame);
     }
 
     synchronized void openConnection(GeyserConnection connection) {
@@ -173,6 +169,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     }
 
     synchronized void closeConnection(GeyserConnection connection) {
+        GeyserLiteVerifiedIngressProducer.forget(connection);
         Long handle = handles.remove(connection);
         if (handle != null) {
             connections.remove(handle);
@@ -227,11 +224,11 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     }
 
     synchronized void startSubprocess(int fd) {
-        if (Boolean.getBoolean(GeyserBridge.EMBED_PROP)) {
+        if (Boolean.getBoolean("geyserlite.embedded")) {
             return;
         }
         try {
-            subprocessInput = new FileInputStream("/proc/self/fd/" + fd);
+            subprocessInput = InheritedSocket.openInput(fd);
             subprocessOutput = new FileOutputStream(subprocessInput.getFD());
             subprocessRunning = true;
             subprocessReader = new Thread(this::readSubprocess, "geyserlite-verified-ingress");
@@ -243,7 +240,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         }
     }
 
-    synchronized void close() {
+    public synchronized void close() {
         subprocessRunning = false;
         expiryExecutor.shutdownNow();
         clearAssignments();
@@ -260,6 +257,13 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         subprocessInput = null;
         subprocessOutput = null;
         subprocessReader = null;
+        for (Object connection : connections.values()) {
+            if (connection instanceof GeyserConnection geyserConnection) {
+                GeyserLiteVerifiedIngressProducer.forget(geyserConnection);
+            }
+        }
+        connections.clear();
+        handles.clear();
     }
 
     private int assign(long handle, byte[] correlation, long expiresUnixMs) {
@@ -295,7 +299,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
             return ASSIGN_OK;
         }
         try {
-            byte[] frame = VerifiedIngressHooks.verify(connection, correlation, expiresUnixMs, remaining);
+            byte[] frame = GeyserLiteVerifiedIngressProducer.produce(connection, correlation, expiresUnixMs);
             if (frame == null || !publishVerified(handle, frame)) {
                 removeAssignment(handle, assignment);
                 return ASSIGN_WRONG_CONNECTION_STATE;
@@ -420,7 +424,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
             return null;
         }
         try {
-            return VerifiedIngressHooks.verify(connection, correlation, expiresUnixMs, remaining);
+            return GeyserLiteVerifiedIngressProducer.produce(connection, correlation, expiresUnixMs);
         } catch (Throwable e) {
             throw new IOException("verified ingress verification failed", e);
         }
