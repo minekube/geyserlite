@@ -7,9 +7,11 @@ package com.minekube.geyserlite.bridge;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,8 +39,8 @@ public final class VerifiedIngressHooks {
 
     public static final class VerificationHandoff {
         private final ConnectVerifierHandle handle;
-        private final GeyserConnection connection;
-        private final byte[] correlation;
+        private volatile GeyserConnection connection;
+        private volatile byte[] correlation;
         private final long expiresUnixMs;
         private final CountDownLatch completed = new CountDownLatch(1);
         private final AtomicBoolean open = new AtomicBoolean(true);
@@ -62,7 +64,8 @@ public final class VerifiedIngressHooks {
         }
 
         public byte[] correlation() {
-            return correlation.clone();
+            byte[] current = correlation;
+            return current == null ? null : current.clone();
         }
 
         public long expiresUnixMs() {
@@ -80,10 +83,12 @@ public final class VerifiedIngressHooks {
             }
             if (candidate == null || candidate.length < 1 || candidate.length > 4096) {
                 failure = new IllegalArgumentException("invalid verified ingress frame");
+                releaseOwnedData();
                 completed.countDown();
                 return false;
             }
             frame = candidate.clone();
+            releaseOwnedData();
             completed.countDown();
             return true;
         }
@@ -91,8 +96,14 @@ public final class VerifiedIngressHooks {
         private void fail(Throwable reason) {
             if (open.compareAndSet(true, false)) {
                 failure = reason;
+                releaseOwnedData();
                 completed.countDown();
             }
+        }
+
+        private void releaseOwnedData() {
+            connection = null;
+            correlation = null;
         }
 
         private void expire() {
@@ -112,7 +123,9 @@ public final class VerifiedIngressHooks {
             if (failure != null) {
                 return null;
             }
-            return frame == null ? null : frame.clone();
+            byte[] result = frame == null ? null : frame.clone();
+            frame = null;
+            return result;
         }
     }
 
@@ -130,6 +143,7 @@ public final class VerifiedIngressHooks {
     private static GeyserImpl installed;
     private static Registration registration;
     private static final AtomicLong verifierIDs = new AtomicLong();
+    private static final int MAX_IN_FLIGHT_VERIFIERS = 2;
     private static ExecutorService verifierExecutor;
 
     private VerifiedIngressHooks() {}
@@ -203,13 +217,19 @@ public final class VerifiedIngressHooks {
             return null;
         }
         VerificationHandoff handoff = new VerificationHandoff(current.handle, connection, correlation, expiresUnixMs);
-        Future<?> task = verifierExecutor().submit(() -> {
-            try {
-                current.verifier.verify(current.handle, handoff);
-            } catch (Throwable error) {
-                handoff.fail(error);
-            }
-        });
+        Future<?> task;
+        try {
+            task = verifierExecutor().submit(() -> {
+                try {
+                    current.verifier.verify(current.handle, handoff);
+                } catch (Throwable error) {
+                    handoff.fail(error);
+                }
+            });
+        } catch (RejectedExecutionException rejected) {
+            handoff.expire();
+            return null;
+        }
         try {
             return handoff.await(timeoutMillis);
         } catch (InterruptedException interrupted) {
@@ -224,7 +244,14 @@ public final class VerifiedIngressHooks {
 
     private static synchronized ExecutorService verifierExecutor() {
         if (verifierExecutor == null) {
-            verifierExecutor = Executors.newCachedThreadPool(new VerifierThreadFactory());
+            verifierExecutor = new ThreadPoolExecutor(
+                    MAX_IN_FLIGHT_VERIFIERS,
+                    MAX_IN_FLIGHT_VERIFIERS,
+                    0L,
+                    TimeUnit.MILLISECONDS,
+                    new SynchronousQueue<>(),
+                    new VerifierThreadFactory(),
+                    new ThreadPoolExecutor.AbortPolicy());
         }
         return verifierExecutor;
     }
