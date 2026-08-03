@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.geysermc.geyser.platform.standalone.GeyserStandaloneBootstrap;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.graalvm.nativeimage.IsolateThread;
+import org.geysermc.geyser.util.IngressTransport;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
@@ -62,6 +63,7 @@ public final class GeyserBridge {
     private static final AtomicBoolean started = new AtomicBoolean(false);
     private static final AtomicBoolean running = new AtomicBoolean(false);
     private static volatile String configPath = "config.yml";
+    private static IngressTransport ingress;
 
     private GeyserBridge() {}
 
@@ -83,8 +85,15 @@ public final class GeyserBridge {
             // skips the stdin command-prompt loop and the host-killing
             // System.exit calls. See apply-overlay.sh.
             System.setProperty(EMBED_PROP, "true");
+            ingress = new IngressTransport();
+            VerifiedIngressHooks.register(ingress);
             return 0;
         } catch (Throwable t) {
+            if (ingress != null) {
+                VerifiedIngressHooks.unregister(ingress);
+                ingress.close();
+                ingress = null;
+            }
             t.printStackTrace();
             return -1;
         }
@@ -155,6 +164,11 @@ public final class GeyserBridge {
             // static state.
             bootstrap = null;
             started.set(false);
+            if (ingress != null) {
+                VerifiedIngressHooks.unregister(ingress);
+                ingress.close();
+                ingress = null;
+            }
         }
     }
 
@@ -189,5 +203,24 @@ public final class GeyserBridge {
     @CEntryPoint(name = "geyser_status")
     public static int status(IsolateThread thread) {
         return running.get() ? 1 : 0;
+    }
+
+    @CEntryPoint(name = "geyserlite_set_ingress_callbacks_v1")
+    public static int setIngressCallbacks(IsolateThread thread, IngressTransport.OpenCallback open,
+                                          IngressTransport.VerifiedCallback verified) {
+        return ingress == null ? open.isNull() && verified.isNull() ? IngressTransport.CALLBACK_REGISTRATION_OK
+                : IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
+                : ingress.setCallbacks(open, verified);
+    }
+
+    @CEntryPoint(name = "geyserlite_assign_verified_ingress_v1")
+    public static int assignVerifiedIngress(IsolateThread thread, long connectionHandle,
+                                             CCharPointer correlation, long expiresUnixMs) {
+        try {
+            return ingress == null ? IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
+                    : ingress.assign(connectionHandle, correlation, expiresUnixMs);
+        } catch (Throwable t) {
+            return IngressTransport.ASSIGN_WRONG_CONNECTION_STATE;
+        }
     }
 }

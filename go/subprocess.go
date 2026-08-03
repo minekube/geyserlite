@@ -4,6 +4,7 @@ package geyserlite
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -11,9 +12,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"go.minekube.com/connect/geyserliteabi"
 )
 
 // subprocessRunner spawns the geyserlite native binary via os/exec, supervises it,
@@ -21,6 +25,8 @@ import (
 type subprocessRunner struct {
 	healthyFlag atomic.Bool
 }
+
+var subprocessGenerationCounter atomic.Uint64
 
 func (r *subprocessRunner) healthy() bool { return r.healthyFlag.Load() }
 
@@ -72,6 +78,42 @@ func (r *subprocessRunner) run(ctx context.Context, s *Server) error {
 }
 
 func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workdir string) error {
+	var parentIngress, childIngress *os.File
+	var key, bootstrap []byte
+	var generation uint64
+	var session *subprocessIngressSession
+	var err error
+	closeIngressPair := func() {
+		if parentIngress != nil {
+			_ = parentIngress.Close()
+		}
+		if childIngress != nil {
+			_ = childIngress.Close()
+		}
+	}
+	if ingressSubprocessSupported() {
+		parentIngress, childIngress, err = newIngressSocketpair()
+		if err != nil {
+			return err
+		}
+		key = make([]byte, geyserliteabi.SubprocessIPCKeyBytes)
+		if _, err := rand.Read(key); err != nil {
+			closeIngressPair()
+			return fmt.Errorf("geyserlite: create subprocess ingress key: %w", err)
+		}
+		defer func() {
+			for i := range key {
+				key[i] = 0
+			}
+		}()
+		generation = subprocessGenerationCounter.Add(1)
+		bootstrap, err = encodeSubprocessBootstrap(generation, key)
+		if err != nil {
+			closeIngressPair()
+			return err
+		}
+	}
+
 	args := []string{"--nogui"}
 	args = append(args, s.opts.JVMArgs...)
 
@@ -81,27 +123,83 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 	cmd.WaitDelay = s.opts.ShutdownTimeout
 	// Place the child in its own process group so we can signal it cleanly.
 	cmd.SysProcAttr = sysProcAttrNewGroup()
+	if childIngress != nil {
+		cmd.ExtraFiles = []*os.File{childIngress}
+		cmd.Env = append(os.Environ(), "GEYSERLITE_VERIFIED_INGRESS_FD=3")
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		closeIngressPair()
 		return fmt.Errorf("geyserlite: stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		_ = stdout.Close()
+		closeIngressPair()
 		return fmt.Errorf("geyserlite: stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
+		_ = stdout.Close()
+		_ = stderr.Close()
+		closeIngressPair()
 		return fmt.Errorf("geyserlite: start subprocess: %w", err)
+	}
+	// Start duplicated ExtraFiles into the child. The parent must now drop its
+	// original child endpoint so EOF and ownership remain launch-local.
+	if childIngress != nil {
+		_ = childIngress.Close()
 	}
 	s.logger.Info("started geyserlite subprocess", slog.Int("pid", cmd.Process.Pid))
 
-	go pipeToLogger(stdout, s.logger.With(slog.String("stream", "stdout")), slog.LevelInfo, &r.healthyFlag)
-	go pipeToLogger(stderr, s.logger.With(slog.String("stream", "stderr")), slog.LevelWarn, nil)
+	if parentIngress != nil {
+		session = newSubprocessIngressSession(generation, key, parentIngress, s.ingress)
+		if err := writeFullPacket(parentIngress, bootstrap); err != nil {
+			session.close(err)
+			_ = cmd.Process.Signal(syscall.SIGTERM)
+			_ = cmd.Wait()
+			_ = stdout.Close()
+			_ = stderr.Close()
+			return fmt.Errorf("geyserlite: send subprocess ingress bootstrap: %w", err)
+		}
+		s.ingress.activate(generation, session.assign, session.fail)
+		session.start()
+	}
+
+	var pipeWG sync.WaitGroup
+	pipeWG.Add(2)
+	go func() {
+		defer pipeWG.Done()
+		pipeToLogger(stdout, s.logger.With(slog.String("stream", "stdout")), slog.LevelInfo, &r.healthyFlag)
+	}()
+	go func() {
+		defer pipeWG.Done()
+		pipeToLogger(stderr, s.logger.With(slog.String("stream", "stderr")), slog.LevelWarn, nil)
+	}()
 
 	defer r.healthyFlag.Store(false)
 
-	err = cmd.Wait()
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- cmd.Wait() }()
+	if session == nil {
+		err = <-waitDone
+	} else {
+		select {
+		case err = <-waitDone:
+			session.close(err)
+		case <-session.done:
+			_ = cmd.Process.Signal(syscall.SIGTERM)
+			err = <-waitDone
+			if sessionErr := session.err(); sessionErr != nil {
+				err = sessionErr
+			}
+		}
+	}
+	if session != nil {
+		session.wait()
+	}
+	pipeWG.Wait()
 	if err == nil {
 		return nil
 	}

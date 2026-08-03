@@ -28,14 +28,16 @@ type embeddedRunner struct {
 // geyserAPI is the typed view of libgeyserlite.so's @CEntryPoint exports
 // plus the GraalVM-provided isolate runtime.
 type geyserAPI struct {
-	createIsolate func(params uintptr, isolatePtr *uintptr, threadPtr *uintptr) int32 // graal_create_isolate
-	tearDown      func(thread uintptr) int32                                          // graal_tear_down_isolate
-	attachThread  func(isolate uintptr, threadPtr *uintptr) int32                     // graal_attach_thread
-	detachThread  func(thread uintptr) int32                                          // graal_detach_thread
-	init          func(thread uintptr, configPath uintptr) int32
-	run           func(thread uintptr) int32
-	shutdown      func(thread uintptr) int32
-	status        func(thread uintptr) int32
+	createIsolate         func(params uintptr, isolatePtr *uintptr, threadPtr *uintptr) int32 // graal_create_isolate
+	tearDown              func(thread uintptr) int32                                          // graal_tear_down_isolate
+	attachThread          func(isolate uintptr, threadPtr *uintptr) int32                     // graal_attach_thread
+	detachThread          func(thread uintptr) int32                                          // graal_detach_thread
+	init                  func(thread uintptr, configPath uintptr) int32
+	run                   func(thread uintptr) int32
+	shutdown              func(thread uintptr) int32
+	status                func(thread uintptr) int32
+	setIngressCallbacks   func(thread, openCallback, verifiedCallback uintptr) int32
+	assignVerifiedIngress func(thread, connectionHandle, correlation uintptr, expiresUnixMS uint64) int32
 }
 
 func (r *embeddedRunner) healthy() bool { return r.healthyFlag.Load() }
@@ -91,9 +93,13 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 		isolate uintptr
 		thread  uintptr
 	}
-	createDone := make(chan isolateRefs, 1)
+	createDone := make(chan isolateRefs)
 	createErr := make(chan error, 1)
 	runDone := make(chan int32, 1)
+	tearDownStart := make(chan struct{})
+	tearDownDone := make(chan int32, 1)
+	roots := processCallbackRoots()
+	generation := newCallbackGeneration(nextEmbeddedGeneration(), s.ingress)
 
 	go func() {
 		runtime.LockOSThread()
@@ -106,17 +112,46 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 			createErr <- fmt.Errorf("geyserlite: graal_create_isolate failed: rc=%d", rc)
 			return
 		}
-		defer r.api.tearDown(refs.thread)
-
+		if err := ctx.Err(); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
 		if rc := r.api.init(refs.thread, cstr); rc != 0 {
+			r.api.tearDown(refs.thread)
 			createErr <- fmt.Errorf("geyserlite: geyser_init failed: rc=%d", rc)
 			return
 		}
-		createDone <- refs
+		if err := ctx.Err(); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
+		if err := r.startIngressGeneration(refs.isolate, refs.thread, s.ingress, roots, generation); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
+		if err := ctx.Err(); err != nil {
+			_ = r.stopIngressGeneration(refs.isolate, s.ingress, roots, generation)
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
+		select {
+		case createDone <- refs:
+		case <-ctx.Done():
+			_ = r.stopIngressGeneration(refs.isolate, s.ingress, roots, generation)
+			r.api.tearDown(refs.thread)
+			createErr <- ctx.Err()
+			return
+		}
 
 		// run blocks until shutdown(); the isolate's main thread is
 		// pinned to this goroutine for the duration.
 		runDone <- r.api.run(refs.thread)
+		<-tearDownStart
+		tearDownDone <- r.api.tearDown(refs.thread)
 	}()
 
 	var refs isolateRefs
@@ -125,37 +160,65 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	case err := <-createErr:
 		return err
 	case <-ctx.Done():
-		// Cancellation before init finished — we have nothing to clean up.
 		return ctx.Err()
 	}
 
 	// Health polling runs on its own attached thread. Status checks
 	// from any other OS thread would land on the wrong IsolateThread*.
-	go r.pollHealth(ctx, refs.isolate)
+	healthCtx, cancelHealth := context.WithCancel(ctx)
+	var healthWG sync.WaitGroup
+	healthWG.Add(1)
+	go func() {
+		defer healthWG.Done()
+		r.pollHealth(healthCtx, refs.isolate)
+	}()
 
 	defer r.healthyFlag.Store(false)
 
+	var reason error
+	var runRC int32
+	runExited := false
 	select {
-	case rc := <-runDone:
-		if rc != 0 {
-			return fmt.Errorf("geyserlite: geyser_run returned rc=%d", rc)
+	case fatalErr := <-generation.fatalWake:
+		reason = fatalErr
+	case runRC = <-runDone:
+		runExited = true
+		if runRC != 0 {
+			reason = fmt.Errorf("geyserlite: geyser_run returned rc=%d", runRC)
 		}
-		return nil
 	case <-ctx.Done():
-		// Request graceful shutdown — has to come from a freshly
-		// attached thread, not the run goroutine (which is blocked
-		// inside run()).
+		reason = ctx.Err()
+	}
+
+	// Closing the generation gate is synchronous for every supervisor edge.
+	// The native unregister is a no-new-dispatch/invocation-drain barrier;
+	// only after it and the Go in-flight wait may isolate shutdown begin.
+	generation.closeGate()
+	if err := r.stopIngressGeneration(refs.isolate, s.ingress, roots, generation); err != nil && reason == nil {
+		reason = err
+	}
+	cancelHealth()
+	healthWG.Wait()
+
+	if !runExited {
 		if err := r.callOnAttachedThread(refs.isolate, func(thread uintptr) error {
 			if rc := r.api.shutdown(thread); rc != 0 {
 				return fmt.Errorf("geyser_shutdown rc=%d", rc)
 			}
 			return nil
-		}); err != nil {
-			s.logger.Warn("graceful shutdown failed", slog.String("err", err.Error()))
+		}); err != nil && reason == nil {
+			reason = err
 		}
-		<-runDone
-		return ctx.Err()
+		runRC = <-runDone
+		if runRC != 0 && reason == nil {
+			reason = fmt.Errorf("geyserlite: geyser_run returned rc=%d", runRC)
+		}
 	}
+	close(tearDownStart)
+	if rc := <-tearDownDone; rc != 0 && reason == nil {
+		reason = fmt.Errorf("geyserlite: graal_tear_down_isolate failed: rc=%d", rc)
+	}
+	return reason
 }
 
 // pollHealth attaches its own thread to the isolate and calls
@@ -250,6 +313,8 @@ func (r *embeddedRunner) load(libpath string) error {
 		bind(&r.api.run, "geyser_run")
 		bind(&r.api.shutdown, "geyser_shutdown")
 		bind(&r.api.status, "geyser_status")
+		bind(&r.api.setIngressCallbacks, "geyserlite_set_ingress_callbacks_v1")
+		bind(&r.api.assignVerifiedIngress, "geyserlite_assign_verified_ingress_v1")
 	})
 	return loadErr
 }

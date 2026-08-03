@@ -91,21 +91,14 @@ WORKDIR /work/build/.work/Geyser
 RUN ./gradlew :geyserlite-native:nativeCompile --no-daemon \
     || (echo "geyserlite-native subproject build failed — see build/overlay/" && exit 1)
 
-# Collect outputs.
-# When @CEntryPoint methods are reachable, GraalVM emits libgeyserlite.h
-# next to the .so. When they're not, only graal_isolate.h is produced —
-# we fall back to that so the build doesn't break, but the resulting
-# header carries no project-specific exports until the bridge is wired.
+# Collect outputs. The generated project header is required: falling back to
+# graal_isolate.h would produce an artifact that cannot satisfy the host ABI.
 RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
     && mkdir -p /out \
     && cp /build/geyserlite /out/geyserlite \
     && cp "$NC/libgeyserlite.so" /out/libgeyserlite.so \
-    && if [ -f "$NC/libgeyserlite.h" ]; then \
-         cp "$NC/libgeyserlite.h" /out/libgeyserlite.h; \
-       else \
-         echo "WARN: libgeyserlite.h not generated — using graal_isolate.h passthrough" >&2; \
-         cp "$NC/graal_isolate.h" /out/libgeyserlite.h; \
-       fi
+    && test -f "$NC/libgeyserlite.h" \
+    && cp "$NC/libgeyserlite.h" /out/libgeyserlite.h
 
 # The amd64 executable is fully static, while arm64 currently falls back to
 # dynamic glibc and zlib. Stage zlib from the target platform so the same final

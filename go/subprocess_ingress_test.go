@@ -1,0 +1,616 @@
+// SPDX-License-Identifier: MIT
+//go:build unix
+
+package geyserlite
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+
+	"go.minekube.com/connect/geyserliteabi"
+)
+
+func TestAuthenticatedPacketFrozenLayoutsAndTamperRejection(t *testing.T) {
+	key := bytes.Repeat([]byte{0x5a}, geyserliteabi.SubprocessIPCKeyBytes)
+	corr := [16]byte{1, 2, 3}
+	bootstrap, err := encodeSubprocessBootstrap(9, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bootstrap) != geyserliteabi.SubprocessBootstrapPacketBytes || bootstrap[0] != geyserliteabi.SubprocessFrameVersion {
+		t.Fatalf("bootstrap layout = %x", bootstrap)
+	}
+
+	assignment := encodeAssignmentPacket(key, 9, 1, 44, corr, 1234)
+	if len(assignment) != geyserliteabi.SubprocessAssignmentPacketBytes {
+		t.Fatalf("assignment bytes = %d", len(assignment))
+	}
+	decoded, err := decodeAuthenticatedPacket(assignment, key, 9, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.typ != geyserliteabi.SubprocessAssignment || decoded.handle != 44 || decoded.correlation != corr || decoded.expiresUnixMS != 1234 {
+		t.Fatalf("decoded assignment = %+v", decoded)
+	}
+
+	ack := encodeACKPacket(key, 9, 2, 44, corr, geyserliteabi.SubprocessACKNegative)
+	if len(ack) != geyserliteabi.SubprocessAssignmentACKPacketBytes {
+		t.Fatalf("ACK bytes = %d", len(ack))
+	}
+	decoded, err = decodeAuthenticatedPacket(ack, key, 9, 2)
+	if err != nil || decoded.status != geyserliteabi.SubprocessACKNegative {
+		t.Fatalf("decoded ACK = %+v, %v", decoded, err)
+	}
+
+	open := encodeConnectionOpenPacket(key, 9, 3, 45)
+	if len(open) != geyserliteabi.SubprocessConnectionOpenPacketBytes {
+		t.Fatalf("open bytes = %d", len(open))
+	}
+	if _, err := decodeAuthenticatedPacket(open, key, 9, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := append([]byte{8, 1, 18, 16}, corr[:]...)
+	verified := encodeVerifiedPacket(key, 9, 4, 44, payload)
+	if len(verified) != geyserliteabi.MinSubprocessVerifiedIngressPacketBytes+len(payload)-1 {
+		t.Fatalf("verified bytes = %d", len(verified))
+	}
+	decoded, err = decodeAuthenticatedPacket(verified, key, 9, 4)
+	if err != nil || !bytes.Equal(decoded.payload, payload) {
+		t.Fatalf("decoded verified = %+v, %v", decoded, err)
+	}
+
+	verified[len(verified)-1] ^= 1
+	if _, err := decodeAuthenticatedPacket(verified, key, 9, 4); !errors.Is(err, ErrIngressAuthentication) {
+		t.Fatalf("tampered packet error = %v", err)
+	}
+	if _, err := decodeAuthenticatedPacket(open, key, 9, 4); !errors.Is(err, ErrIngressSequence) {
+		t.Fatalf("sequence error = %v", err)
+	}
+}
+
+func TestSubprocessIngressSessionOpenAssignACKAndVerified(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{7}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(4, func() time.Time { return now })
+	s := newSubprocessIngressSession(12, key, parent, b)
+	b.activate(12, s.assign, s.fail)
+	s.start()
+	defer s.close(nil)
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 12, 1, 99)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case opened := <-b.opened:
+		if opened.ConnectionHandle != 99 || opened.Generation != 12 {
+			t.Fatalf("opened = %+v", opened)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("connection-open was not delivered")
+	}
+
+	corr := [16]byte{9, 8, 7}
+	expires := now.Add(time.Second)
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 12, ConnectionHandle: 99, CorrelationID: corr, ExpiresAt: expires})
+	}()
+	packet := make([]byte, geyserliteabi.MaxAuthenticatedPacketBytes)
+	n, err := child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeAuthenticatedPacket(packet[:n], key, 12, 1)
+	if err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	if _, err := child.Write(encodeACKPacket(key, 12, 2, 99, corr, geyserliteabi.SubprocessACKPositive)); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-assignDone; err != nil {
+		t.Fatal(err)
+	}
+
+	payload := append([]byte{8, 1, 18, 16}, corr[:]...)
+	if _, err := child.Write(encodeVerifiedPacket(key, 12, 3, 99, payload)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-b.verified:
+		if got.ConnectionHandle() != 99 || got.CorrelationID() != corr || !bytes.Equal(got.Frame(), payload) {
+			t.Fatalf("verified = handle %d corr %x frame %x", got.ConnectionHandle(), got.CorrelationID(), got.Frame())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("verified ingress was not delivered")
+	}
+}
+
+func TestSubprocessIngressRejectsVerifiedFrameBeforePositiveACK(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{8}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(4, func() time.Time { return now })
+	s := newSubprocessIngressSession(13, key, parent, b)
+	b.activate(13, s.assign, s.fail)
+	s.start()
+	defer s.close(nil)
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 13, 1, 100)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-b.opened:
+	case <-time.After(time.Second):
+		t.Fatal("connection-open was not delivered")
+	}
+
+	corr := [16]byte{4, 5, 6}
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 13, ConnectionHandle: 100, CorrelationID: corr, ExpiresAt: now.Add(time.Second)})
+	}()
+	packet := make([]byte, geyserliteabi.MaxAuthenticatedPacketBytes)
+	n, err := child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded, err := decodeAuthenticatedPacket(packet[:n], key, 13, 1); err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	payload := append([]byte{8, 1, 18, 16}, corr[:]...)
+	if _, err := child.Write(encodeVerifiedPacket(key, 13, 2, 100, payload)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-assignDone:
+		if !errors.Is(err, ErrIngressABI) {
+			t.Fatalf("assignment result = %v, want ABI failure", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("assignment did not fail after early verified frame")
+	}
+	select {
+	case <-b.verified:
+		t.Fatal("early verified frame was published")
+	default:
+	}
+}
+
+func TestSubprocessIngressRejectsExpiredAssignmentBeforeWrite(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer parent.Close()
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{9}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(1, func() time.Time { return now })
+	s := newSubprocessIngressSession(14, key, parent, b)
+	s.now = func() time.Time { return now.Add(2 * time.Second) }
+	rc := s.assign(ConnectionAssignment{Generation: 14, ConnectionHandle: 1, CorrelationID: [16]byte{1}, ExpiresAt: now.Add(time.Second)})
+	if rc != geyserliteabi.AssignmentInvalidOrExpiredTime {
+		t.Fatalf("expired assignment rc = %d", rc)
+	}
+}
+
+func TestSubprocessIngressRejectsPositiveACKAfterExpiry(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	clock := &ingressTestClock{value: now}
+	key := bytes.Repeat([]byte{6}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(1, clock.Now)
+	s := newSubprocessIngressSession(15, key, parent, b)
+	b.activate(15, s.assign, s.fail)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 15, 1, 101)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-b.opened:
+	case <-time.After(time.Second):
+		t.Fatal("connection-open was not delivered")
+	}
+
+	corr := [16]byte{7, 8, 9}
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 15, ConnectionHandle: 101, CorrelationID: corr, ExpiresAt: now.Add(time.Second)})
+	}()
+	packet := make([]byte, geyserliteabi.MaxAuthenticatedPacketBytes)
+	n, err := child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded, err := decodeAuthenticatedPacket(packet[:n], key, 15, 1); err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	clock.Set(now.Add(2 * time.Second))
+	if _, err := child.Write(encodeACKPacket(key, 15, 2, 101, corr, geyserliteabi.SubprocessACKPositive)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-assignDone:
+		if !errors.Is(err, ErrIngressRejected) {
+			t.Fatalf("expired ACK assignment = %v, want ErrIngressRejected", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expired positive ACK was accepted or blocked")
+	}
+	select {
+	case <-s.done:
+		t.Fatalf("expired positive ACK tore down the session: %v", s.err())
+	default:
+	}
+	select {
+	case <-b.verified:
+		t.Fatal("expired assignment published a verified frame")
+	default:
+	}
+}
+
+func TestSubprocessIngressRejectsConflictingNegativeACK(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{4}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(1, func() time.Time { return now })
+	s := newSubprocessIngressSession(16, key, parent, b)
+	b.activate(16, s.assign, s.fail)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 16, 1, 102)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-b.opened:
+	case <-time.After(time.Second):
+		t.Fatal("connection-open was not delivered")
+	}
+
+	corr := [16]byte{10, 11, 12}
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 16, ConnectionHandle: 102, CorrelationID: corr, ExpiresAt: now.Add(time.Second)})
+	}()
+	packet := make([]byte, geyserliteabi.MaxAuthenticatedPacketBytes)
+	n, err := child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded, err := decodeAuthenticatedPacket(packet[:n], key, 16, 1); err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	if _, err := child.Write(encodeACKPacket(key, 16, 2, 102, corr, geyserliteabi.SubprocessACKPositive)); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-assignDone; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := child.Write(encodeACKPacket(key, 16, 3, 102, corr, geyserliteabi.SubprocessACKNegative)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-s.done:
+		if !errors.Is(s.err(), ErrIngressRejected) {
+			t.Fatalf("conflicting ACK error = %v", s.err())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("conflicting negative ACK did not fail closed")
+	}
+}
+
+func TestSubprocessIngressNegativeACKRejectsOnlyThatJoin(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{2}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(4, func() time.Time { return now })
+	s := newSubprocessIngressSession(18, key, parent, b)
+	b.activate(18, s.assign, s.fail)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	for _, handle := range []uint64{110, 111} {
+		if _, err := child.Write(encodeConnectionOpenPacket(key, 18, uint64(handle-109), handle)); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-b.opened:
+		case <-time.After(time.Second):
+			t.Fatal("connection-open was not delivered")
+		}
+	}
+
+	rejected := [16]byte{20, 21, 22}
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 18, ConnectionHandle: 110, CorrelationID: rejected, ExpiresAt: now.Add(time.Second)})
+	}()
+	packet := make([]byte, geyserliteabi.MaxAuthenticatedPacketBytes)
+	n, err := child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded, err := decodeAuthenticatedPacket(packet[:n], key, 18, 1); err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	if _, err := child.Write(encodeACKPacket(key, 18, 3, 110, rejected, geyserliteabi.SubprocessACKNegative)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-assignDone:
+		if !errors.Is(err, ErrIngressRejected) {
+			t.Fatalf("rejected assignment = %v, want ErrIngressRejected", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("negative ACK did not reject the assignment")
+	}
+	select {
+	case <-s.done:
+		t.Fatalf("negative ACK tore down the session: %v", s.err())
+	default:
+	}
+
+	admitted := [16]byte{23, 24, 25}
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 18, ConnectionHandle: 111, CorrelationID: admitted, ExpiresAt: now.Add(time.Second)})
+	}()
+	n, err = child.Read(packet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded, err := decodeAuthenticatedPacket(packet[:n], key, 18, 2); err != nil || decoded.typ != geyserliteabi.SubprocessAssignment {
+		t.Fatalf("assignment packet = %+v, %v", decoded, err)
+	}
+	if _, err := child.Write(encodeACKPacket(key, 18, 4, 111, admitted, geyserliteabi.SubprocessACKPositive)); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-assignDone; err != nil {
+		t.Fatal(err)
+	}
+	payload := append([]byte{8, 1, 18, 16}, admitted[:]...)
+	if _, err := child.Write(encodeVerifiedPacket(key, 18, 5, 111, payload)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-b.verified:
+		if got.ConnectionHandle() != 111 || got.CorrelationID() != admitted {
+			t.Fatalf("verified = handle %d corr %x", got.ConnectionHandle(), got.CorrelationID())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("surviving session did not deliver the later join")
+	}
+	select {
+	case got := <-b.verified:
+		t.Fatalf("rejected join was admitted: %+v", got)
+	default:
+	}
+}
+
+func TestSubprocessIngressACKTimeoutRejectsOnlyThatJoin(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	key := bytes.Repeat([]byte{11}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(4, nil)
+	s := newSubprocessIngressSession(19, key, parent, b)
+	b.activate(19, s.assign, s.fail)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 19, 1, 120)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-b.opened:
+	case <-time.After(time.Second):
+		t.Fatal("connection-open was not delivered")
+	}
+
+	corr := [16]byte{30, 31, 32}
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 19, ConnectionHandle: 120, CorrelationID: corr, ExpiresAt: time.Now().Add(50 * time.Millisecond)})
+	}()
+	select {
+	case err := <-assignDone:
+		if !errors.Is(err, ErrIngressRejected) {
+			t.Fatalf("timed-out assignment = %v, want ErrIngressRejected", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("unacknowledged assignment did not time out")
+	}
+	select {
+	case <-s.done:
+		t.Fatalf("ACK timeout tore down the session: %v", s.err())
+	default:
+	}
+	select {
+	case <-b.verified:
+		t.Fatal("timed-out assignment published a verified frame")
+	default:
+	}
+}
+
+func TestSubprocessIngressDuplicateOpenStillFailsFatal(t *testing.T) {
+	parent, child, err := newTestPacketPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Close()
+	now := time.Now()
+	key := bytes.Repeat([]byte{12}, geyserliteabi.SubprocessIPCKeyBytes)
+	b := newIngressBroker(4, func() time.Time { return now })
+	s := newSubprocessIngressSession(20, key, parent, b)
+	b.activate(20, s.assign, s.fail)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 20, 1, 130)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := child.Write(encodeConnectionOpenPacket(key, 20, 2, 130)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-s.done:
+		if !errors.Is(s.err(), ErrIngressDuplicate) {
+			t.Fatalf("duplicate open error = %v", s.err())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("duplicate connection-open did not fail closed")
+	}
+	if err := b.assign(ConnectionAssignment{Generation: 20, ConnectionHandle: 130, CorrelationID: [16]byte{1}, ExpiresAt: now.Add(time.Second)}); !errors.Is(err, ErrIngressClosed) {
+		t.Fatalf("assignment after integrity violation = %v, want ErrIngressClosed", err)
+	}
+}
+
+func TestSubprocessIngressRejectsExpiryAfterWrite(t *testing.T) {
+	now := time.Now()
+	clock := &ingressTestClock{value: now}
+	key := bytes.Repeat([]byte{5}, geyserliteabi.SubprocessIPCKeyBytes)
+	corr := [16]byte{13, 14, 15}
+	expires := now.Add(time.Second)
+	conn := &expiringWriteConn{
+		reads:   make(chan []byte, 1),
+		closed:  make(chan struct{}),
+		clock:   clock,
+		expires: expires,
+		ack:     encodeACKPacket(key, 17, 1, 103, corr, geyserliteabi.SubprocessACKPositive),
+	}
+	b := newIngressBroker(1, clock.Now)
+	s := newSubprocessIngressSession(17, key, conn, b)
+	s.start()
+	defer func() {
+		s.close(nil)
+		s.wait()
+	}()
+
+	rc := s.assign(ConnectionAssignment{Generation: 17, ConnectionHandle: 103, CorrelationID: corr, ExpiresAt: expires})
+	if rc != geyserliteabi.AssignmentInvalidOrExpiredTime {
+		t.Fatalf("post-write expiry rc = %d, want %d", rc, geyserliteabi.AssignmentInvalidOrExpiredTime)
+	}
+}
+
+type expiringWriteConn struct {
+	ack     []byte
+	reads   chan []byte
+	closed  chan struct{}
+	clock   *ingressTestClock
+	expires time.Time
+	once    sync.Once
+}
+
+type ingressTestClock struct {
+	mu    sync.Mutex
+	value time.Time
+}
+
+func (c *ingressTestClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.value
+}
+
+func (c *ingressTestClock) Set(value time.Time) {
+	c.mu.Lock()
+	c.value = value
+	c.mu.Unlock()
+}
+
+func (c *expiringWriteConn) Read(dst []byte) (int, error) {
+	select {
+	case packet := <-c.reads:
+		return copy(dst, packet), nil
+	case <-c.closed:
+		return 0, os.ErrClosed
+	}
+}
+
+func (c *expiringWriteConn) Write(packet []byte) (int, error) {
+	c.clock.Set(c.expires.Add(time.Second))
+	select {
+	case c.reads <- c.ack:
+		return len(packet), nil
+	case <-c.closed:
+		return 0, os.ErrClosed
+	}
+}
+
+func (c *expiringWriteConn) Close() error {
+	c.once.Do(func() { close(c.closed) })
+	return nil
+}
+
+func TestSubprocessIngressRejectsNegativeACKSequenceAndForgedCorrelation(t *testing.T) {
+	key := bytes.Repeat([]byte{3}, geyserliteabi.SubprocessIPCKeyBytes)
+	corr := [16]byte{1}
+	if _, err := extractIngressCorrelation([]byte{8, 1, 18, 15}); !errors.Is(err, ErrIngressABI) {
+		t.Fatalf("short correlation error = %v", err)
+	}
+	ack := encodeACKPacket(key, 1, 1, 1, corr, 7)
+	if _, err := decodeAuthenticatedPacket(ack, key, 1, 1); !errors.Is(err, ErrIngressRejected) {
+		t.Fatalf("unknown ACK status error = %v", err)
+	}
+	open := encodeConnectionOpenPacket(key, 1, 1, 1)
+	if _, err := decodeAuthenticatedPacket(open, key, 2, 1); !errors.Is(err, ErrIngressGeneration) {
+		t.Fatalf("old generation error = %v", err)
+	}
+}
+
+func newTestPacketPair() (*os.File, *os.File, error) {
+	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_DGRAM, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := syscall.SetNonblock(fds[0], true); err != nil {
+		return nil, nil, err
+	}
+	return os.NewFile(uintptr(fds[0]), "test-ingress-parent"), os.NewFile(uintptr(fds[1]), "test-ingress-child"), nil
+}

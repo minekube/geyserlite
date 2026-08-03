@@ -43,6 +43,12 @@ It is responsible for Bedrock-to-Java translation and Floodgate-compatible
 identity forwarding. It does not replace ViaVersion/ViaLite backend Java
 protocol translation.
 
+Verified Bedrock ingress is verifier-origin data. The Go surfaces in
+`go/ingress.go` accept it only through the frozen embedded callback or
+authenticated subprocess framing from `go.minekube.com/connect/geyserliteabi`;
+never add a caller-controlled verified flag or an alternate construction path.
+Handoff mismatches are fail-closed.
+
 When a backend upgrades to a brand-new Java server version before Geyser has
 official support, the stable production recommendation is to wait. ViaLite
 behind Gate may bridge the Java backend protocol for early adopters if Geyser

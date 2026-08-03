@@ -1,0 +1,36 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java b/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
+index 1896cecc5..1896cecc5 100644
+--- a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
++++ b/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
+@@ -55,4 +55,6 @@ import org.geysermc.geyser.api.util.MinecraftVersion;
+ import org.geysermc.geyser.api.util.PlatformType;
++import org.geysermc.geyser.util.VerifiedIngressSubprocess;
++import com.minekube.geyserlite.bridge.VerifiedIngressHooks;
+ import org.geysermc.geyser.command.CommandRegistry;
+ import org.geysermc.geyser.configuration.GeyserConfig;
+ import org.geysermc.geyser.configuration.GeyserPluginConfig;
+@@ -223,4 +223,6 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
+ 
+     public void initialize() {
+         // Setup encryption early so we don't start if we can't auth
++        VerifiedIngressSubprocess.startIfPresent();
++        VerifiedIngressHooks.install(this);
+         if (config().advanced().bedrock().validateBedrockLogin()) {
+diff --git a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java b/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
+index 7675c509c..7675c509c 100644
+--- a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
++++ b/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
+@@ -117,3 +117,8 @@ public class LoginEncryptionUtils {
+             try {
+                 startEncryptionHandshake(session, identityPublicKey);
++                recordVerifiedIngress(session,
++                        authPayload instanceof CertificateChainPayload
++                                ? "minecraft_legacy_chain+client_jwt+ecdh_v1"
++                                : "minecraft_full_jwks+client_jwt+ecdh_v1",
++                        result.signed());
+             } catch (Throwable e) {
+@@ -135,1 +135,4 @@ public class LoginEncryptionUtils {
++    static void recordVerifiedIngress(GeyserSession session, String verificationMethod, boolean signed) {
++        GeyserLiteVerifiedIngressProducer.authenticated(session, verificationMethod, signed);
++    }
+     private static void startEncryptionHandshake(GeyserSession session, PublicKey key) throws Exception {

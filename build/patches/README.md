@@ -20,6 +20,8 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   and raw UDP trace handlers and dumps the packet trace on disconnect.
 - `0003-suppress-empty-move-entity-delta.patch` — skips no-op movement packets
   while preserving on-ground state transitions.
+- `0004-verified-ingress-subprocess.patch` — starts the authenticated subprocess
+  ingress before Geyser accepts Bedrock sessions.
 
 ## Generating new patches
 

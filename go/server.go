@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Server is a managed geyserlite instance.
 type Server struct {
-	opts   Options
-	logger *slog.Logger
+	opts    Options
+	logger  *slog.Logger
+	ingress *ingressBroker
 
 	mu      sync.Mutex
 	started atomic.Bool // read by Healthy without the lock; set by Start under mu
@@ -40,8 +42,9 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		opts:   validated,
-		logger: validated.Logger.With(slog.String("component", "geyserlite")),
+		opts:    validated,
+		logger:  validated.Logger.With(slog.String("component", "geyserlite")),
+		ingress: newIngressBroker(defaultIngressQueueCapacity, time.Now),
 	}
 	switch validated.Mode {
 	case ModeEmbedded:
@@ -52,6 +55,20 @@ func New(opts Options) (*Server, error) {
 		s.runner = &embeddedRunner{}
 	}
 	return s, nil
+}
+
+// ConnectionOpened reports verifier-gated native Bedrock transports before a
+// Geyser session or translation handler is created.
+func (s *Server) ConnectionOpened() <-chan ConnectionOpen { return s.ingress.opened }
+
+// VerifiedIngress reports only opaque frames received through the frozen
+// native callback or authenticated subprocess contract.
+func (s *Server) VerifiedIngress() <-chan VerifiedFrame { return s.ingress.verified }
+
+// Assign binds a Gate-created correlation to one reported connection. Any
+// native rejection, ABI mismatch, or expired assignment fails closed.
+func (s *Server) Assign(assignment ConnectionAssignment) error {
+	return s.ingress.assign(assignment)
 }
 
 // Start runs the server until ctx is canceled or an unrecoverable error occurs.
