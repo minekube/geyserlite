@@ -5,8 +5,8 @@
  */
 package com.minekube.geyserlite.bridge;
 
-import java.io.FileNotFoundException;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -21,12 +21,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.connection.GeyserConnection;
-import org.geysermc.geyser.api.event.bedrock.SessionInitializeEvent;
-import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
 
-public final class VerifiedIngressSubprocess {
+public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sink {
     private static final int VERSION = 1;
     private static final int ASSIGNMENT = 1;
     private static final int ASSIGNMENT_ACK = 2;
@@ -68,7 +65,7 @@ public final class VerifiedIngressSubprocess {
         }
     }
 
-    public static void startIfPresent(GeyserImpl geyser) {
+    public static void startIfPresent() {
         if (Boolean.getBoolean("geyserlite.embedded")) {
             return;
         }
@@ -76,10 +73,7 @@ public final class VerifiedIngressSubprocess {
         if (!transport.start()) {
             return;
         }
-        geyser.eventBus().subscribe(geyser, SessionInitializeEvent.class,
-                event -> transport.open(event.connection()));
-        geyser.eventBus().subscribe(geyser, SessionDisconnectEventImpl.class,
-                event -> transport.close(event.connection()));
+        VerifiedIngressHooks.register(transport);
     }
 
     private final Map<Long, GeyserConnection> connections = new HashMap<>();
@@ -126,6 +120,11 @@ public final class VerifiedIngressSubprocess {
         }
     }
 
+    @Override
+    public void onConnectionOpened(GeyserConnection connection) {
+        open(connection);
+    }
+
     private synchronized void open(GeyserConnection connection) {
         if (!running || handles.containsKey(connection)) {
             return;
@@ -145,6 +144,11 @@ public final class VerifiedIngressSubprocess {
         }
     }
 
+    @Override
+    public void onConnectionClosed(GeyserConnection connection) {
+        close(connection);
+    }
+
     private synchronized void close(GeyserConnection connection) {
         Long handle = handles.remove(connection);
         if (handle == null) {
@@ -156,6 +160,11 @@ public final class VerifiedIngressSubprocess {
             cancelExpiry(assignment);
             correlations.remove(correlationKey(assignment.correlation));
         }
+    }
+
+    @Override
+    public void onVerified(GeyserConnection connection, byte[] frame) {
+        publishVerified(connection, frame);
     }
 
     synchronized void publishVerified(GeyserConnection connection, byte[] frame) {
@@ -170,6 +179,11 @@ public final class VerifiedIngressSubprocess {
         long now = System.currentTimeMillis();
         if (!running || assignment == null || now >= assignment.expiresUnixMs || frame == null
                 || frame.length < 1 || frame.length > MAX_FRAME_BYTES) {
+            if (assignment != null) {
+                assignments.remove(handle);
+                cancelExpiry(assignment);
+                correlations.remove(correlationKey(assignment.correlation));
+            }
             return;
         }
         assignments.remove(handle);
@@ -221,6 +235,24 @@ public final class VerifiedIngressSubprocess {
         if (status == ACK_NEGATIVE) {
             throw new IOException("verified ingress assignment rejected");
         }
+        emitVerified(handle, correlation, expires);
+    }
+
+    private void emitVerified(long handle, byte[] correlation, long expires)
+            throws IOException {
+        byte[] frame;
+        try {
+            frame = VerifiedIngressHooks.verify(connections.get(handle), correlation, expires);
+        } catch (Throwable e) {
+            throw new IOException("verified ingress verification failed", e);
+        }
+        if (frame == null) {
+            return;
+        }
+        if (frame.length < 1 || frame.length > MAX_FRAME_BYTES) {
+            throw new IOException("verified ingress frame rejected");
+        }
+        publishVerified(handle, frame);
     }
 
     private boolean accept(long handle, byte[] correlation, long expires) {
@@ -295,6 +327,7 @@ public final class VerifiedIngressSubprocess {
 
     private synchronized void closeTransport() {
         running = false;
+        VerifiedIngressHooks.unregister(this);
         expiryExecutor.shutdownNow();
         for (Assignment assignment : assignments.values()) {
             cancelExpiry(assignment);

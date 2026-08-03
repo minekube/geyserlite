@@ -21,16 +21,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.connection.GeyserConnection;
-import org.geysermc.geyser.api.event.bedrock.SessionInitializeEvent;
-import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
 import org.graalvm.nativeimage.c.function.CFunctionPointer;
 import org.graalvm.nativeimage.c.function.InvokeCFunctionPointer;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
 
-public final class IngressTransport {
+public final class IngressTransport implements VerifiedIngressHooks.Sink {
     static final int CALLBACK_REGISTRATION_OK = 0;
     static final int ASSIGN_OK = 0;
     static final int ASSIGN_UNKNOWN_OR_CLOSED_HANDLE = -1;
@@ -109,7 +106,6 @@ public final class IngressTransport {
     private long subprocessReadSequence;
     private long subprocessWriteSequence;
     private boolean subprocessRunning;
-    private boolean installed;
 
     synchronized int setCallbacks(OpenCallback open, VerifiedCallback verified) {
         if (open == null && verified == null) {
@@ -137,15 +133,19 @@ public final class IngressTransport {
         return assign(handle, correlation, expiresUnixMs);
     }
 
-    synchronized void install(GeyserImpl geyser) {
-        if (installed) {
-            return;
-        }
-        installed = true;
-        geyser.eventBus().subscribe(geyser, SessionInitializeEvent.class,
-                event -> openConnection(event.connection()));
-        geyser.eventBus().subscribe(geyser, SessionDisconnectEventImpl.class,
-                event -> closeConnection(event.connection()));
+    @Override
+    public void onConnectionOpened(GeyserConnection connection) {
+        openConnection(connection);
+    }
+
+    @Override
+    public void onConnectionClosed(GeyserConnection connection) {
+        closeConnection(connection);
+    }
+
+    @Override
+    public void onVerified(GeyserConnection connection, byte[] frame) {
+        publishVerified(connection, frame);
     }
 
     synchronized void openConnection(GeyserConnection connection) {
@@ -196,6 +196,9 @@ public final class IngressTransport {
         long now = System.currentTimeMillis();
         if (assignment == null || now >= assignment.expiresUnixMs || frame == null
                 || frame.length < MIN_FRAME_BYTES || frame.length > MAX_FRAME_BYTES) {
+            if (assignment != null) {
+                removeAssignment(handle, assignment);
+            }
             return;
         }
         assignments.remove(handle);
@@ -255,7 +258,10 @@ public final class IngressTransport {
         subprocessReader = null;
     }
 
-    private int assign(long handle, byte[] correlation, long expiresUnixMs) {
+    private synchronized int assign(long handle, byte[] correlation, long expiresUnixMs) {
+        if (!subprocessRunning && verifiedCallback == null) {
+            return ASSIGN_WRONG_CONNECTION_STATE;
+        }
         long now = System.currentTimeMillis();
         if (!connections.containsKey(handle)) {
             return ASSIGN_UNKNOWN_OR_CLOSED_HANDLE;
@@ -272,7 +278,29 @@ public final class IngressTransport {
         assignment.expiry = expiryExecutor.schedule(
                 () -> expire(handle, correlation, expiresUnixMs),
                 Math.max(1, expiresUnixMs - now), java.util.concurrent.TimeUnit.MILLISECONDS);
+        try {
+            byte[] frame = VerifiedIngressHooks.verify((GeyserConnection) connections.get(handle), correlation,
+                    expiresUnixMs);
+            if (frame != null) {
+                if (frame.length < MIN_FRAME_BYTES || frame.length > MAX_FRAME_BYTES) {
+                    removeAssignment(handle, assignment);
+                    return ASSIGN_WRONG_CONNECTION_STATE;
+                }
+                publishVerified(handle, frame);
+            }
+        } catch (Throwable ignored) {
+            removeAssignment(handle, assignment);
+            return ASSIGN_WRONG_CONNECTION_STATE;
+        }
         return ASSIGN_OK;
+    }
+
+    private void removeAssignment(long handle, Assignment assignment) {
+        if (assignments.get(handle) == assignment) {
+            assignments.remove(handle);
+            cancelExpiry(assignment);
+            correlations.remove(correlationKey(assignment.correlation));
+        }
     }
 
     private synchronized void expire(long handle, byte[] correlation, long expiresUnixMs) {

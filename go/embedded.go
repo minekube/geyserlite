@@ -93,7 +93,7 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 		isolate uintptr
 		thread  uintptr
 	}
-	createDone := make(chan isolateRefs, 1)
+	createDone := make(chan isolateRefs)
 	createErr := make(chan error, 1)
 	runDone := make(chan int32, 1)
 	tearDownStart := make(chan struct{})
@@ -138,7 +138,14 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 			createErr <- err
 			return
 		}
-		createDone <- refs
+		select {
+		case createDone <- refs:
+		case <-ctx.Done():
+			_ = r.stopIngressGeneration(refs.isolate, s.ingress, roots, generation)
+			r.api.tearDown(refs.thread)
+			createErr <- ctx.Err()
+			return
+		}
 
 		// run blocks until shutdown(); the isolate's main thread is
 		// pinned to this goroutine for the duration.

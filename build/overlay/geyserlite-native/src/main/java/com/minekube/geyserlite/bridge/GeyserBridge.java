@@ -12,7 +12,6 @@ package com.minekube.geyserlite.bridge;
 import io.netty.util.ResourceLeakDetector;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.platform.standalone.GeyserStandaloneBootstrap;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.graalvm.nativeimage.IsolateThread;
@@ -86,9 +85,14 @@ public final class GeyserBridge {
             // System.exit calls. See apply-overlay.sh.
             System.setProperty(EMBED_PROP, "true");
             ingress = new IngressTransport();
-            ingress.startSubprocess(3);
+            VerifiedIngressHooks.register(ingress);
             return 0;
         } catch (Throwable t) {
+            if (ingress != null) {
+                VerifiedIngressHooks.unregister(ingress);
+                ingress.close();
+                ingress = null;
+            }
             t.printStackTrace();
             return -1;
         }
@@ -136,9 +140,6 @@ public final class GeyserBridge {
 
             GeyserLocale.init(bootstrap);
             bootstrap.onGeyserInitialize();
-            if (ingress != null) {
-                ingress.install(GeyserImpl.getInstance());
-            }
             // onGeyserInitialize → onGeyserEnable returns now: the
             // patched geyserLogger.start() is gated behind EMBED_PROP.
             // The bedrock listener was started by GeyserImpl.start()
@@ -163,6 +164,7 @@ public final class GeyserBridge {
             bootstrap = null;
             started.set(false);
             if (ingress != null) {
+                VerifiedIngressHooks.unregister(ingress);
                 ingress.close();
                 ingress = null;
             }
@@ -212,7 +214,11 @@ public final class GeyserBridge {
     @CEntryPoint(name = "geyserlite_assign_verified_ingress_v1")
     public static int assignVerifiedIngress(IsolateThread thread, long connectionHandle,
                                              CCharPointer correlation, long expiresUnixMs) {
-        return ingress == null ? IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
-                : ingress.assign(connectionHandle, correlation, expiresUnixMs);
+        try {
+            return ingress == null ? IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
+                    : ingress.assign(connectionHandle, correlation, expiresUnixMs);
+        } catch (Throwable t) {
+            return IngressTransport.ASSIGN_WRONG_CONNECTION_STATE;
+        }
     }
 }

@@ -5,6 +5,7 @@ index 1896cecc5..1896cecc5 100644
 @@ -55,6 +55,7 @@ import org.geysermc.geyser.api.util.MinecraftVersion;
  import org.geysermc.geyser.api.util.PlatformType;
 +import com.minekube.geyserlite.bridge.VerifiedIngressSubprocess;
++import com.minekube.geyserlite.bridge.VerifiedIngressHooks;
  import org.geysermc.geyser.command.CommandRegistry;
  import org.geysermc.geyser.configuration.GeyserConfig;
  import org.geysermc.geyser.configuration.GeyserPluginConfig;
@@ -12,5 +13,6 @@ index 1896cecc5..1896cecc5 100644
  
      public void initialize() {
          // Setup encryption early so we don't start if we can't auth
-+        VerifiedIngressSubprocess.startIfPresent(this);
++        VerifiedIngressSubprocess.startIfPresent();
++        VerifiedIngressHooks.install(this);
          if (config().advanced().bedrock().validateBedrockLogin()) {
