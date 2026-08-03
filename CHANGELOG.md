@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/minekube/geyserlite/compare/v0.4.11...v0.5.0) (2026-08-03)
+
+
+### Features
+
+* **go:** consume frozen VerifiedIngressV1 via embedded callbacks and authenticated subprocess framing ([#145](https://github.com/minekube/geyserlite/issues/145)) ([103b46a](https://github.com/minekube/geyserlite/commit/103b46a710b49ee544f3fd73c416cf8d42358319))
+
 ## [0.4.11](https://github.com/minekube/geyserlite/compare/v0.4.10...v0.4.11) (2026-07-27)
 
 
