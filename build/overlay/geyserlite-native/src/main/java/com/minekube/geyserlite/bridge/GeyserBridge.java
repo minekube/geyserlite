@@ -208,7 +208,7 @@ public final class GeyserBridge {
     @CEntryPoint(name = "geyserlite_set_ingress_callbacks_v1")
     public static int setIngressCallbacks(IsolateThread thread, IngressTransport.OpenCallback open,
                                           IngressTransport.VerifiedCallback verified) {
-        return ingress == null ? open == null && verified == null ? IngressTransport.CALLBACK_REGISTRATION_OK
+        return ingress == null ? open.isNull() && verified.isNull() ? IngressTransport.CALLBACK_REGISTRATION_OK
                 : IngressTransport.ASSIGN_WRONG_CONNECTION_STATE
                 : ingress.setCallbacks(open, verified);
     }

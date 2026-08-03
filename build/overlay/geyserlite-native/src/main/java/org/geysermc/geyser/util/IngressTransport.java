@@ -20,6 +20,7 @@ import org.graalvm.nativeimage.c.function.CFunctionPointer;
 import org.graalvm.nativeimage.c.function.InvokeCFunctionPointer;
 import org.graalvm.nativeimage.c.type.CCharPointer;
 import org.graalvm.nativeimage.c.type.CTypeConversion;
+import org.graalvm.word.WordFactory;
 
 public final class IngressTransport implements VerifiedIngressHooks.Sink {
     public static final int CALLBACK_REGISTRATION_OK = 0;
@@ -68,13 +69,13 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     private VerifiedCallback verifiedCallback;
 
     public synchronized int setCallbacks(OpenCallback open, VerifiedCallback verified) {
-        if (open == null && verified == null) {
-            openCallback = null;
-            verifiedCallback = null;
+        if (open.isNull() && verified.isNull()) {
+            openCallback = WordFactory.nullPointer();
+            verifiedCallback = WordFactory.nullPointer();
             clearAssignments();
             return CALLBACK_REGISTRATION_OK;
         }
-        if (open == null || verified == null) {
+        if (open.isNull() || verified.isNull()) {
             return ASSIGN_WRONG_CONNECTION_STATE;
         }
         openCallback = open;
@@ -83,7 +84,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
     }
 
     public int assign(long handle, CCharPointer correlationPointer, long expiresUnixMs) {
-        if (correlationPointer == null) {
+        if (correlationPointer.isNull()) {
             return ASSIGN_WRONG_CONNECTION_STATE;
         }
         byte[] correlation = new byte[CORRELATION_BYTES];
@@ -114,7 +115,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         handles.put(connection, handle);
         connections.put(handle, connection);
         OpenCallback callback = openCallback;
-        if (callback != null) {
+        if (callback.isNonNull()) {
             callback.invoke(handle);
         }
     }
@@ -151,7 +152,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         synchronized (this) {
             callback = verifiedCallback;
         }
-        if (callback == null) {
+        if (callback.isNull()) {
             return false;
         }
         try (CTypeConversion.CCharPointerHolder correlation = CTypeConversion.toCBytes(assignment.correlation);
@@ -179,7 +180,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         Assignment assignment;
         GeyserConnection connection;
         synchronized (this) {
-            if (verifiedCallback == null) {
+            if (verifiedCallback.isNull()) {
                 return ASSIGN_WRONG_CONNECTION_STATE;
             }
             long now = System.currentTimeMillis();
