@@ -74,6 +74,34 @@ func TestEmbeddedIngressCallbackRejectsPointersAndBoundsBeforeRead(t *testing.T)
 	}
 }
 
+func TestEmbeddedIngressFatalCallbackDeactivatesBrokerBeforeTeardown(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	b := newIngressBroker(1, func() time.Time { return now })
+	g := newCallbackGeneration(12, b)
+	b.activate(g.id, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, g.fail)
+	if err := b.open(g.id, 7); err != nil {
+		t.Fatal(err)
+	}
+	<-b.opened
+
+	roots := newCallbackRoots(func(any) uintptr { return 1 })
+	frame := []byte{1}
+	correlation := [geyserliteabi.CorrelationBytes]byte{1}
+	correlationPtr := uintptr(unsafe.Pointer(&correlation[0]))
+	framePtr := uintptr(unsafe.Pointer(&frame[0]))
+	roots.current.Store(g)
+	roots.verifiedFn(correlationPtr, framePtr, geyserliteabi.MinIngressFrameBytes-1, uint64(now.Add(time.Second).UnixMilli()))
+
+	if err := b.assign(ConnectionAssignment{
+		Generation:       g.id,
+		ConnectionHandle: 7,
+		CorrelationID:    correlation,
+		ExpiresAt:        now.Add(time.Second),
+	}); !errors.Is(err, ErrIngressClosed) {
+		t.Fatalf("assignment after fatal callback = %v, want ErrIngressClosed", err)
+	}
+}
+
 func TestCallbackGenerationCloseWaitsForEnteredCallback(t *testing.T) {
 	g := newCallbackGeneration(1, newIngressBroker(1, time.Now))
 	if !g.enter() {

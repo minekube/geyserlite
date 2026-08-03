@@ -98,6 +98,7 @@ tasks:
       - >-
         cd build/.work/Geyser && ./gradlew :core:test
         --tests org.geysermc.geyser.entity.type.EntityMovementTest
+        --tests org.geysermc.geyser.util.GeyserLiteVerifiedIngressProducerTest
         --tests org.geysermc.geyser.network.BedrockPacketTraceHandlerTest
         --tests org.geysermc.geyser.network.netty.BedrockRawDatagramTraceHandlerTest
         --no-daemon

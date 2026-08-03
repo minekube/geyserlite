@@ -136,6 +136,7 @@ func (b *ingressBroker) deactivate(generation uint64) {
 
 func (b *ingressBroker) failLocked(err error) ingressFatalFunc {
 	b.active = false
+	b.assignNative = nil
 	b.clearLocked()
 	return b.fatal
 }
@@ -170,6 +171,9 @@ func (b *ingressBroker) failGeneration(generation uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if generation == b.generation {
+		b.active = false
+		b.assignNative = nil
+		b.fatal = nil
 		b.clearLocked()
 	}
 }

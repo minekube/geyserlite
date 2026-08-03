@@ -9,6 +9,8 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import sun.misc.Unsafe;
 
 final class InheritedSocket {
@@ -16,6 +18,15 @@ final class InheritedSocket {
     private static final long FD_OFFSET = fileDescriptorOffset();
 
     private InheritedSocket() {}
+
+    static boolean isPresent(int fd) {
+        if (fd < 0) {
+            return false;
+        }
+        String descriptor = Integer.toString(fd);
+        return Files.exists(Path.of("/proc/self/fd", descriptor))
+                || Files.exists(Path.of("/dev/fd", descriptor));
+    }
 
     static FileInputStream openInput(int fd) throws IOException {
         if (fd < 0) {

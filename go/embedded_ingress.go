@@ -63,6 +63,7 @@ func (g *callbackGeneration) closeAndWait() {
 }
 
 func (g *callbackGeneration) fail(err error) {
+	g.broker.failGeneration(g.id)
 	g.fatalOnce.Do(func() {
 		g.closeGate()
 		g.fatalWake <- err
@@ -93,7 +94,6 @@ func newCallbackRoots(newPointer func(any) uintptr) *callbackRoots {
 			return
 		}
 		if frameLen < geyserliteabi.MinIngressFrameBytes || frameLen > geyserliteabi.MaxIngressFrameBytes {
-			g.broker.failGeneration(g.id)
 			g.fail(ErrIngressFrame)
 			return
 		}

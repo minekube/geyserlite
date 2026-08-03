@@ -20,11 +20,17 @@ diff --git a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.ja
 index 7675c509c..7675c509c 100644
 --- a/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
 +++ b/core/src/main/java/org/geysermc/geyser/util/LoginEncryptionUtils.java
-@@ -117,3 +117,7 @@ public class LoginEncryptionUtils {
+@@ -117,3 +117,8 @@ public class LoginEncryptionUtils {
              try {
                  startEncryptionHandshake(session, identityPublicKey);
-+                GeyserLiteVerifiedIngressProducer.authenticated(session,
++                recordVerifiedIngress(session,
 +                        authPayload instanceof CertificateChainPayload
 +                                ? "minecraft_legacy_chain+client_jwt+ecdh_v1"
-+                                : "minecraft_full_jwks+client_jwt+ecdh_v1");
++                                : "minecraft_full_jwks+client_jwt+ecdh_v1",
++                        result.signed());
              } catch (Throwable e) {
+@@ -135,1 +135,4 @@ public class LoginEncryptionUtils {
++    static void recordVerifiedIngress(GeyserSession session, String verificationMethod, boolean signed) {
++        GeyserLiteVerifiedIngressProducer.authenticated(session, verificationMethod, signed);
++    }
+     private static void startEncryptionHandshake(GeyserSession session, PublicKey key) throws Exception {

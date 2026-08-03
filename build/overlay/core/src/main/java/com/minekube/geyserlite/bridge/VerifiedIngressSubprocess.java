@@ -66,7 +66,7 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
     }
 
     public static void startIfPresent() {
-        if (Boolean.getBoolean("geyserlite.embedded")) {
+        if (Boolean.getBoolean("geyserlite.embedded") || !InheritedSocket.isPresent(3)) {
             return;
         }
         VerifiedIngressSubprocess transport = new VerifiedIngressSubprocess();
@@ -93,9 +93,17 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
     private boolean start() {
         try {
             input = InheritedSocket.openInput(3);
+        } catch (IOException e) {
+            return false;
+        }
+        try {
             output = new FileOutputStream(input.getFD());
             byte[] bootstrap = read(BOOTSTRAP_BYTES);
-            if (bootstrap == null || bootstrap.length != BOOTSTRAP_BYTES || bootstrap[0] != VERSION) {
+            if (bootstrap == null) {
+                closeTransport();
+                return false;
+            }
+            if (bootstrap.length != BOOTSTRAP_BYTES || bootstrap[0] != VERSION) {
                 throw new IOException("invalid verified ingress bootstrap");
             }
             generation = readLong(bootstrap, 1);

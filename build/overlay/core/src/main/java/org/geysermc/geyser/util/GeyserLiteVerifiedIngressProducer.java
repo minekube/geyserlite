@@ -22,7 +22,10 @@ final class GeyserLiteVerifiedIngressProducer {
 
     private GeyserLiteVerifiedIngressProducer() {}
 
-    static synchronized void authenticated(GeyserSession session, String verificationMethod) {
+    static synchronized void authenticated(GeyserSession session, String verificationMethod, boolean signed) {
+        if (!signed) {
+            return;
+        }
         try {
             String xuid = session.xuid();
             int protocolVersion = session.protocolVersion();
