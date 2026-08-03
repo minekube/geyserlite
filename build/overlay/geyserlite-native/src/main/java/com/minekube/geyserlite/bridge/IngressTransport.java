@@ -122,7 +122,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         return CALLBACK_REGISTRATION_OK;
     }
 
-    synchronized int assign(long handle, CCharPointer correlationPointer, long expiresUnixMs) {
+    int assign(long handle, CCharPointer correlationPointer, long expiresUnixMs) {
         if (correlationPointer == null) {
             return ASSIGN_WRONG_CONNECTION_STATE;
         }
@@ -184,41 +184,45 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         }
     }
 
-    synchronized void publishVerified(GeyserConnection connection, byte[] frame) {
-        Long handle = handles.get(connection);
+    void publishVerified(GeyserConnection connection, byte[] frame) {
+        Long handle;
+        synchronized (this) {
+            handle = handles.get(connection);
+        }
         if (handle != null) {
             publishVerified(handle, frame);
         }
     }
 
-    synchronized void publishVerified(long handle, byte[] frame) {
-        Assignment assignment = assignments.get(handle);
-        long now = System.currentTimeMillis();
-        if (assignment == null || now >= assignment.expiresUnixMs || frame == null
-                || frame.length < MIN_FRAME_BYTES || frame.length > MAX_FRAME_BYTES) {
-            if (assignment != null) {
-                removeAssignment(handle, assignment);
-            }
-            return;
+    boolean publishVerified(long handle, byte[] frame) {
+        Assignment assignment = claimAssignment(handle, frame);
+        if (assignment == null) {
+            return false;
         }
-        assignments.remove(handle);
-        cancelExpiry(assignment);
-        correlations.remove(correlationKey(assignment.correlation));
-        if (subprocessRunning) {
+        boolean subprocess;
+        VerifiedCallback callback;
+        synchronized (this) {
+            subprocess = subprocessRunning;
+            callback = verifiedCallback;
+        }
+        if (subprocess) {
             try {
                 writeVerified(handle, frame);
-            } catch (IOException | GeneralSecurityException e) {
+                return true;
+            } catch (Throwable e) {
                 closeSubprocess(e);
+                return false;
             }
-            return;
         }
-        VerifiedCallback callback = verifiedCallback;
         if (callback == null) {
-            return;
+            return false;
         }
         try (CTypeConversion.CCharPointerHolder correlation = CTypeConversion.toCBytes(assignment.correlation);
              CTypeConversion.CCharPointerHolder payload = CTypeConversion.toCBytes(frame)) {
             callback.invoke(correlation.get(), payload.get(), frame.length, assignment.expiresUnixMs);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
@@ -258,49 +262,83 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         subprocessReader = null;
     }
 
-    private synchronized int assign(long handle, byte[] correlation, long expiresUnixMs) {
-        if (!subprocessRunning && verifiedCallback == null) {
-            return ASSIGN_WRONG_CONNECTION_STATE;
-        }
-        long now = System.currentTimeMillis();
-        if (!connections.containsKey(handle)) {
-            return ASSIGN_UNKNOWN_OR_CLOSED_HANDLE;
-        }
-        if (isZero(correlation) || expiresUnixMs <= now || expiresUnixMs - now > MAX_LIFETIME_MS) {
-            return ASSIGN_INVALID_OR_EXPIRED_TIME;
-        }
-        if (assignments.containsKey(handle) || correlations.containsKey(correlationKey(correlation))) {
-            return ASSIGN_DUPLICATE_HANDLE_OR_CORRELATION;
-        }
-        Assignment assignment = new Assignment(handle, correlation.clone(), expiresUnixMs);
-        assignments.put(handle, assignment);
-        correlations.put(correlationKey(correlation), handle);
-        assignment.expiry = expiryExecutor.schedule(
-                () -> expire(handle, correlation, expiresUnixMs),
-                Math.max(1, expiresUnixMs - now), java.util.concurrent.TimeUnit.MILLISECONDS);
-        try {
-            byte[] frame = VerifiedIngressHooks.verify((GeyserConnection) connections.get(handle), correlation,
-                    expiresUnixMs);
-            if (frame != null) {
-                if (frame.length < MIN_FRAME_BYTES || frame.length > MAX_FRAME_BYTES) {
-                    removeAssignment(handle, assignment);
-                    return ASSIGN_WRONG_CONNECTION_STATE;
-                }
-                publishVerified(handle, frame);
+    private int assign(long handle, byte[] correlation, long expiresUnixMs) {
+        Assignment assignment;
+        GeyserConnection connection;
+        long remaining;
+        boolean subprocess;
+        synchronized (this) {
+            subprocess = subprocessRunning;
+            if (!subprocess && verifiedCallback == null) {
+                return ASSIGN_WRONG_CONNECTION_STATE;
             }
+            long now = System.currentTimeMillis();
+            if (!connections.containsKey(handle)) {
+                return ASSIGN_UNKNOWN_OR_CLOSED_HANDLE;
+            }
+            if (isZero(correlation) || expiresUnixMs <= now || expiresUnixMs - now > MAX_LIFETIME_MS) {
+                return ASSIGN_INVALID_OR_EXPIRED_TIME;
+            }
+            if (assignments.containsKey(handle) || correlations.containsKey(correlationKey(correlation))) {
+                return ASSIGN_DUPLICATE_HANDLE_OR_CORRELATION;
+            }
+            assignment = new Assignment(handle, correlation.clone(), expiresUnixMs);
+            assignments.put(handle, assignment);
+            correlations.put(correlationKey(correlation), handle);
+            assignment.expiry = expiryExecutor.schedule(
+                    () -> expire(handle, correlation, expiresUnixMs),
+                    Math.max(1, expiresUnixMs - now), java.util.concurrent.TimeUnit.MILLISECONDS);
+            connection = (GeyserConnection) connections.get(handle);
+            remaining = expiresUnixMs - now;
+        }
+        if (subprocess) {
+            return ASSIGN_OK;
+        }
+        try {
+            byte[] frame = VerifiedIngressHooks.verify(connection, correlation, expiresUnixMs, remaining);
+            if (frame == null || !publishVerified(handle, frame)) {
+                removeAssignment(handle, assignment);
+                return ASSIGN_WRONG_CONNECTION_STATE;
+            }
+            return ASSIGN_OK;
         } catch (Throwable ignored) {
             removeAssignment(handle, assignment);
             return ASSIGN_WRONG_CONNECTION_STATE;
         }
-        return ASSIGN_OK;
     }
 
-    private void removeAssignment(long handle, Assignment assignment) {
+    private synchronized void removeAssignment(long handle, Assignment assignment) {
         if (assignments.get(handle) == assignment) {
             assignments.remove(handle);
             cancelExpiry(assignment);
             correlations.remove(correlationKey(assignment.correlation));
         }
+    }
+
+    private synchronized Assignment claimAssignment(long handle, byte[] frame) {
+        Assignment assignment = assignments.remove(handle);
+        if (assignment == null) {
+            return null;
+        }
+        cancelExpiry(assignment);
+        correlations.remove(correlationKey(assignment.correlation));
+        long now = System.currentTimeMillis();
+        if (now >= assignment.expiresUnixMs || frame == null || frame.length < MIN_FRAME_BYTES
+                || frame.length > MAX_FRAME_BYTES) {
+            return null;
+        }
+        return assignment;
+    }
+
+    private synchronized void clearAssignment(long handle, byte[] correlation, long expiresUnixMs) {
+        Assignment assignment = assignments.get(handle);
+        if (assignment == null || assignment.expiresUnixMs != expiresUnixMs
+                || !Arrays.equals(assignment.correlation, correlation)) {
+            return;
+        }
+        assignments.remove(handle);
+        cancelExpiry(assignment);
+        correlations.remove(correlationKey(assignment.correlation));
     }
 
     private synchronized void expire(long handle, byte[] correlation, long expiresUnixMs) {
@@ -363,15 +401,39 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         if (status == ACK_NEGATIVE) {
             throw new IOException("verified ingress assignment rejected");
         }
+        byte[] frame = verifyAssignment(handle, correlation, expiresUnixMs);
+        if (frame == null || !publishVerified(handle, frame)) {
+            clearAssignment(handle, correlation, expiresUnixMs);
+            throw new IOException("verified ingress verification rejected");
+        }
     }
 
-    private void writeOpen(long handle) throws IOException, GeneralSecurityException {
+    private byte[] verifyAssignment(long handle, byte[] correlation, long expiresUnixMs)
+            throws IOException {
+        GeyserConnection connection;
+        long remaining;
+        synchronized (this) {
+            connection = (GeyserConnection) connections.get(handle);
+            remaining = expiresUnixMs - System.currentTimeMillis();
+        }
+        if (connection == null || remaining <= 0 || remaining > MAX_LIFETIME_MS) {
+            return null;
+        }
+        try {
+            return VerifiedIngressHooks.verify(connection, correlation, expiresUnixMs, remaining);
+        } catch (Throwable e) {
+            throw new IOException("verified ingress verification failed", e);
+        }
+    }
+
+    private synchronized void writeOpen(long handle) throws IOException, GeneralSecurityException {
         byte[] packet = prefix(CONNECTION_OPEN, handle, OPEN_BYTES);
         sign(packet, OPEN_MAC_OFFSET);
         writePacket(packet);
     }
 
-    private void writeAck(long handle, byte[] correlation, int status) throws IOException, GeneralSecurityException {
+    private synchronized void writeAck(long handle, byte[] correlation, int status)
+            throws IOException, GeneralSecurityException {
         byte[] packet = prefix(ASSIGNMENT_ACK, handle, ACK_BYTES);
         System.arraycopy(correlation, 0, packet, CORRELATION_OFFSET, CORRELATION_BYTES);
         packet[ACK_STATUS_OFFSET] = (byte) status;
@@ -379,7 +441,8 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         writePacket(packet);
     }
 
-    private void writeVerified(long handle, byte[] frame) throws IOException, GeneralSecurityException {
+    private synchronized void writeVerified(long handle, byte[] frame)
+            throws IOException, GeneralSecurityException {
         byte[] packet = prefix(VERIFIED_INGRESS, handle, PAYLOAD_OFFSET + frame.length + MAC_BYTES);
         System.arraycopy(frame, 0, packet, PAYLOAD_OFFSET, frame.length);
         sign(packet, packet.length - MAC_BYTES);
@@ -422,7 +485,7 @@ public final class IngressTransport implements VerifiedIngressHooks.Sink {
         return mac.doFinal(Arrays.copyOf(packet, macOffset));
     }
 
-    private void closeSubprocess(Exception reason) {
+    private void closeSubprocess(Throwable reason) {
         synchronized (this) {
             subprocessRunning = false;
             clearAssignments();

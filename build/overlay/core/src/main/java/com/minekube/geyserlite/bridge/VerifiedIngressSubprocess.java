@@ -167,35 +167,27 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         publishVerified(connection, frame);
     }
 
-    synchronized void publishVerified(GeyserConnection connection, byte[] frame) {
-        Long handle = handles.get(connection);
+    void publishVerified(GeyserConnection connection, byte[] frame) {
+        Long handle;
+        synchronized (this) {
+            handle = handles.get(connection);
+        }
         if (handle != null) {
             publishVerified(handle, frame);
         }
     }
 
-    synchronized void publishVerified(long handle, byte[] frame) {
-        Assignment assignment = assignments.get(handle);
-        long now = System.currentTimeMillis();
-        if (!running || assignment == null || now >= assignment.expiresUnixMs || frame == null
-                || frame.length < 1 || frame.length > MAX_FRAME_BYTES) {
-            if (assignment != null) {
-                assignments.remove(handle);
-                cancelExpiry(assignment);
-                correlations.remove(correlationKey(assignment.correlation));
-            }
-            return;
+    boolean publishVerified(long handle, byte[] frame) {
+        Assignment assignment = claimAssignment(handle, frame);
+        if (assignment == null) {
+            return false;
         }
-        assignments.remove(handle);
-        cancelExpiry(assignment);
-        correlations.remove(correlationKey(assignment.correlation));
         try {
-            byte[] packet = prefix(VERIFIED_INGRESS, handle, PAYLOAD_OFFSET + frame.length + MAC_BYTES);
-            System.arraycopy(frame, 0, packet, PAYLOAD_OFFSET, frame.length);
-            sign(packet, packet.length - MAC_BYTES);
-            write(packet);
-        } catch (IOException | GeneralSecurityException e) {
+            writeVerified(handle, frame);
+            return true;
+        } catch (Throwable e) {
             closeTransport();
+            return false;
         }
     }
 
@@ -219,7 +211,7 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         return length < 0 ? null : Arrays.copyOf(packet, length);
     }
 
-    private synchronized void readAssignment(byte[] packet) throws IOException, GeneralSecurityException {
+    private void readAssignment(byte[] packet) throws IOException, GeneralSecurityException {
         if (packet.length != ASSIGNMENT_BYTES || packet[0] != VERSION || packet[1] != ASSIGNMENT
                 || readLong(packet, GENERATION_OFFSET) != generation
                 || readLong(packet, SEQUENCE_OFFSET) != readSequence || readLong(packet, HANDLE_OFFSET) == 0) {
@@ -235,27 +227,36 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         if (status == ACK_NEGATIVE) {
             throw new IOException("verified ingress assignment rejected");
         }
-        emitVerified(handle, correlation, expires);
+        byte[] frame = emitVerified(handle, correlation, expires);
+        if (frame == null || !publishVerified(handle, frame)) {
+            clearAssignment(handle, correlation, expires);
+            throw new IOException("verified ingress verification rejected");
+        }
     }
 
-    private void emitVerified(long handle, byte[] correlation, long expires)
+    private byte[] emitVerified(long handle, byte[] correlation, long expires)
             throws IOException {
+        long remaining = expires - System.currentTimeMillis();
+        if (remaining <= 0 || remaining > MAX_LIFETIME_MS) {
+            return null;
+        }
         byte[] frame;
         try {
-            frame = VerifiedIngressHooks.verify(connections.get(handle), correlation, expires);
+            GeyserConnection connection;
+            synchronized (this) {
+                connection = connections.get(handle);
+            }
+            if (connection == null) {
+                return null;
+            }
+            frame = VerifiedIngressHooks.verify(connection, correlation, expires, remaining);
         } catch (Throwable e) {
             throw new IOException("verified ingress verification failed", e);
         }
-        if (frame == null) {
-            return;
-        }
-        if (frame.length < 1 || frame.length > MAX_FRAME_BYTES) {
-            throw new IOException("verified ingress frame rejected");
-        }
-        publishVerified(handle, frame);
+        return frame;
     }
 
-    private boolean accept(long handle, byte[] correlation, long expires) {
+    private synchronized boolean accept(long handle, byte[] correlation, long expires) {
         long now = System.currentTimeMillis();
         if (!connections.containsKey(handle) || isZero(correlation) || expires <= now
                 || expires - now > MAX_LIFETIME_MS || assignments.containsKey(handle)
@@ -281,13 +282,46 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         correlations.remove(correlationKey(correlation));
     }
 
-    private void writeAck(long handle, byte[] correlation, int status)
+    private synchronized void writeAck(long handle, byte[] correlation, int status)
             throws IOException, GeneralSecurityException {
         byte[] packet = prefix(ASSIGNMENT_ACK, handle, ACK_BYTES);
         System.arraycopy(correlation, 0, packet, CORRELATION_OFFSET, CORRELATION_BYTES);
         packet[ACK_STATUS_OFFSET] = (byte) status;
         sign(packet, ACK_MAC_OFFSET);
         write(packet);
+    }
+
+    private synchronized void writeVerified(long handle, byte[] frame)
+            throws IOException, GeneralSecurityException {
+        byte[] packet = prefix(VERIFIED_INGRESS, handle, PAYLOAD_OFFSET + frame.length + MAC_BYTES);
+        System.arraycopy(frame, 0, packet, PAYLOAD_OFFSET, frame.length);
+        sign(packet, packet.length - MAC_BYTES);
+        write(packet);
+    }
+
+    private synchronized Assignment claimAssignment(long handle, byte[] frame) {
+        Assignment assignment = assignments.remove(handle);
+        if (assignment == null) {
+            return null;
+        }
+        cancelExpiry(assignment);
+        correlations.remove(correlationKey(assignment.correlation));
+        if (!running || System.currentTimeMillis() >= assignment.expiresUnixMs || frame == null
+                || frame.length < 1 || frame.length > MAX_FRAME_BYTES) {
+            return null;
+        }
+        return assignment;
+    }
+
+    private synchronized void clearAssignment(long handle, byte[] correlation, long expires) {
+        Assignment assignment = assignments.get(handle);
+        if (assignment == null || assignment.expiresUnixMs != expires
+                || !Arrays.equals(assignment.correlation, correlation)) {
+            return;
+        }
+        assignments.remove(handle);
+        cancelExpiry(assignment);
+        correlations.remove(correlationKey(assignment.correlation));
     }
 
     private byte[] prefix(int type, long handle, int length) {
@@ -301,6 +335,9 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
     }
 
     private void write(byte[] packet) throws IOException {
+        if (!running || output == null) {
+            throw new IOException("verified ingress transport is closed");
+        }
         output.write(packet);
         output.flush();
     }
