@@ -318,7 +318,6 @@ func (s *subprocessIngressSession) assign(assignment ConnectionAssignment) int32
 	remaining = assignment.ExpiresAt.Sub(s.now())
 	if remaining <= 0 || remaining > geyserliteabi.MaxIngressLifetime {
 		s.removePending(key)
-		s.fail(ErrIngressLifetime)
 		return geyserliteabi.AssignmentInvalidOrExpiredTime
 	}
 	timer := time.NewTimer(remaining)
@@ -328,7 +327,6 @@ func (s *subprocessIngressSession) assign(assignment ConnectionAssignment) int32
 		if status == geyserliteabi.SubprocessACKPositive {
 			if !s.now().Before(assignment.ExpiresAt) {
 				s.removePending(key)
-				s.fail(ErrIngressLifetime)
 				return geyserliteabi.AssignmentInvalidOrExpiredTime
 			}
 			return geyserliteabi.AssignmentOK
@@ -337,7 +335,6 @@ func (s *subprocessIngressSession) assign(assignment ConnectionAssignment) int32
 		return geyserliteabi.AssignmentWrongConnectionState
 	case <-timer.C:
 		s.removePending(key)
-		s.fail(ErrIngressLifetime)
 		return geyserliteabi.AssignmentInvalidOrExpiredTime
 	case <-s.done:
 		return embeddedAssignmentTransportFailure
@@ -373,6 +370,7 @@ func (s *subprocessIngressSession) readLoop() {
 			key := subprocessPendingKey{handle: packet.handle, correlation: packet.correlation}
 			var waiter chan uint8
 			var failure error
+			notify := packet.status
 			s.mu.Lock()
 			pending, ok := s.pending[key]
 			if ok {
@@ -381,7 +379,8 @@ func (s *subprocessIngressSession) readLoop() {
 					if pending.timer != nil {
 						pending.timer.Stop()
 					}
-					failure = ErrIngressLifetime
+					waiter = pending.waiter
+					notify = geyserliteabi.SubprocessACKNegative
 				} else if packet.status == geyserliteabi.SubprocessACKPositive {
 					if pending.acknowledged {
 						failure = ErrIngressDuplicate
@@ -404,8 +403,7 @@ func (s *subprocessIngressSession) readLoop() {
 			}
 			s.mu.Unlock()
 			if !ok {
-				s.fail(ErrIngressMismatch)
-				return
+				continue
 			}
 			if failure != nil {
 				s.fail(failure)
@@ -413,13 +411,9 @@ func (s *subprocessIngressSession) readLoop() {
 			}
 			if waiter != nil {
 				select {
-				case waiter <- packet.status:
+				case waiter <- notify:
 				default:
 				}
-			}
-			if packet.status == geyserliteabi.SubprocessACKNegative {
-				s.fail(ErrIngressRejected)
-				return
 			}
 		case geyserliteabi.SubprocessVerifiedIngress:
 			correlation, err := extractIngressCorrelation(packet.payload)
@@ -437,11 +431,17 @@ func (s *subprocessIngressSession) readLoop() {
 				}
 			}
 			s.mu.Unlock()
-			if !ok || !pending.acknowledged {
+			if !ok {
+				continue
+			}
+			if !pending.acknowledged {
 				s.fail(ErrIngressRejected)
 				return
 			}
 			if err := s.broker.deliverIPCFrame(s.generation, packet.handle, correlation, packet.payload); err != nil {
+				if errors.Is(err, ErrIngressMismatch) || errors.Is(err, ErrIngressLifetime) {
+					continue
+				}
 				s.fail(err)
 				return
 			}

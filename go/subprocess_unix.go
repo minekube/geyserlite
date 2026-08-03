@@ -25,5 +25,12 @@ func newIngressSocketpair() (*os.File, *os.File, error) {
 	}
 	syscall.CloseOnExec(fds[0])
 	syscall.CloseOnExec(fds[1])
+	// The parent endpoint must be poller-backed so closing the session
+	// interrupts a blocked read even while the child endpoint stays open.
+	if err := syscall.SetNonblock(fds[0], true); err != nil {
+		_ = syscall.Close(fds[0])
+		_ = syscall.Close(fds[1])
+		return nil, nil, fmt.Errorf("geyserlite: configure verified ingress socketpair: %w", err)
+	}
 	return os.NewFile(uintptr(fds[0]), "geyserlite-ingress-parent"), os.NewFile(uintptr(fds[1]), "geyserlite-ingress-child"), nil
 }

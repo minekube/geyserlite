@@ -263,6 +263,102 @@ func TestIngressBrokerOverflowFailsClosedAndCleansGeneration(t *testing.T) {
 	}
 }
 
+func TestIngressBrokerEvictsStaleUnassignedHandles(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	b := newIngressBroker(4, func() time.Time { return now })
+	b.activate(11, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	if err := b.open(11, 1); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	b.handles[1] = now.Add(-ingressHandleTTL - time.Second)
+	b.mu.Unlock()
+	if err := b.open(11, 2); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	_, stale := b.handles[1]
+	_, fresh := b.handles[2]
+	b.mu.Unlock()
+	if stale {
+		t.Fatal("never-assigned handle survived past its TTL")
+	}
+	if !fresh {
+		t.Fatal("fresh handle was evicted")
+	}
+	if err := b.assign(ConnectionAssignment{Generation: 11, ConnectionHandle: 1, CorrelationID: [16]byte{1}, ExpiresAt: now.Add(time.Second)}); !errors.Is(err, ErrIngressClosed) {
+		t.Fatalf("assignment on evicted handle = %v, want ErrIngressClosed", err)
+	}
+}
+
+func TestIngressBrokerNeverEvictsHandleMidAssignment(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	b := newIngressBroker(4, func() time.Time { return now })
+	b.activate(12, func(ConnectionAssignment) int32 {
+		close(entered)
+		<-release
+		return geyserliteabi.AssignmentOK
+	}, nil)
+	if err := b.open(12, 1); err != nil {
+		t.Fatal(err)
+	}
+	corr := [16]byte{6}
+	expires := now.Add(time.Second)
+	assignDone := make(chan error, 1)
+	go func() {
+		assignDone <- b.assign(ConnectionAssignment{Generation: 12, ConnectionHandle: 1, CorrelationID: corr, ExpiresAt: expires})
+	}()
+	<-entered
+	b.mu.Lock()
+	b.handles[1] = now.Add(-ingressHandleTTL - time.Second)
+	b.mu.Unlock()
+	if err := b.open(12, 2); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	_, present := b.handles[1]
+	b.mu.Unlock()
+	if !present {
+		t.Fatal("actively-assigning handle was evicted mid-handoff")
+	}
+	close(release)
+	if err := <-assignDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := b.deliverCallback(12, corr, []byte{1}, uint64(expires.UnixMilli())); err != nil {
+		t.Fatal(err)
+	}
+	got := <-b.verified
+	if got.ConnectionHandle() != 1 {
+		t.Fatalf("verified handle = %d", got.ConnectionHandle())
+	}
+}
+
+func TestIngressBrokerCapsNeverAssignedHandles(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	fatal := make(chan error, 1)
+	b := newIngressBroker(maxIngressHandles+2, func() time.Time { return now })
+	b.activate(13, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, func(err error) { fatal <- err })
+	for handle := uint64(1); handle <= maxIngressHandles+1; handle++ {
+		if err := b.open(13, handle); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b.mu.Lock()
+	total := len(b.handles)
+	b.mu.Unlock()
+	if total != maxIngressHandles {
+		t.Fatalf("handle count = %d, want cap %d", total, maxIngressHandles)
+	}
+	select {
+	case err := <-fatal:
+		t.Fatalf("cap containment escalated fatally: %v", err)
+	default:
+	}
+}
+
 func TestServerNeverAcceptsCallerConstructedVerifiedClaim(t *testing.T) {
 	serverTypeHasNoVerifiedIngressSetter(t)
 }

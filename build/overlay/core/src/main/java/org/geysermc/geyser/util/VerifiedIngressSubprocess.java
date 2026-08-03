@@ -65,15 +65,30 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         }
     }
 
+    static final String FD_ENV = "GEYSERLITE_VERIFIED_INGRESS_FD";
+
     public static void startIfPresent() {
-        if (Boolean.getBoolean("geyserlite.embedded") || !InheritedSocket.isPresent(3)) {
+        int fd = inheritedDescriptor(System.getenv(FD_ENV));
+        if (fd < 0 || !InheritedSocket.isPresent(fd)) {
             return;
         }
         VerifiedIngressSubprocess transport = new VerifiedIngressSubprocess();
-        if (!transport.start()) {
+        if (!transport.start(fd)) {
             return;
         }
         VerifiedIngressHooks.register(transport);
+    }
+
+    static int inheritedDescriptor(String marker) {
+        if (Boolean.getBoolean("geyserlite.embedded") || marker == null || marker.isEmpty()) {
+            return -1;
+        }
+        try {
+            int fd = Integer.parseInt(marker);
+            return fd < 0 ? -1 : fd;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     private final Map<Long, GeyserConnection> connections = new HashMap<>();
@@ -90,9 +105,9 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
     private FileOutputStream output;
     private boolean running;
 
-    private boolean start() {
+    private boolean start(int fd) {
         try {
-            input = InheritedSocket.openInput(3);
+            input = InheritedSocket.openInput(fd);
         } catch (IOException e) {
             return false;
         }
@@ -225,22 +240,19 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
         int status = accept(handle, correlation, expires) ? ACK_POSITIVE : ACK_NEGATIVE;
         writeAck(handle, correlation, status);
         if (status == ACK_NEGATIVE) {
-            throw new IOException("verified ingress assignment rejected");
+            return;
         }
         byte[] frame = emitVerified(handle, correlation, expires);
         if (frame == null || !publishVerified(handle, frame)) {
             clearAssignment(handle, correlation, expires);
-            throw new IOException("verified ingress verification rejected");
         }
     }
 
-    private byte[] emitVerified(long handle, byte[] correlation, long expires)
-            throws IOException {
+    private byte[] emitVerified(long handle, byte[] correlation, long expires) {
         long remaining = expires - System.currentTimeMillis();
         if (remaining <= 0 || remaining > MAX_LIFETIME_MS) {
             return null;
         }
-        byte[] frame;
         try {
             GeyserConnection connection;
             synchronized (this) {
@@ -249,11 +261,10 @@ public final class VerifiedIngressSubprocess implements VerifiedIngressHooks.Sin
             if (connection == null) {
                 return null;
             }
-            frame = GeyserLiteVerifiedIngressProducer.produce(connection, correlation, expires);
-        } catch (Throwable e) {
-            throw new IOException("verified ingress verification failed", e);
+            return GeyserLiteVerifiedIngressProducer.produce(connection, correlation, expires);
+        } catch (Throwable ignored) {
+            return null;
         }
-        return frame;
     }
 
     private synchronized boolean accept(long handle, byte[] correlation, long expires) {

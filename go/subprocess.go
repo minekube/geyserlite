@@ -125,6 +125,7 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 	cmd.SysProcAttr = sysProcAttrNewGroup()
 	if childIngress != nil {
 		cmd.ExtraFiles = []*os.File{childIngress}
+		cmd.Env = append(os.Environ(), "GEYSERLITE_VERIFIED_INGRESS_FD=3")
 	}
 
 	stdout, err := cmd.StdoutPipe()

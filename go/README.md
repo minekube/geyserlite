@@ -119,11 +119,11 @@ The subprocess binary resolution order mirrors library acquisition:
    against `checksums.txt` (skipped when `Options.Offline`).
 
 Auto-download supports Linux amd64/arm64 and Windows amd64 subprocess
-binaries. The authenticated verified-ingress v2 channel currently requires
+binaries. The authenticated VerifiedIngressV1 channel currently requires
 Unix `SOCK_SEQPACKET`; on Windows, the existing subprocess lifecycle remains
 available, but `ConnectionOpened`, `Assign`, and verified-ingress delivery are
-unavailable and fail closed. The older subprocess path has no v2 ingress
-channel and is otherwise unchanged. Native Windows v2 transport
+unavailable and fail closed. The older subprocess path has no VerifiedIngressV1
+channel and is otherwise unchanged. Native Windows VerifiedIngressV1 transport
 support (named pipes or an equivalent authenticated local channel, plus the
 matching native FD/bootstrap handoff) is follow-up work. Windows embedded DLL
 auto-download is intentionally not shipped yet.

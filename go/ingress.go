@@ -10,7 +10,15 @@ import (
 	"go.minekube.com/connect/geyserliteabi"
 )
 
-const defaultIngressQueueCapacity = 256
+const (
+	defaultIngressQueueCapacity = 256
+
+	// The frozen framing has no connection-close message, so opened but
+	// never-assigned handles are contained by age and count instead of
+	// growing for the whole generation lifetime.
+	ingressHandleTTL  = time.Minute
+	maxIngressHandles = 4096
+)
 
 var (
 	ErrIngressABI            = errors.New("geyserlite: verified ingress ABI mismatch")
@@ -92,7 +100,7 @@ type ingressBroker struct {
 	generation   uint64
 	assignNative ingressAssignFunc
 	fatal        ingressFatalFunc
-	handles      map[uint64]struct{}
+	handles      map[uint64]time.Time
 	correlations map[[geyserliteabi.CorrelationBytes]byte]ingressPending
 }
 
@@ -107,7 +115,7 @@ func newIngressBroker(capacity int, now func() time.Time) *ingressBroker {
 		now:          now,
 		opened:       make(chan ConnectionOpen, capacity),
 		verified:     make(chan VerifiedFrame, capacity),
-		handles:      make(map[uint64]struct{}),
+		handles:      make(map[uint64]time.Time),
 		correlations: make(map[[geyserliteabi.CorrelationBytes]byte]ingressPending),
 	}
 }
@@ -204,7 +212,16 @@ func (b *ingressBroker) open(generation, handle uint64) error {
 		}
 		return ErrIngressDuplicate
 	}
-	b.handles[handle] = struct{}{}
+	now := b.now()
+	if !b.evictStaleHandlesLocked(now) {
+		fatal := b.failLocked(ErrIngressOverflow)
+		b.mu.Unlock()
+		if fatal != nil {
+			fatal(ErrIngressOverflow)
+		}
+		return ErrIngressOverflow
+	}
+	b.handles[handle] = now
 	select {
 	case b.opened <- ConnectionOpen{Generation: generation, ConnectionHandle: handle}:
 		b.mu.Unlock()
@@ -217,6 +234,46 @@ func (b *ingressBroker) open(generation, handle uint64) error {
 		}
 		return ErrIngressOverflow
 	}
+}
+
+// evictStaleHandlesLocked drops opened but never-assigned handles that
+// outlived ingressHandleTTL and, at maxIngressHandles, the oldest unassigned
+// handle. Handles with a pending correlation are mid-handoff and never
+// evicted; the pending entry is inserted under b.mu before the native
+// assignment call, so an in-progress assignment cannot race eviction.
+// Returns false only when the map is at capacity with every handle assigning.
+func (b *ingressBroker) evictStaleHandlesLocked(now time.Time) bool {
+	assigning := make(map[uint64]struct{}, len(b.correlations))
+	for _, pending := range b.correlations {
+		assigning[pending.handle] = struct{}{}
+	}
+	for handle, openedAt := range b.handles {
+		if _, busy := assigning[handle]; busy {
+			continue
+		}
+		if now.Sub(openedAt) > ingressHandleTTL {
+			delete(b.handles, handle)
+		}
+	}
+	if len(b.handles) < maxIngressHandles {
+		return true
+	}
+	var oldest uint64
+	var oldestAt time.Time
+	found := false
+	for handle, openedAt := range b.handles {
+		if _, busy := assigning[handle]; busy {
+			continue
+		}
+		if !found || openedAt.Before(oldestAt) {
+			oldest, oldestAt, found = handle, openedAt, true
+		}
+	}
+	if !found {
+		return false
+	}
+	delete(b.handles, oldest)
+	return true
 }
 
 func (b *ingressBroker) assign(a ConnectionAssignment) error {
