@@ -13,15 +13,17 @@ import (
 const defaultIngressQueueCapacity = 256
 
 var (
-	ErrIngressABI        = errors.New("geyserlite: verified ingress ABI mismatch")
-	ErrIngressClosed     = errors.New("geyserlite: verified ingress connection is closed")
-	ErrIngressDuplicate  = errors.New("geyserlite: duplicate verified ingress assignment")
-	ErrIngressFrame      = errors.New("geyserlite: invalid verified ingress frame")
-	ErrIngressGeneration = errors.New("geyserlite: stale verified ingress generation")
-	ErrIngressLifetime   = errors.New("geyserlite: invalid verified ingress lifetime")
-	ErrIngressMismatch   = errors.New("geyserlite: verified ingress correlation mismatch")
-	ErrIngressOverflow   = errors.New("geyserlite: verified ingress queue overflow")
-	ErrIngressRejected   = errors.New("geyserlite: native verified ingress assignment rejected")
+	ErrIngressABI            = errors.New("geyserlite: verified ingress ABI mismatch")
+	ErrIngressAuthentication = errors.New("geyserlite: verified ingress authentication failed")
+	ErrIngressClosed         = errors.New("geyserlite: verified ingress connection is closed")
+	ErrIngressDuplicate      = errors.New("geyserlite: duplicate verified ingress assignment")
+	ErrIngressFrame          = errors.New("geyserlite: invalid verified ingress frame")
+	ErrIngressGeneration     = errors.New("geyserlite: stale verified ingress generation")
+	ErrIngressLifetime       = errors.New("geyserlite: invalid verified ingress lifetime")
+	ErrIngressMismatch       = errors.New("geyserlite: verified ingress correlation mismatch")
+	ErrIngressOverflow       = errors.New("geyserlite: verified ingress queue overflow")
+	ErrIngressRejected       = errors.New("geyserlite: native verified ingress assignment rejected")
+	ErrIngressSequence       = errors.New("geyserlite: verified ingress sequence mismatch")
 )
 
 // ConnectionOpen identifies one native Bedrock transport before Geyser creates
@@ -263,6 +265,16 @@ func (b *ingressBroker) deliverIPC(generation, handle uint64, correlation [geyse
 		return ErrIngressMismatch
 	}
 	return b.deliver(generation, correlation, frame, expiresUnixMS)
+}
+
+func (b *ingressBroker) deliverIPCFrame(generation, handle uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte) error {
+	b.mu.Lock()
+	pending, ok := b.correlations[correlation]
+	b.mu.Unlock()
+	if !ok || pending.handle != handle {
+		return ErrIngressMismatch
+	}
+	return b.deliver(generation, correlation, frame, uint64(pending.expiresAt.UnixMilli()))
 }
 
 func (b *ingressBroker) deliver(generation uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte, expiresUnixMS uint64) error {

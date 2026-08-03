@@ -6,6 +6,8 @@ github.com/ebitengine/purego v0.10.2 h1:W809HbnvzAxgdm+aOvlSekrM16wGCdT/e76+9tS7
 github.com/ebitengine/purego v0.10.2/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 go.minekube.com/connect v0.6.3-0.20260803131258-7fcd6f40f326 h1:pLx9ehSRmlIRPkdkyzEuirL92wA7dDi1o+UXxIA8mgE=
 go.minekube.com/connect v0.6.3-0.20260803131258-7fcd6f40f326/go.mod h1:Qulqhn32nR3bGEKv+reiw4mlmpVyqlyDpv4EdjMCjQs=
+go.minekube.com/connect v0.6.3-0.20260803141147-8001cda93b1d h1:2AKO41vrWFDahh0RXCvqCGU235+zKd5jNUJ/UXW0kY0=
+go.minekube.com/connect v0.6.3-0.20260803141147-8001cda93b1d/go.mod h1:Qulqhn32nR3bGEKv+reiw4mlmpVyqlyDpv4EdjMCjQs=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
