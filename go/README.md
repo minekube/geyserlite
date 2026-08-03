@@ -21,7 +21,7 @@ Resolves through `go.minekube.com`'s Cloudflare Worker module proxy to
 | Mode | How | Crash isolation | Pick when |
 |---|---|---|---|
 | `ModeEmbedded` *(default)* | `purego.Dlopen("libgeyserlite.so")` | No, shared address space | normal use on Linux; lowest overhead |
-| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | Yes, separate process | hard isolation, Windows, dev, debugging |
+| `ModeSubprocess` | `exec.CommandContext(geyserlitePath, …)` | Yes, separate process | hard isolation, Unix, dev, debugging |
 
 Same `Server` API across both — switch with `Options.Mode`.
 
@@ -119,9 +119,14 @@ The subprocess binary resolution order mirrors library acquisition:
    against `checksums.txt` (skipped when `Options.Offline`).
 
 Auto-download supports Linux amd64/arm64 and Windows amd64 subprocess
-binaries. Windows embedded DLL auto-download is intentionally not shipped
-yet; use `ModeSubprocess` on Windows for crash isolation and the released
-`geyserlite-windows-amd64.exe`.
+binaries. The authenticated verified-ingress v2 channel currently requires
+Unix `SOCK_SEQPACKET`; on Windows, the existing subprocess lifecycle remains
+available, but `ConnectionOpened`, `Assign`, and verified-ingress delivery are
+unavailable and fail closed. The older subprocess path has no v2 ingress
+channel and is otherwise unchanged. Native Windows v2 transport
+support (named pipes or an equivalent authenticated local channel, plus the
+matching native FD/bootstrap handoff) is follow-up work. Windows embedded DLL
+auto-download is intentionally not shipped yet.
 
 ## Crash boundary (read this)
 

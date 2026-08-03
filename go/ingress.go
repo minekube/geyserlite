@@ -78,6 +78,7 @@ type ingressPending struct {
 	handle      uint64
 	correlation [geyserliteabi.CorrelationBytes]byte
 	expiresAt   time.Time
+	timer       *time.Timer
 }
 
 type ingressBroker struct {
@@ -118,8 +119,7 @@ func (b *ingressBroker) activate(generation uint64, assign ingressAssignFunc, fa
 	b.generation = generation
 	b.assignNative = assign
 	b.fatal = fatal
-	clear(b.handles)
-	clear(b.correlations)
+	b.clearLocked()
 }
 
 func (b *ingressBroker) deactivate(generation uint64) {
@@ -131,15 +131,23 @@ func (b *ingressBroker) deactivate(generation uint64) {
 	b.active = false
 	b.assignNative = nil
 	b.fatal = nil
-	clear(b.handles)
-	clear(b.correlations)
+	b.clearLocked()
 }
 
 func (b *ingressBroker) failLocked(err error) ingressFatalFunc {
 	b.active = false
-	clear(b.handles)
-	clear(b.correlations)
+	b.clearLocked()
 	return b.fatal
+}
+
+func (b *ingressBroker) clearLocked() {
+	for correlation, pending := range b.correlations {
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
+		delete(b.correlations, correlation)
+	}
+	clear(b.handles)
 }
 
 func (b *ingressBroker) open(generation, handle uint64) error {
@@ -208,18 +216,22 @@ func (b *ingressBroker) assign(a ConnectionAssignment) error {
 		return ErrIngressClosed
 	}
 	if _, exists := b.correlations[a.CorrelationID]; exists {
-		delete(b.handles, a.ConnectionHandle)
+		b.clearAssignmentLocked(a.ConnectionHandle, a.CorrelationID)
 		b.mu.Unlock()
 		return ErrIngressDuplicate
 	}
 	for _, pending := range b.correlations {
 		if pending.handle == a.ConnectionHandle {
-			delete(b.handles, a.ConnectionHandle)
+			b.clearAssignmentLocked(a.ConnectionHandle, pending.correlation)
 			b.mu.Unlock()
 			return ErrIngressDuplicate
 		}
 	}
-	b.correlations[a.CorrelationID] = ingressPending{handle: a.ConnectionHandle, correlation: a.CorrelationID, expiresAt: a.ExpiresAt}
+	pending := ingressPending{handle: a.ConnectionHandle, correlation: a.CorrelationID, expiresAt: a.ExpiresAt}
+	pending.timer = time.AfterFunc(a.ExpiresAt.Sub(now), func() {
+		b.expire(a.Generation, a.ConnectionHandle, a.CorrelationID, a.ExpiresAt)
+	})
+	b.correlations[a.CorrelationID] = pending
 	assignNative := b.assignNative
 	b.mu.Unlock()
 
@@ -248,9 +260,46 @@ func (b *ingressBroker) closeHandle(generation, handle uint64) {
 	delete(b.handles, handle)
 	for correlation, pending := range b.correlations {
 		if pending.handle == handle {
+			if pending.timer != nil {
+				pending.timer.Stop()
+			}
 			delete(b.correlations, correlation)
 		}
 	}
+}
+
+func (b *ingressBroker) clearAssignmentLocked(handle uint64, correlation [geyserliteabi.CorrelationBytes]byte) {
+	delete(b.handles, handle)
+	if pending, ok := b.correlations[correlation]; ok {
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
+		delete(b.correlations, correlation)
+		delete(b.handles, pending.handle)
+	}
+	for otherCorrelation, pending := range b.correlations {
+		if pending.handle != handle {
+			continue
+		}
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
+		delete(b.correlations, otherCorrelation)
+	}
+}
+
+func (b *ingressBroker) expire(generation, handle uint64, correlation [geyserliteabi.CorrelationBytes]byte, expiresAt time.Time) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if generation != b.generation {
+		return
+	}
+	pending, ok := b.correlations[correlation]
+	if !ok || pending.handle != handle || !pending.expiresAt.Equal(expiresAt) {
+		return
+	}
+	delete(b.correlations, correlation)
+	delete(b.handles, handle)
 }
 
 func (b *ingressBroker) deliverCallback(generation uint64, correlation [geyserliteabi.CorrelationBytes]byte, frame []byte, expiresUnixMS uint64) error {
@@ -293,10 +342,16 @@ func (b *ingressBroker) deliver(generation uint64, correlation [geyserliteabi.Co
 		return ErrIngressMismatch
 	}
 	if pending.expiresAt.UnixMilli() != int64(expiresUnixMS) {
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
 		delete(b.correlations, correlation)
 		delete(b.handles, pending.handle)
 		b.mu.Unlock()
 		return ErrIngressMismatch
+	}
+	if pending.timer != nil {
+		pending.timer.Stop()
 	}
 	delete(b.correlations, correlation)
 	delete(b.handles, pending.handle)
@@ -322,6 +377,9 @@ func (b *ingressBroker) closeCorrelation(generation uint64, correlation [geyserl
 		return
 	}
 	if pending, ok := b.correlations[correlation]; ok {
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
 		delete(b.handles, pending.handle)
 		delete(b.correlations, correlation)
 	}

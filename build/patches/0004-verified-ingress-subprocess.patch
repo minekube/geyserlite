@@ -1,0 +1,16 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java b/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
+index 1896cecc5..1896cecc5 100644
+--- a/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
++++ b/core/src/main/java/org/geysermc/geyser/GeyserImpl.java
+@@ -55,6 +55,7 @@ import org.geysermc.geyser.api.util.MinecraftVersion;
+ import org.geysermc.geyser.api.util.PlatformType;
++import com.minekube.geyserlite.bridge.VerifiedIngressSubprocess;
+ import org.geysermc.geyser.command.CommandRegistry;
+ import org.geysermc.geyser.configuration.GeyserConfig;
+ import org.geysermc.geyser.configuration.GeyserPluginConfig;
+@@ -223,6 +223,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
+ 
+     public void initialize() {
+         // Setup encryption early so we don't start if we can't auth
++        VerifiedIngressSubprocess.startIfPresent(this);
+         if (config().advanced().bedrock().validateBedrockLogin()) {

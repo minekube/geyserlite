@@ -127,6 +127,60 @@ func TestIngressBrokerRejectsUnknownCorrelationExpiryAndGeneration(t *testing.T)
 	}
 }
 
+func TestIngressBrokerExpiresPendingAssignment(t *testing.T) {
+	b := newIngressBroker(2, time.Now)
+	b.activate(4, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	if err := b.open(4, 12); err != nil {
+		t.Fatal(err)
+	}
+	<-b.opened
+	if err := b.assign(ConnectionAssignment{
+		Generation:       4,
+		ConnectionHandle: 12,
+		CorrelationID:    [16]byte{1},
+		ExpiresAt:        time.Now().Add(40 * time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		b.mu.Lock()
+		_, pending := b.correlations[[16]byte{1}]
+		b.mu.Unlock()
+		if !pending {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := b.open(4, 12); err != nil {
+		t.Fatalf("expired assignment retained its handle: %v", err)
+	}
+}
+
+func TestIngressBrokerDuplicateAssignmentClearsHandleAndCorrelation(t *testing.T) {
+	now := time.Now()
+	b := newIngressBroker(2, func() time.Time { return now })
+	b.activate(6, func(ConnectionAssignment) int32 { return geyserliteabi.AssignmentOK }, nil)
+	if err := b.open(6, 21); err != nil {
+		t.Fatal(err)
+	}
+	<-b.opened
+	first := [16]byte{2}
+	if err := b.assign(ConnectionAssignment{Generation: 6, ConnectionHandle: 21, CorrelationID: first, ExpiresAt: now.Add(time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.assign(ConnectionAssignment{Generation: 6, ConnectionHandle: 21, CorrelationID: [16]byte{3}, ExpiresAt: now.Add(time.Second)}); !errors.Is(err, ErrIngressDuplicate) {
+		t.Fatalf("duplicate error = %v", err)
+	}
+	if err := b.deliverCallback(6, first, []byte{1}, uint64(now.Add(time.Second).UnixMilli())); !errors.Is(err, ErrIngressMismatch) {
+		t.Fatalf("stale correlation delivery = %v", err)
+	}
+	if err := b.open(6, 21); err != nil {
+		t.Fatalf("handle was not released after duplicate: %v", err)
+	}
+}
+
 func TestIngressBrokerOverflowFailsClosedAndCleansGeneration(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	fatal := make(chan error, 1)

@@ -16,6 +16,8 @@ func sysProcAttrNewGroup() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setpgid: true}
 }
 
+func ingressSubprocessSupported() bool { return true }
+
 func newIngressSocketpair() (*os.File, *os.File, error) {
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
 	if err != nil {

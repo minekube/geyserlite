@@ -112,12 +112,28 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 			createErr <- fmt.Errorf("geyserlite: graal_create_isolate failed: rc=%d", rc)
 			return
 		}
+		if err := ctx.Err(); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
 		if rc := r.api.init(refs.thread, cstr); rc != 0 {
 			r.api.tearDown(refs.thread)
 			createErr <- fmt.Errorf("geyserlite: geyser_init failed: rc=%d", rc)
 			return
 		}
+		if err := ctx.Err(); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
 		if err := r.startIngressGeneration(refs.isolate, refs.thread, s.ingress, roots, generation); err != nil {
+			r.api.tearDown(refs.thread)
+			createErr <- err
+			return
+		}
+		if err := ctx.Err(); err != nil {
+			_ = r.stopIngressGeneration(refs.isolate, s.ingress, roots, generation)
 			r.api.tearDown(refs.thread)
 			createErr <- err
 			return
@@ -136,6 +152,8 @@ func (r *embeddedRunner) run(ctx context.Context, s *Server) error {
 	case refs = <-createDone:
 	case err := <-createErr:
 		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
 	// Health polling runs on its own attached thread. Status checks

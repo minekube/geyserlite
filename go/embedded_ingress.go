@@ -144,6 +144,10 @@ func (r *embeddedRunner) assignIngress(isolate uintptr, assignment ConnectionAss
 
 func (r *embeddedRunner) startIngressGeneration(isolate, thread uintptr, broker *ingressBroker, roots *callbackRoots, generation *callbackGeneration) error {
 	broker.activate(generation.id, func(assignment ConnectionAssignment) int32 {
+		if !generation.enter() {
+			return embeddedAssignmentTransportFailure
+		}
+		defer generation.inFlight.Done()
 		return r.assignIngress(isolate, assignment)
 	}, generation.fail)
 	if !roots.current.CompareAndSwap(nil, generation) {

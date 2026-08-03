@@ -235,6 +235,13 @@ type subprocessPendingKey struct {
 	correlation [geyserliteabi.CorrelationBytes]byte
 }
 
+type subprocessPending struct {
+	waiter       chan uint8
+	expiresAt    time.Time
+	acknowledged bool
+	timer        *time.Timer
+}
+
 type subprocessIngressSession struct {
 	generation uint64
 	key        []byte
@@ -247,7 +254,8 @@ type subprocessIngressSession struct {
 	accepting     bool
 	opWG          sync.WaitGroup
 	mu            sync.Mutex
-	waiters       map[subprocessPendingKey]chan uint8
+	now           func() time.Time
+	pending       map[subprocessPendingKey]subprocessPending
 	closeOnce     sync.Once
 	closeErr      error
 	done          chan struct{}
@@ -255,7 +263,7 @@ type subprocessIngressSession struct {
 }
 
 func newSubprocessIngressSession(generation uint64, key []byte, conn ingressPacketConn, broker *ingressBroker) *subprocessIngressSession {
-	return &subprocessIngressSession{generation: generation, key: append([]byte(nil), key...), conn: conn, broker: broker, accepting: true, waiters: make(map[subprocessPendingKey]chan uint8), done: make(chan struct{})}
+	return &subprocessIngressSession{generation: generation, key: append([]byte(nil), key...), conn: conn, broker: broker, accepting: true, now: broker.now, pending: make(map[subprocessPendingKey]subprocessPending), done: make(chan struct{})}
 }
 
 func (s *subprocessIngressSession) start() {
@@ -277,35 +285,45 @@ func (s *subprocessIngressSession) assign(assignment ConnectionAssignment) int32
 	}
 	key := subprocessPendingKey{handle: assignment.ConnectionHandle, correlation: assignment.CorrelationID}
 	waiter := make(chan uint8, 1)
+	timeout := assignment.ExpiresAt.Sub(s.now())
+	if timeout <= 0 || timeout > geyserliteabi.MaxIngressLifetime {
+		return geyserliteabi.AssignmentInvalidOrExpiredTime
+	}
 	s.mu.Lock()
-	if _, exists := s.waiters[key]; exists {
+	if _, exists := s.pending[key]; exists {
 		s.mu.Unlock()
 		return geyserliteabi.AssignmentDuplicateHandleOrCorrelation
 	}
-	s.waiters[key] = waiter
+	pending := subprocessPending{waiter: waiter, expiresAt: assignment.ExpiresAt}
+	pending.timer = time.AfterFunc(timeout, func() { s.expirePending(key, assignment.ExpiresAt) })
+	s.pending[key] = pending
 	s.mu.Unlock()
-	defer func() { s.mu.Lock(); delete(s.waiters, key); s.mu.Unlock() }()
 
 	s.writeMu.Lock()
+	remaining := assignment.ExpiresAt.Sub(s.now())
+	if remaining <= 0 || remaining > geyserliteabi.MaxIngressLifetime {
+		s.writeMu.Unlock()
+		s.removePending(key)
+		return geyserliteabi.AssignmentInvalidOrExpiredTime
+	}
 	s.writeSequence++
 	packet := encodeAssignmentPacket(s.key, s.generation, s.writeSequence, assignment.ConnectionHandle, assignment.CorrelationID, uint64(assignment.ExpiresAt.UnixMilli()))
 	err := writeFullPacket(s.conn, packet)
 	s.writeMu.Unlock()
 	if err != nil {
 		s.fail(err)
+		s.removePending(key)
 		return embeddedAssignmentTransportFailure
-	}
-	timeout := time.Until(assignment.ExpiresAt)
-	if timeout <= 0 || timeout > geyserliteabi.MaxIngressLifetime {
-		timeout = geyserliteabi.MaxIngressLifetime
 	}
 	select {
 	case status := <-waiter:
 		if status == geyserliteabi.SubprocessACKPositive {
 			return geyserliteabi.AssignmentOK
 		}
+		s.removePending(key)
 		return geyserliteabi.AssignmentWrongConnectionState
-	case <-time.After(timeout):
+	case <-time.After(remaining):
+		s.removePending(key)
 		s.fail(ErrIngressLifetime)
 		return geyserliteabi.AssignmentInvalidOrExpiredTime
 	case <-s.done:
@@ -341,16 +359,26 @@ func (s *subprocessIngressSession) readLoop() {
 		case geyserliteabi.SubprocessAssignmentACK:
 			key := subprocessPendingKey{handle: packet.handle, correlation: packet.correlation}
 			s.mu.Lock()
-			waiter, ok := s.waiters[key]
+			pending, ok := s.pending[key]
 			if ok {
-				delete(s.waiters, key)
+				if packet.status == geyserliteabi.SubprocessACKPositive {
+					if pending.acknowledged {
+						s.mu.Unlock()
+						s.fail(ErrIngressDuplicate)
+						return
+					}
+					pending.acknowledged = true
+					s.pending[key] = pending
+				} else {
+					delete(s.pending, key)
+				}
 			}
 			s.mu.Unlock()
 			if !ok {
 				s.fail(ErrIngressMismatch)
 				return
 			}
-			waiter <- packet.status
+			pending.waiter <- packet.status
 			if packet.status == geyserliteabi.SubprocessACKNegative {
 				s.fail(ErrIngressRejected)
 				return
@@ -359,6 +387,20 @@ func (s *subprocessIngressSession) readLoop() {
 			correlation, err := extractIngressCorrelation(packet.payload)
 			if err != nil {
 				s.fail(err)
+				return
+			}
+			key := subprocessPendingKey{handle: packet.handle, correlation: correlation}
+			s.mu.Lock()
+			pending, ok := s.pending[key]
+			if ok {
+				delete(s.pending, key)
+				if pending.timer != nil {
+					pending.timer.Stop()
+				}
+			}
+			s.mu.Unlock()
+			if !ok || !pending.acknowledged {
+				s.fail(ErrIngressRejected)
 				return
 			}
 			if err := s.broker.deliverIPCFrame(s.generation, packet.handle, correlation, packet.payload); err != nil {
@@ -386,15 +428,43 @@ func (s *subprocessIngressSession) close(reason error) {
 		close(s.done)
 		_ = s.conn.Close()
 		s.mu.Lock()
-		for _, waiter := range s.waiters {
+		for _, pending := range s.pending {
+			if pending.timer != nil {
+				pending.timer.Stop()
+			}
 			select {
-			case waiter <- geyserliteabi.SubprocessACKNegative:
+			case pending.waiter <- geyserliteabi.SubprocessACKNegative:
 			default:
 			}
 		}
-		clear(s.waiters)
+		clear(s.pending)
 		s.mu.Unlock()
 	})
+}
+
+func (s *subprocessIngressSession) removePending(key subprocessPendingKey) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if pending, ok := s.pending[key]; ok {
+		if pending.timer != nil {
+			pending.timer.Stop()
+		}
+		delete(s.pending, key)
+	}
+}
+
+func (s *subprocessIngressSession) expirePending(key subprocessPendingKey, expiresAt time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending, ok := s.pending[key]
+	if !ok || !pending.expiresAt.Equal(expiresAt) {
+		return
+	}
+	delete(s.pending, key)
+	select {
+	case pending.waiter <- geyserliteabi.SubprocessACKNegative:
+	default:
+	}
 }
 
 func (s *subprocessIngressSession) wait() {
