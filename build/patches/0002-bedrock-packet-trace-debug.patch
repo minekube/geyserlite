@@ -1,21 +1,25 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
-index 7ccab594f..75efc449c 100644
+index d6e206e3c..ebf57624a 100644
 --- a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
 +++ b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
-@@ -66,7 +66,12 @@ public class GeyserServerInitializer extends BedrockServerInitializer {
+@@ -33,6 +33,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
+ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+ import org.cloudburstmc.protocol.bedrock.BedrockPeer;
+ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
++import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
+ import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitializer;
+ import org.geysermc.geyser.GeyserImpl;
+ import org.geysermc.geyser.session.GeyserSession;
+@@ -65,6 +66,9 @@ public class GeyserServerInitializer extends BedrockServerInitializer {
 
              if (!bedrockServerSession.isSubClient()) {
                  Channel channel = bedrockServerSession.getPeer().getChannel();
--                channel.pipeline().addAfter(BedrockPacketCodec.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
 +                if (BedrockPacketTraceHandler.enabled()) {
 +                    channel.pipeline().addAfter(BedrockPacketCodec.NAME, BedrockPacketTraceHandler.NAME, new BedrockPacketTraceHandler(this.geyser, session));
-+                    channel.pipeline().addAfter(BedrockPacketTraceHandler.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
-+                } else {
-+                    channel.pipeline().addAfter(BedrockPacketCodec.NAME, InvalidPacketHandler.NAME, new InvalidPacketHandler(session));
 +                }
-             }
-
-             bedrockServerSession.setPacketHandler(new UpstreamPacketHandler(this.geyser, session));
+                 // Added after BedrockPeer, not BedrockPacketCodec to ensure exceptions thrown while dispatching
+                 // to the packet handler also get here if no other handler exists
+                 // FIXME not ideal for e.g. UpstreamPacketHandler having a couple of its own packet handlers
 diff --git a/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java b/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java
 index b3c1b42da..a786db81f 100644
 --- a/core/src/main/java/org/geysermc/geyser/network/UpstreamPacketHandler.java
