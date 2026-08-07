@@ -22,7 +22,6 @@ on:
 
 permissions:
   contents: write    # GitHub Release upload
-  packages: write    # GHCR (if we ever sign the OCI image at release time)
   id-token: write    # cosign keyless + crates.io Trusted Publishing OIDC
   actions: read      # locate and download matching native-image artifacts
 
