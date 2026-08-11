@@ -39,41 +39,23 @@ Done (1.584s)! Run /geyser help for help!
 Downloading Minecraft JAR to extract required files, please wait...   <- last line
 ```
 
-Either way, the async task does not block the listener from binding. It then
-dies silently on the missing-AWT limitation below —
-`downloadAndRunClientJarTasks` catches `Exception`, the failure is an
-`Error`, and the `CompletableFuture` result is never observed, so nothing is
-logged. Check the UDP port, not the log tail:
+Either way, the async task does not block the listener from binding. Check the
+UDP port rather than inferring readiness from the log tail:
 
 ```sh
 go run go.minekube.com/geyserlite/cmd/bedrock-probe@latest <ip>:19132
 ```
 
-### Default player skins fall back to the empty skin
+### Player skins show the empty checkerboard texture
 
-**Known limitation of the native build. Gameplay is unaffected — this is
-cosmetic.** Bedrock players join, move, and interact normally; affected skin
-textures render as the fallback skin. This includes the 18 *default* player
-skins and Java player skins fetched at join time.
+Upgrade to a build containing the AWT-free player-skin decoder. Older native
+builds decoded the 18 default skins and downloaded Java skins with
+`ImageIO.read`; because the native artifact has no AWT libraries, that path
+fell back to `SkinProvider.EMPTY_SKIN`.
 
-Geyser's `ProvidedSkins` decodes the 18 default skin PNGs with
-`ImageIO.read`, which needs the JDK's AWT native libraries. Our GraalVM
-native image ships without them, so the decode throws
-`UnsatisfiedLinkError: Can't load library: awt` and `ProvidedSkin.getData()`
-falls back to `SkinProvider.EMPTY_SKIN`. The same applies to the per-join
-skin fetches in `SkinProvider` (`requestImage`/`downloadImage`), based on the
-Geyser source path rather than a direct probe.
-
-What is **not** affected: block and item mappings ship as bundled image
-resources (`-H:IncludeResources` in [`flags.sh`](../build/flags.sh)) and load
-before the port bind. The client JAR feeds only locales and default skins —
-`AssetUtils.addTask` has exactly two callers, `MinecraftLocale` and
-`ProvidedSkins` — and the locale files do load fine. Two operational
-side effects do follow, because the task dies before writing its cache
-marker: the ~39 MB client JAR is re-downloaded from Mojang on every boot, and
-a `tmp_locale.jar` is left in the work directory.
-
-Why we don't just bundle `libawt.so`: see
+Current builds decode those PNGs with a pure-Java decoder and preserve
+Geyser's size validation and opaque-pixel mask. The native image still does
+not provide general AWT support; see
 [Why AWT cannot be enabled](../build/README.md#why-awt-cannot-be-enabled).
 
 ## Network

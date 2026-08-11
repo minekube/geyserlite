@@ -102,6 +102,7 @@ tasks:
         --tests org.geysermc.geyser.util.VerifiedIngressSubprocessTest
         --tests org.geysermc.geyser.network.BedrockPacketTraceHandlerTest
         --tests org.geysermc.geyser.network.netty.BedrockRawDatagramTraceHandlerTest
+        --tests org.geysermc.geyser.skin.SkinPngDecoderTest
         --no-daemon
 
   test:

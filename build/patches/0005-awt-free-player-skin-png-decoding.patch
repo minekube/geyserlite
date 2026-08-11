@@ -1,0 +1,144 @@
+diff --git a/core/build.gradle.kts b/core/build.gradle.kts
+index db1eabad7..2347eaad1 100644
+--- a/core/build.gradle.kts
++++ b/core/build.gradle.kts
+@@ -39,6 +39,9 @@ dependencies {
+     // Network libraries
+     implementation(libs.websocket)
+ 
++    // Pure-Java PNG decoding for GeyserLite native images, which cannot load AWT.
++    implementation("ar.com.hjg:pngj:2.1.0")
++
+     api(libs.bundles.protocol) {
+         exclude("com.fasterxml.jackson.core", "jackson-annotations")
+     }
+diff --git a/core/src/main/java/org/geysermc/geyser/skin/ProvidedSkins.java b/core/src/main/java/org/geysermc/geyser/skin/ProvidedSkins.java
+index ba74fbb42..1f3779cdd 100644
+--- a/core/src/main/java/org/geysermc/geyser/skin/ProvidedSkins.java
++++ b/core/src/main/java/org/geysermc/geyser/skin/ProvidedSkins.java
+@@ -29,8 +29,6 @@ import org.geysermc.geyser.GeyserImpl;
+ import org.geysermc.geyser.api.skin.Skin;
+ import org.geysermc.geyser.util.AssetUtils;
+ 
+-import javax.imageio.ImageIO;
+-import java.awt.image.BufferedImage;
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.nio.file.Files;
+@@ -86,16 +84,13 @@ public final class ProvidedSkins {
+                     () -> {
+                         try {
+                             // TODO lazy initialize?
+-                            BufferedImage image;
++                            SkinPngDecoder.Image image;
+                             try (InputStream stream = Files.newInputStream(location)) {
+-                                image = ImageIO.read(stream);
++                                image = SkinPngDecoder.decode(stream);
+                             }
+ 
+-                            byte[] byteData = SkinProvider.bufferedImageToImageData(image);
+-                            image.flush();
+-
+                             String identifier = "geysermc:" + assetName + "_" + (slim ? "slim" : "wide");
+-                            this.data = new Skin(identifier, byteData, true);
++                            this.data = new Skin(identifier, image.rgba(), true);
+                         } catch (IOException e) {
+                             e.printStackTrace();
+                         }
+diff --git a/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java b/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
+index ff75612e1..2a99184de 100644
+--- a/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
++++ b/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
+@@ -51,12 +51,15 @@ import org.geysermc.geyser.util.WebUtils;
+ import javax.imageio.ImageIO;
+ import java.awt.*;
+ import java.awt.image.BufferedImage;
++import java.io.ByteArrayInputStream;
+ import java.io.ByteArrayOutputStream;
+ import java.io.File;
+ import java.io.IOException;
++import java.io.InputStream;
+ import java.net.HttpURLConnection;
+ import java.net.URL;
+ import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
+ import java.util.Base64;
+ import java.util.Map;
+ import java.util.Objects;
+@@ -503,12 +506,76 @@ public class SkinProvider {
+     }
+ 
+     private static byte[] requestImageData(String imageUrl, boolean isCape) throws Exception {
++        if (!isCape) {
++            return requestSkinImageData(imageUrl);
++        }
++
+         BufferedImage image = requestImage(imageUrl, isCape);
+         byte[] data = bufferedImageToImageData(image);
+         image.flush();
+         return data;
+     }
+ 
++    @SuppressWarnings("ResultOfMethodCallIgnored")
++    private static byte[] requestSkinImageData(String imageUrl) throws IOException {
++        File imageFile = GeyserImpl.getInstance().getBootstrap().getConfigFolder().resolve("cache").resolve("images")
++                .resolve(UUID.nameUUIDFromBytes(imageUrl.getBytes()) + ".png").toFile();
++        SkinPngDecoder.Image image = null;
++
++        if (imageFile.exists()) {
++            try (InputStream stream = Files.newInputStream(imageFile.toPath())) {
++                GeyserImpl.getInstance().getLogger().debug("Reading cached image from file " + imageFile.getPath() + " for " + imageUrl);
++                image = SkinPngDecoder.decode(stream);
++                imageFile.setLastModified(System.currentTimeMillis());
++            } catch (IOException ignored) {
++                // Download a fresh copy below when the cache entry is unreadable.
++            }
++        }
++
++        if (image == null) {
++            byte[] png = downloadImageBytes(imageUrl);
++            image = SkinPngDecoder.decode(new ByteArrayInputStream(png));
++            GeyserImpl.getInstance().getLogger().debug("Downloaded " + imageUrl);
++
++            if (GeyserImpl.getInstance().config().advanced().cacheImages() > 0) {
++                imageFile.getParentFile().mkdirs();
++                if (SkinPngDecoder.writeCache(imageFile.toPath(), png, exception -> GeyserImpl.getInstance().getLogger()
++                        .warning("Failed to cache skin " + imageUrl + ": " + exception.getMessage()))) {
++                    GeyserImpl.getInstance().getLogger().debug("Writing cached skin to file " + imageFile.getPath() + " for " + imageUrl);
++                }
++            }
++        }
++
++        return prepareSkinImageData(image, imageUrl);
++    }
++
++    static byte[] prepareSkinImageData(SkinPngDecoder.Image image, String imageUrl) {
++        int height = image.height();
++        int width = image.width();
++        if (width != 64 || (height != 32 && height != 64)) {
++            throw new IllegalStateException("Discarding incorrectly sized (" + width + "x" + height + ") skin texture from " + imageUrl);
++        }
++
++        byte[] mask = height == 32 ? SKIN_MASK_LEGACY : SKIN_MASK;
++        return SkinPngDecoder.applyAlphaMask(image, mask);
++    }
++
++    private static byte[] downloadImageBytes(String imageUrl) throws IOException {
++        HttpURLConnection connection = (HttpURLConnection) new URL(imageUrl).openConnection();
++        connection.setRequestProperty("User-Agent", WebUtils.getUserAgent());
++        connection.setConnectTimeout(10000);
++        connection.setReadTimeout(10000);
++        try (InputStream stream = connection.getInputStream()) {
++            byte[] png = stream.readNBytes(SkinPngDecoder.MAX_ENCODED_BYTES + 1);
++            if (png.length > SkinPngDecoder.MAX_ENCODED_BYTES) {
++                throw new IOException("Skin PNG exceeds " + SkinPngDecoder.MAX_ENCODED_BYTES + " bytes");
++            }
++            return png;
++        } finally {
++            connection.disconnect();
++        }
++    }
++
+     public static @Nullable String shorthandUUID(@Nullable UUID uuid) {
+         if (uuid == null) {
+             return null;
