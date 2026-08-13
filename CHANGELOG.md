@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.10](https://github.com/minekube/geyserlite/compare/v0.5.9...v0.5.10) (2026-08-13)
+
+
+### Bug Fixes
+
+* decode player skins without AWT ([676f2e3](https://github.com/minekube/geyserlite/commit/676f2e339ee9a640fc31a7a1de8f16c6d211229c))
+
 ## [0.5.9](https://github.com/minekube/geyserlite/compare/v0.5.8...v0.5.9) (2026-08-12)
 
 
