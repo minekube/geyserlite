@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.11](https://github.com/minekube/geyserlite/compare/v0.5.10...v0.5.11) (2026-08-13)
+
+
+### Bug Fixes
+
+* resolve release artifacts from main history ([a58a5be](https://github.com/minekube/geyserlite/commit/a58a5beb54230a003deaef5d75020c4fca113a0c))
+* resolve release artifacts from main history ([6818a87](https://github.com/minekube/geyserlite/commit/6818a87cbddc01bf183befdaccb93357d8af989f))
+
 ## [0.5.10](https://github.com/minekube/geyserlite/compare/v0.5.9...v0.5.10) (2026-08-13)
 
 
