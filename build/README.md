@@ -73,10 +73,11 @@ $GRAALVM_HOME/bin/java \
 
 ## Why AWT cannot be enabled
 
-The shipped binaries have no AWT, so Geyser's `ImageIO.read` calls fail and
-default player skins fall back to the empty skin (cosmetic; see
-[`../docs/troubleshooting.md`](../docs/troubleshooting.md)). **Bundling
-`libawt*.so` does not fix this for the artifact we actually ship.** Measured
+The shipped binaries have no AWT. GeyserLite therefore patches the default
+player-skin and downloaded Java-skin paths to decode PNGs with the pure-Java
+PNGJ library; those paths no longer call `ImageIO`. Other Geyser features that
+still use AWT remain unavailable. **Bundling `libawt*.so` does not fix this for
+the artifact we actually ship.** Measured
 against the pinned `graalvm.version` (`native-image-community:25-ol9`,
 JDK 25.0.2) so nobody re-runs the experiment:
 
@@ -111,8 +112,8 @@ resolves one file against `checksums.txt`; sibling `.so` files have nowhere
 to ride along. Taking it would also mean skins working on arm64 and not on
 amd64.
 
-So closing this needs one of the following; these are not small,
-self-contained build-only changes:
+General AWT support would still require one of the following; these are not
+small, self-contained build-only changes:
 
 - **Upstream GraalVM**: static AWT linking, or AWT support under `--static`.
 - **Drop `--static --libc=musl` on amd64** and ship a multi-file artifact.
@@ -120,12 +121,9 @@ self-contained build-only changes:
   the property the flag set was built around (see
   [`../ROADMAP.md`](../ROADMAP.md)) — and changes the release contract for
   every consumer.
-- **Pre-bake decoded skin data** into the image so `ProvidedSkins` never calls
-  `ImageIO` at run time. This fixes the default-skin path and removes the
-  ~39 MB per-boot Mojang download, but `SkinProvider.requestImage` and
-  `downloadImage` still call `ImageIO.read` for Java player skins, so it is
-  not a complete fix for all runtime skin decoding. It needs a Geyser source
-  change via `patches/`, not a flag.
+- **Replace each remaining AWT path** with a native-compatible implementation,
+  as the player-skin patch does for PNG decoding. This must be handled per
+  feature because AWT is used for more than image decoding.
 
 Do not spend time on `-Djava.awt.headless=true` or on copying `libawt*.so`
 into the runtime stage: neither reaches the released amd64 binary.

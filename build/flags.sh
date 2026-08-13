@@ -81,12 +81,11 @@ NI_FLAGS_COMMON=(
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
     #
-    # These keep the image building; they do NOT give it a working AWT. The
-    # binary has no AWT natives, so Geyser's ImageIO.read calls fail and
-    # default player skins fall back to the empty skin (cosmetic — joins and
-    # mappings are unaffected). That is not fixable here: no combination of
-    # native-image flags links AWT statically, and the amd64 build below is
-    # --static, so it cannot dlopen the libraries either. Before adding
+    # These keep the image building; they do NOT give it a working AWT. Player
+    # skins use the GeyserLite pure-Java PNG patch instead, while unrelated
+    # Geyser AWT paths remain unavailable. No combination of native-image flags
+    # links AWT statically, and the amd64 build below is --static, so it cannot
+    # dlopen the libraries either. Before adding
     # -Djava.awt.headless=true or shipping libawt*.so, read
     # "Why AWT cannot be enabled" in build/README.md — the experiment is already
     # written up there.
