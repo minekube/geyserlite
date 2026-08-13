@@ -56,10 +56,11 @@ jobs:
           mkdir -p artifacts
 
           # Release commits usually only bump metadata. The native assets
-          # belong to the latest reachable commit that changed native build
+          # belong to the latest first-parent commit that changed native build
           # inputs, so wait for that exact native-image.yml run instead of
-          # racing against "latest successful" artifacts from an older commit.
-          NATIVE_SHA=$(git log -n 1 --format=%H -- \
+          # resolving a side-branch commit that never ran on main or racing
+          # against successful artifacts from an older commit.
+          NATIVE_SHA=$(git log --first-parent -n 1 --format=%H -- \
             build \
             mise.toml \
             .github/workflows/native-image.yml)
