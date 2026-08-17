@@ -22,6 +22,7 @@ on:
       - '.yamllint*'
       - '.github/actions/integration-setup/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/native-image.yml'
       - '.github/workflows/release-please.yml'
       - '.github/workflows/release.yml'
   pull_request:
@@ -37,6 +38,7 @@ on:
       - '.yamllint*'
       - '.github/actions/integration-setup/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/native-image.yml'
       - '.github/workflows/release-please.yml'
       - '.github/workflows/release.yml'
   workflow_dispatch:

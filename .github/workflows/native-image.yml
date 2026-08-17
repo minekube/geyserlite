@@ -188,6 +188,7 @@ jobs:
           name: geyserlite-${{ matrix.arch }}
           path: artifacts/
           if-no-files-found: error
+          retention-days: 7
 
   build-windows:
     runs-on: windows-latest
@@ -367,6 +368,7 @@ jobs:
           name: geyserlite-windows-amd64
           path: artifacts/
           if-no-files-found: error
+          retention-days: 7
 
   # Multi-arch manifest + smoke
   publish-manifest:
