@@ -1,0 +1,51 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java b/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
+index 60d2902..ed7288a 100644
+--- a/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
++++ b/core/src/main/java/org/geysermc/geyser/skin/SkinProvider.java
+@@ -76,7 +76,6 @@ public class SkinProvider {
+     private static ExecutorService EXECUTOR_SERVICE;
+ 
+     static final Skin EMPTY_SKIN;
+-    static final BufferedImage EMPTY_SKIN_IMAGE;
+     static final Cape EMPTY_CAPE = new Cape("", "no-cape", ByteArrays.EMPTY_ARRAY, true);
+ 
+     private static final Cache<String, Cape> CACHED_JAVA_CAPES = CacheBuilder.newBuilder()
+@@ -121,7 +120,6 @@ public class SkinProvider {
+         final int pink = 0xFFF800F8;
+         final int black = 0xFF000000;
+         ByteArrayOutputStream outputStream = new ByteArrayOutputStream(64 * 64 * 4);
+-        EMPTY_SKIN_IMAGE = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+         for (int y = 0; y < 64; y++) {
+             for (int x = 0; x < 64; x++) {
+                 int rgba;
+@@ -135,8 +133,6 @@ public class SkinProvider {
+                 outputStream.write((rgba >> 8) & 0xFF); // Green
+                 outputStream.write(rgba & 0xFF); // Blue
+                 outputStream.write((rgba >> 24) & 0xFF); // Alpha
+-                
+-                EMPTY_SKIN_IMAGE.setRGB(x, y, rgba);
+             }
+         }
+         EMPTY_SKIN = new Skin("geysermc:empty", outputStream.toByteArray(), true);
+@@ -457,6 +453,12 @@ public class SkinProvider {
+         // If no image we download it
+         if (image == null) {
+             image = downloadImage(imageUrl);
++            if (image == null) {
++                // AWT is unavailable in the GeyserLite native image, so there is no
++                // BufferedImage fallback here; treat a rejected texture domain as an
++                // unretrievable image so the caller falls back to the empty skin/cape.
++                throw new IOException("Image URL is not from an allowed texture domain: " + imageUrl);
++            }
+             GeyserImpl.getInstance().getLogger().debug("Downloaded " + imageUrl);
+ 
+             // Write to cache if we are allowed
+@@ -694,7 +696,7 @@ public class SkinProvider {
+ 
+     private static BufferedImage downloadImage(String imageUrl) throws IOException {
+         if (!TextureUrlChecker.isAllowedTextureDomain(imageUrl)) {
+-            return EMPTY_SKIN_IMAGE;
++            return null;
+         }
+         HttpURLConnection con = (HttpURLConnection) new URL(imageUrl).openConnection();
+         con.setRequestProperty("User-Agent", WebUtils.getUserAgent());

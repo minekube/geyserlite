@@ -22,6 +22,17 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   while preserving on-ground state transitions.
 - `0004-verified-ingress-subprocess.patch` — starts the authenticated subprocess
   ingress before Geyser accepts Bedrock sessions.
+- `0005-awt-free-player-skin-png-decoding.patch` — decodes player skin PNGs with
+  pure-Java `pngj` instead of AWT `ImageIO` (AWT cannot load in the static musl
+  native image).
+- `0006-awt-free-skinprovider-empty-image.patch` — removes the last AWT usage
+  from `SkinProvider`'s class initializer (`EMPTY_SKIN_IMAGE`, added upstream
+  in Geyser 860fc7102e). A static `BufferedImage` at class-init crashed the
+  native image at startup (`Can't load library: awt`), which broke every
+  GeyserLite release since v0.5.12. The empty-skin RGBA bytes were already
+  generated into `EMPTY_SKIN`, so the extra `BufferedImage` was pure overhead;
+  `downloadImage` now returns `null` for disallowed texture domains and
+  `requestImage` raises instead of returning the AWT fallback.
 
 ## Generating new patches
 
