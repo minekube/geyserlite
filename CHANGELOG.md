@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.21](https://github.com/minekube/geyserlite/compare/v0.5.20...v0.5.21) (2026-08-24)
+
+
+### Bug Fixes
+
+* **build:** remove AWT from SkinProvider class init to unblock native-image releases ([#190](https://github.com/minekube/geyserlite/issues/190)) ([692a466](https://github.com/minekube/geyserlite/commit/692a466b2f4389f0a660e7eea10ca7294921ce17))
+
 ## [0.5.20](https://github.com/minekube/geyserlite/compare/v0.5.19...v0.5.20) (2026-08-24)
 
 
