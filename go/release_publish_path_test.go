@@ -183,6 +183,27 @@ func TestPublishPathNeverClobbersGoodAssets(t *testing.T) {
 	}
 }
 
+// TestPublishPathRefreshesDerivedFiles pins the derived-file policy.
+// cosign keyless signature bundles and the checksums manifest are
+// regenerated on EVERY run (fresh timestamps), so a repair re-run must
+// refresh them instead of SHA-reconciling against the previous run's
+// bytes — otherwise a v0.5.22-style repair dies on "Asset differs from
+// the local build" for signature files whose content legitimately changed.
+// Only build artifacts are reconciled byte-for-byte.
+func TestPublishPathRefreshesDerivedFiles(t *testing.T) {
+	script := publishStep(t).Run
+
+	if !strings.Contains(script, "case \"$base\" in") {
+		t.Error("publish step does not classify per-run derived files in a case statement")
+	}
+	if !strings.Contains(script, "checksums.txt|*.sigstore.json") {
+		t.Error("publish step does not classify checksums.txt and cosign bundles as refreshable derived files")
+	}
+	if !strings.Contains(script, "*.attest.spdx.json") {
+		t.Error("publish step does not classify SBOM attestations as refreshable derived files")
+	}
+}
+
 // TestPublishStepRunsBeforeVerify pins the fail-closed ordering: the
 // verify step re-reads the PUBLISHED release and must run after the
 // upload, and before the crates publish and the Gate dispatch.
