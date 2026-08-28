@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.24](https://github.com/minekube/geyserlite/compare/v0.5.23...v0.5.24) (2026-08-28)
+
+
+### Bug Fixes
+
+* **release:** refresh per-run derived assets on repair ([#198](https://github.com/minekube/geyserlite/issues/198)) ([2618aac](https://github.com/minekube/geyserlite/commit/2618aac15d4b9f1100f9efbc4d691136ef40ced4))
+* **release:** refresh per-run derived assets on repair ([#198](https://github.com/minekube/geyserlite/issues/198)) ([2618aac](https://github.com/minekube/geyserlite/commit/2618aac15d4b9f1100f9efbc4d691136ef40ced4))
+
 ## [0.5.23](https://github.com/minekube/geyserlite/compare/v0.5.22...v0.5.23) (2026-08-28)
 
 
