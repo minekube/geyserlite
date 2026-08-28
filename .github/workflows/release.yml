@@ -229,39 +229,51 @@ jobs:
           # GUARD 2: never clobber an existing GOOD asset. Only names that are
           # absent, or present in a non-uploaded/zero-byte (failed upload)
           # state, are eligible. --clobber then applies solely to those holes.
+          #
+          # Per-run derived files (the checksums manifest, cosign keyless
+          # signature bundles, SBOMs) are regenerated on EVERY run with fresh
+          # bytes, so they are always refreshed, never SHA-reconciled against
+          # the previous run. Build artifacts are reconciled byte-for-byte.
           UPLOAD_LIST=""
           SKIPPED=""
           for f in upload/*; do
             [ -f "$f" ] || continue
             base="$(basename "$f")"
-            good=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
-              '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
-            if [ "$good" -gt 0 ]; then
-              asset_url=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
-                '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | first | .url // empty')
-              if [ -z "$asset_url" ]; then
-                echo "::error::Could not resolve the published asset endpoint for $base."
-                exit 1
-              fi
-              remote_tmp=$(mktemp)
-              if ! gh api -H "Accept: application/octet-stream" "$asset_url" >"$remote_tmp"; then
-                rm -f "$remote_tmp"
-                echo "::error::Could not download the published asset $base for reconciliation."
-                exit 1
-              fi
-              local_hash=$(sha256sum "$f" | awk '{print $1}')
-              remote_hash=$(sha256sum "$remote_tmp" | awk '{print $1}')
-              rm -f "$remote_tmp"
-              if [ "$local_hash" != "$remote_hash" ]; then
-                echo "::error::Asset $base differs from the local build."
-                echo "::error::$base local SHA-256: $local_hash"
-                echo "::error::$base published SHA-256: $remote_hash"
-                exit 1
-              fi
-              SKIPPED="$SKIPPED $base"
-            else
-              UPLOAD_LIST="$UPLOAD_LIST $f"
-            fi
+            case "$base" in
+              checksums.txt|*.sigstore.json|*.attest.spdx.json|*.spdx.json|*.sig|*.asc|*.pem|*.sha256|SHA*SUMS)
+                UPLOAD_LIST="$UPLOAD_LIST $f"
+                ;;
+              *)
+                good=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
+                  '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
+                if [ "$good" -gt 0 ]; then
+                  asset_url=$(echo "$RELEASE_JSON" | jq -r --arg n "$base" \
+                    '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | first | .url // empty')
+                  if [ -z "$asset_url" ]; then
+                    echo "::error::Could not resolve the published asset endpoint for $base."
+                    exit 1
+                  fi
+                  remote_tmp=$(mktemp)
+                  if ! gh api -H "Accept: application/octet-stream" "$asset_url" >"$remote_tmp"; then
+                    rm -f "$remote_tmp"
+                    echo "::error::Could not download the published asset $base for reconciliation."
+                    exit 1
+                  fi
+                  local_hash=$(sha256sum "$f" | awk '{print $1}')
+                  remote_hash=$(sha256sum "$remote_tmp" | awk '{print $1}')
+                  rm -f "$remote_tmp"
+                  if [ "$local_hash" != "$remote_hash" ]; then
+                    echo "::error::Asset $base differs from the local build."
+                    echo "::error::$base local SHA-256: $local_hash"
+                    echo "::error::$base published SHA-256: $remote_hash"
+                    exit 1
+                  fi
+                  SKIPPED="$SKIPPED $base"
+                else
+                  UPLOAD_LIST="$UPLOAD_LIST $f"
+                fi
+                ;;
+            esac
           done
 
           if [ -n "$SKIPPED" ]; then
