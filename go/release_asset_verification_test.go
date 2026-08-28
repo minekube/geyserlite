@@ -19,7 +19,7 @@ import (
 
 const (
 	verifyAssetsStepName  = "Verify published release assets"
-	createReleaseStepName = "Create GitHub Release"
+	createReleaseStepName = "Publish GitHub Release assets"
 )
 
 type assetWorkflow struct {

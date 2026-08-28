@@ -149,31 +149,24 @@ jobs:
             cosign attest-blob --yes --predicate <(echo "{}") --type spdx --output-attestation "${f}.attest.spdx.json" "$f" || true
           done
 
-      - name: Create GitHub Release
-        # Fresh releases only. A repair goes through the step below, which
-        # never touches release metadata.
-        if: ${{ !inputs.release_tag }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          generate_release_notes: true
-          files: |
-            artifacts/**/*
-
-      # Repairing an existing release must not go through
-      # softprops/action-gh-release: it calls PATCH /releases/{id} to sync
-      # release metadata BEFORE uploading anything, and that PATCH now returns
-      # "403 Resource not accessible by integration" for these releases. The
-      # upload is never even attempted -- four backfill runs for v0.3.6-v0.3.9
-      # died there with every artifact already built and signed.
-      #
-      # `gh release upload` only POSTs to /releases/{id}/assets. Confirmed
-      # working against the same 403-ing release with the same token.
-      - name: Repair release assets
-        if: ${{ inputs.release_tag != '' }}
+      - name: Publish GitHub Release assets
+        # One idempotent path for fresh releases AND repairs.
+        #
+        # softprops/action-gh-release is gone: it PATCHes /releases/{id} to
+        # sync release metadata before uploading (403 "Resource not
+        # accessible by integration" on these releases), and its files glob
+        # uploads duplicate basenames -- libgeyserlite.h exists under every
+        # arch dir -- failing the second same-named upload with
+        # "Not Found - update-a-release-asset". Every release from v0.4.11
+        # to v0.5.22 died there: assets half-uploaded, verification and
+        # crates publish skipped, no Gate bump dispatched.
+        #
+        # `gh release create` + `gh release upload --clobber` only POST to
+        # /releases/{id}/assets. Confirmed working against the same
+        # 403-ing release with the same token.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -185,9 +178,8 @@ jobs:
           ls -la upload/
 
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::No published release exists for $RELEASE_TAG to repair."
-            echo "::error::Repair fills holes in an existing release; it does not create one."
-            exit 1
+            echo "Release $RELEASE_TAG does not exist yet; creating it."
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --generate-notes
           fi
 
           RELEASE_JSON=$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")
@@ -203,14 +195,35 @@ jobs:
           HAS_CHECKSUMS=$(echo "$RELEASE_JSON" \
             | jq '[.assets[] | select(.name == "checksums.txt" and .state == "uploaded" and .size > 0)] | length')
 
-          # GUARD 1: repair is for releases with missing artifacts. A release
-          # that already carries a real build and its manifest is complete;
-          # re-uploading over it would replace artifacts nobody asked us to
-          # touch, and those are what consumers have already checksummed.
-          if [ "$EXISTING_BUILDS" -gt 0 ] && [ "$HAS_CHECKSUMS" -gt 0 ]; then
-            echo "::error::Release $RELEASE_TAG already has $EXISTING_BUILDS build artifact(s) and checksums.txt."
-            echo "::error::Refusing to modify a complete release. Repair fills holes only."
-            exit 1
+          # GUARD 1: only modify releases with missing artifacts. A release
+          # that already carries a real build, a non-empty checksums.txt, AND
+          # every asset the manifest promises is complete; re-uploading over
+          # it would replace artifacts consumers have already checksummed.
+          # The manifest check is what distinguishes a complete release from
+          # v0.5.22, which had builds + checksums.txt while checksums.txt
+          # still referenced an asset that never uploaded.
+          MISSING=""
+          if [ "$HAS_CHECKSUMS" -gt 0 ]; then
+            CHECKSUMS_ID=$(echo "$RELEASE_JSON" \
+              | jq -r '.assets[] | select(.name == "checksums.txt" and .state == "uploaded" and .size > 0) | .id' \
+              | head -n1)
+            gh api "/repos/$GITHUB_REPOSITORY/releases/assets/$CHECKSUMS_ID" \
+              -H 'Accept: application/octet-stream' > /tmp/published-checksums.txt
+            while read -r _ name; do
+              [ -n "$name" ] || continue
+              present=$(echo "$RELEASE_JSON" \
+                | jq -r --arg n "$name" \
+                  '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
+              if [ "$present" -eq 0 ]; then
+                MISSING="$MISSING $name"
+              fi
+            done < /tmp/published-checksums.txt
+          fi
+
+          if [ "$EXISTING_BUILDS" -gt 0 ] && [ "$HAS_CHECKSUMS" -gt 0 ] && [ -z "$MISSING" ]; then
+            echo "Release $RELEASE_TAG already has $EXISTING_BUILDS build artifact(s), checksums.txt, and every manifest entry."
+            echo "Release complete; nothing to upload."
+            exit 0
           fi
 
           # GUARD 2: never clobber an existing GOOD asset. Only names that are
@@ -256,8 +269,8 @@ jobs:
           fi
 
           if [ -z "$UPLOAD_LIST" ]; then
-            echo "::error::Nothing to upload for $RELEASE_TAG: every built file is already published."
-            exit 1
+            echo "Nothing to upload for $RELEASE_TAG: every built file is already published."
+            exit 0
           fi
 
           echo "Uploading missing assets:$UPLOAD_LIST"
