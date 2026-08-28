@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.23](https://github.com/minekube/geyserlite/compare/v0.5.22...v0.5.23) (2026-08-28)
+
+
+### Bug Fixes
+
+* **release:** replace softprops publish with idempotent asset-endpoint upload ([#196](https://github.com/minekube/geyserlite/issues/196)) ([59bdec5](https://github.com/minekube/geyserlite/commit/59bdec5752ff260f74fd288d117cf33e992229b0))
+* **release:** replace softprops publish with idempotent asset-endpoint upload ([#196](https://github.com/minekube/geyserlite/issues/196)) ([59bdec5](https://github.com/minekube/geyserlite/commit/59bdec5752ff260f74fd288d117cf33e992229b0))
+
 ## [0.5.22](https://github.com/minekube/geyserlite/compare/v0.5.21...v0.5.22) (2026-08-25)
 
 
