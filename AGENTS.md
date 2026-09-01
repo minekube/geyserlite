@@ -5,7 +5,7 @@
 Do not rely on cached knowledge for Minecraft, Geyser, Gate, Bedrock protocol
 support, releases, or CI status. Check live sources when a task involves version
 support, previews, releases, or repository metadata. The `gh` recipes and the
-support-claim checklist are in `.claude/skills/upstream-live-check/SKILL.md`.
+support-claim checklist are in `.agents/skills/upstream-live-check/SKILL.md`.
 
 ## Architecture Rules
 
@@ -30,7 +30,7 @@ never add a caller-controlled verified flag or an alternate construction path.
 Handoff mismatches are fail-closed.
 
 Production guidance for a backend that outruns official Geyser support is in
-`.claude/skills/upstream-live-check/SKILL.md`.
+`.agents/skills/upstream-live-check/SKILL.md`.
 
 ## Agent Workflow
 
@@ -47,7 +47,7 @@ Relevant workflow skills, when the agent runtime provides them:
 - The `build/geyser.version` pin, the Renovate update channel, and the
   preview-pin documentation rule are in `build/CLAUDE.md`.
 - The release chain (GeyserLite release -> Gate managed dependency bump -> Gate
-  release -> downstream consumers) is in `.claude/skills/release/SKILL.md`.
+  release -> downstream consumers) is in `.agents/skills/release/SKILL.md`.
 
 ## Development Checks
 
