@@ -86,6 +86,12 @@ tasks:
       # exercised by the dedicated `embed:fetch` workflow + a manual run.
       - cargo test --features download
 
+  test:acceptance:auto-download:
+    desc: bounded Linux cold/warm auto-download plus Bedrock-listener acceptance
+    dir: go
+    cmds:
+      - go test -tags geyserlite_acceptance -run '^TestAutoDownloadColdAndWarmCacheBedrockReadiness$' -count=1 -timeout 9m
+
   test:patches:
     desc: Verify patches survive a Windows-style checkout
     cmds:
