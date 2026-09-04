@@ -4,8 +4,10 @@ package geyserlite
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -78,6 +81,11 @@ func TestAutoDownloadAcceptanceHelper(t *testing.T) {
 	}
 	ctx, stop := signalContext()
 	defer stop()
+	phasePath := os.Getenv("GEYSERLITE_ACCEPTANCE_PHASES")
+	if phasePath == "" {
+		os.Exit(2)
+	}
+	phaseLogger := newAcceptancePhaseLogger(phasePath)
 
 	srv, err := New(Options{
 		Listen:   listen,
@@ -89,6 +97,7 @@ func TestAutoDownloadAcceptanceHelper(t *testing.T) {
 		FloodgateKey: []byte("0123456789abcdef"),
 		Mode:         ModeSubprocess,
 		Mirror:       os.Getenv("GEYSERLITE_ACCEPTANCE_MIRROR"),
+		Logger:       phaseLogger,
 	})
 	if err != nil {
 		os.Exit(1)
@@ -106,12 +115,14 @@ func runAcceptanceServer(t *testing.T, cacheHome, mirror string, budget time.Dur
 	t.Helper()
 	listen := reserveUDPAddr(t)
 	upstream := reserveTCPAddr(t)
+	phasePath := filepath.Join(t.TempDir(), "phases.json")
 	cmd := exec.Command(os.Args[0], "-test.run=^TestAutoDownloadAcceptanceHelper$")
 	cmd.Env = append(os.Environ(),
 		"GEYSERLITE_ACCEPTANCE_HELPER=1",
 		"GEYSERLITE_ACCEPTANCE_LISTEN="+listen,
 		"GEYSERLITE_ACCEPTANCE_UPSTREAM="+upstream,
 		"GEYSERLITE_ACCEPTANCE_MIRROR="+mirror,
+		"GEYSERLITE_ACCEPTANCE_PHASES="+phasePath,
 		"XDG_CACHE_HOME="+cacheHome,
 		"GEYSERLITE_BINARY=",
 		"GEYSERLITE_LIBRARY=",
@@ -127,7 +138,10 @@ func runAcceptanceServer(t *testing.T, cacheHome, mirror string, budget time.Dur
 	if probeErr != nil {
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = cmd.Wait()
-		t.Fatalf("%s cache did not reach Bedrock listener readiness within %s", acceptancePhase(mirror), budget)
+		phases := readAcceptancePhases(phasePath)
+		phases.CacheBinaryPresent = acceptanceCacheBinaryPresent(cacheHome)
+		encoded, _ := json.Marshal(phases)
+		t.Fatalf("%s cache did not reach Bedrock listener readiness within %s; phases=%s", acceptancePhase(mirror), budget, encoded)
 	}
 
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
@@ -144,6 +158,123 @@ func runAcceptanceServer(t *testing.T, cacheHome, mirror string, budget time.Dur
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		t.Fatalf("%s acceptance child did not stop within 30s", acceptancePhase(mirror))
+	}
+}
+
+// acceptancePhases is deliberately a fixed, low-cardinality diagnostic
+// contract. It never stores native log lines, errors, paths, player data, or
+// network identities.
+type acceptancePhases struct {
+	LocatedBinary      bool `json:"located_binary"`
+	SubprocessStarted  bool `json:"subprocess_started"`
+	NativeReadyLog     bool `json:"native_ready_log"`
+	RestartObserved    bool `json:"restart_observed"`
+	CacheBinaryPresent bool `json:"cache_binary_present"`
+}
+
+type acceptancePhaseHandler struct {
+	state *acceptancePhaseState
+}
+
+type acceptancePhaseState struct {
+	mu   sync.Mutex
+	path string
+	data acceptancePhases
+}
+
+func newAcceptancePhaseLogger(path string) *slog.Logger {
+	return slog.New(&acceptancePhaseHandler{state: &acceptancePhaseState{path: path}})
+}
+
+func (h *acceptancePhaseHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *acceptancePhaseHandler) Handle(_ context.Context, record slog.Record) error {
+	h.state.mu.Lock()
+	defer h.state.mu.Unlock()
+
+	changed := false
+	switch record.Message {
+	case "located geyserlite binary":
+		changed = !h.state.data.LocatedBinary
+		h.state.data.LocatedBinary = true
+	case "started geyserlite subprocess":
+		changed = !h.state.data.SubprocessStarted
+		h.state.data.SubprocessStarted = true
+	case "geyser exited with error; restarting after backoff":
+		changed = !h.state.data.RestartObserved
+		h.state.data.RestartObserved = true
+	default:
+		if isGeyserReady(record.Message) {
+			changed = !h.state.data.NativeReadyLog
+			h.state.data.NativeReadyLog = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	data, err := json.Marshal(h.state.data)
+	if err != nil {
+		return err
+	}
+	tmp := h.state.path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, h.state.path)
+}
+
+func (h *acceptancePhaseHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *acceptancePhaseHandler) WithGroup(string) slog.Handler      { return h }
+
+func readAcceptancePhases(path string) acceptancePhases {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return acceptancePhases{}
+	}
+	var phases acceptancePhases
+	if json.Unmarshal(data, &phases) != nil {
+		return acceptancePhases{}
+	}
+	return phases
+}
+
+func acceptanceCacheBinaryPresent(cacheHome string) bool {
+	root := filepath.Join(cacheHome, "geyserlite", DefaultVersion)
+	found := false
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() && entry.Name() == "geyserlite-linux-amd64" {
+			parent := filepath.Base(filepath.Dir(path))
+			if len(parent) == 64 && strings.Trim(parent, "0123456789abcdef") == "" {
+				found = true
+				return filepath.SkipAll
+			}
+		}
+		return nil
+	})
+	return found
+}
+
+func TestAcceptancePhaseLoggerEmitsOnlyFixedBooleans(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "phases.json")
+	logger := newAcceptancePhaseLogger(path)
+	logger.Info("located geyserlite binary", slog.String("path", "/sensitive/path"))
+	logger.Info("started geyserlite subprocess", slog.Int("pid", 12345))
+	logger.Warn("private player or native error text must be ignored")
+	logger.Info("Done (1.23s)!", slog.String("player", "private-player"))
+
+	got := readAcceptancePhases(path)
+	want := acceptancePhases{LocatedBinary: true, SubprocessStarted: true, NativeReadyLog: true}
+	if got != want {
+		t.Fatalf("phase flags = %+v, want %+v", got, want)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"sensitive", "12345", "private", "player", "error"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("phase file contains forbidden free-form data %q", forbidden)
+		}
 	}
 }
 
