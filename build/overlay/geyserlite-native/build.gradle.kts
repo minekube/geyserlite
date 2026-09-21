@@ -31,6 +31,18 @@ dependencies {
     compileOnly("org.apache.logging.log4j:log4j-core:2.20.0")
 }
 
+// The .so build packages the runtime classpath into a fat jar (useFatJar below).
+// That classpath carries signed artifacts — org.bouncycastle via :standalone —
+// and merging rewrites the manifest, so the vendored META-INF/*.SF signatures no
+// longer match their manifest digests. The JVM then refuses the jar while
+// native-image reads it:
+//   java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+// Drop the signature files, exactly as the shadow plugin already does for the
+// ELF jar (which is why only the shared-library build hits this).
+tasks.withType<Jar>().configureEach {
+    exclude("META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "META-INF/*.EC")
+}
+
 graalvmNative {
     // The GraalVM Reachability Metadata Repository ships hand-curated
     // reflect-config / resource-config / serialization-config entries
@@ -110,6 +122,11 @@ graalvmNative {
                     "com.minekube.geyserlite.bridge.GeyserBridge",
                 ).joinToString(","),
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
+                // Mirror of the flags.sh override: netty-codec-http's own native-image
+                // metadata (new with Geyser 2808f7d's NetherNet transport) asks for
+                // --initialize-at-build-time=io.netty, which puts slf4j Log4jLogger
+                // instances from netty's static loggers into the image heap.
+                "--initialize-at-run-time=io.netty",
                 "--strict-image-heap",
                 march,
                 "-O2",

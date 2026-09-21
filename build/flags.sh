@@ -78,6 +78,19 @@ NI_FLAGS_COMMON=(
     # "hidden classes at runtime" wall.
     --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna
 
+    # Restore runtime initialization for the io.netty packages. Geyser 2808f7d pulls in
+    # netty-codec-http (its new NetherNet/websocket transport), and that artifact ships
+    # META-INF/native-image/io.netty/netty-codec-http/native-image.properties with
+    # "--initialize-at-build-time=io.netty". That policy arrives with the dependency and
+    # runs netty's static initializers during the build, where their slf4j loggers become
+    # org.apache.logging.slf4j.Log4jLogger instances in the image heap — which native-image
+    # rejects ("An object of type 'org.apache.logging.slf4j.Log4jLogger' was found in the
+    # image heap"), reachable from io.netty.channel.ChannelInitializer.exceptionCaught.
+    # Before that transitive metadata existed, GeyserLite never initialized io.netty at
+    # build time; this flag is the explicit, package-wide restatement of that policy and
+    # outranks the artifact's Args file.
+    --initialize-at-run-time=io.netty
+
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
     #

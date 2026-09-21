@@ -12,7 +12,7 @@
  * all copies or substantial portions of the Software.
  */
 
-package org.geysermc.geyser.network.netty;
+package org.geysermc.geyser.network.bedrock.raknet;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
