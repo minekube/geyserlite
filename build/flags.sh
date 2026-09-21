@@ -78,15 +78,18 @@ NI_FLAGS_COMMON=(
     # "hidden classes at runtime" wall.
     --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna
 
-    # Carve-out from the wholesale log4j build-time pin above. MulticastDnsAdvertiser's
-    # static initializer probes for the (absent) javax.jmdns classes through log4j's own
-    # LoaderUtil and leaves an instance of the slf4j binding's Log4jLogger in the image
-    # heap; org.apache.logging.slf4j is runtime-initialized, so native-image then rejects
-    # the build with "An object of type 'org.apache.logging.slf4j.Log4jLogger' was found
-    # in the image heap". Geyser 2808f7d made that class reachable at build time; nothing
-    # in GeyserLite configures a log4j advertiser, so run-time initialization is inert and
-    # keeps the DNS-advertisement probe out of the build.
-    --initialize-at-run-time=org.apache.logging.log4j.core.net.MulticastDnsAdvertiser
+    # Restore runtime initialization for the io.netty packages. Geyser 2808f7d pulls in
+    # netty-codec-http (its new NetherNet/websocket transport), and that artifact ships
+    # META-INF/native-image/io.netty/netty-codec-http/native-image.properties with
+    # "--initialize-at-build-time=io.netty". That policy arrives with the dependency and
+    # runs netty's static initializers during the build, where their slf4j loggers become
+    # org.apache.logging.slf4j.Log4jLogger instances in the image heap — which native-image
+    # rejects ("An object of type 'org.apache.logging.slf4j.Log4jLogger' was found in the
+    # image heap"), reachable from io.netty.channel.ChannelInitializer.exceptionCaught.
+    # Before that transitive metadata existed, GeyserLite never initialized io.netty at
+    # build time; this flag is the explicit, package-wide restatement of that policy and
+    # outranks the artifact's Args file.
+    --initialize-at-run-time=io.netty
 
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
