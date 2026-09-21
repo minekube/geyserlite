@@ -31,6 +31,18 @@ dependencies {
     compileOnly("org.apache.logging.log4j:log4j-core:2.20.0")
 }
 
+// The .so build packages the runtime classpath into a fat jar (useFatJar below).
+// That classpath carries signed artifacts — org.bouncycastle via :standalone —
+// and merging rewrites the manifest, so the vendored META-INF/*.SF signatures no
+// longer match their manifest digests. The JVM then refuses the jar while
+// native-image reads it:
+//   java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+// Drop the signature files, exactly as the shadow plugin already does for the
+// ELF jar (which is why only the shared-library build hits this).
+tasks.withType<Jar>().configureEach {
+    exclude("META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "META-INF/*.EC")
+}
+
 graalvmNative {
     // The GraalVM Reachability Metadata Repository ships hand-curated
     // reflect-config / resource-config / serialization-config entries
