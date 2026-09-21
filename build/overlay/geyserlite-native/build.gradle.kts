@@ -110,6 +110,11 @@ graalvmNative {
                     "com.minekube.geyserlite.bridge.GeyserBridge",
                 ).joinToString(","),
                 "--initialize-at-run-time=sun.awt.HeadlessToolkit,sun.awt.SunHints",
+                // Mirror of the flags.sh carve-out: log4j-core's MulticastDnsAdvertiser
+                // static init probes for javax.jmdns at build time and leaves an slf4j
+                // Log4jLogger in the image heap, which native-image rejects. It is only
+                // used when an advertiser is configured, and GeyserLite never does.
+                "--initialize-at-run-time=org.apache.logging.log4j.core.net.MulticastDnsAdvertiser",
                 "--strict-image-heap",
                 march,
                 "-O2",

@@ -78,6 +78,16 @@ NI_FLAGS_COMMON=(
     # "hidden classes at runtime" wall.
     --initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna
 
+    # Carve-out from the wholesale log4j build-time pin above. MulticastDnsAdvertiser's
+    # static initializer probes for the (absent) javax.jmdns classes through log4j's own
+    # LoaderUtil and leaves an instance of the slf4j binding's Log4jLogger in the image
+    # heap; org.apache.logging.slf4j is runtime-initialized, so native-image then rejects
+    # the build with "An object of type 'org.apache.logging.slf4j.Log4jLogger' was found
+    # in the image heap". Geyser 2808f7d made that class reachable at build time; nothing
+    # in GeyserLite configures a log4j advertiser, so run-time initialization is inert and
+    # keeps the DNS-advertisement probe out of the build.
+    --initialize-at-run-time=org.apache.logging.log4j.core.net.MulticastDnsAdvertiser
+
     # Override init policy for AWT internals that pull in headless toolkit state
     # we don't want frozen into the image.
     #
