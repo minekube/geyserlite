@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.28](https://github.com/minekube/geyserlite/compare/v0.5.27...v0.5.28) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser to 2808f7d (Bedrock 26.50/26.51) + retarget overlay ([#210](https://github.com/minekube/geyserlite/issues/210)) ([c601b4a](https://github.com/minekube/geyserlite/commit/c601b4aa9f98f50d9ec329cb9c4660181af3a879))
+
 ## [0.5.27](https://github.com/minekube/geyserlite/compare/v0.5.26...v0.5.27) (2026-09-10)
 
 
