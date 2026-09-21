@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.30](https://github.com/minekube/geyserlite/compare/v0.5.29...v0.5.30) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/ebitengine/purego to v0.11.1 ([#214](https://github.com/minekube/geyserlite/issues/214)) ([fc2fa16](https://github.com/minekube/geyserlite/commit/fc2fa1680faefc2cbc06e15c5f363221c58e9308))
+
 ## [0.5.29](https://github.com/minekube/geyserlite/compare/v0.5.28...v0.5.29) (2026-09-21)
 
 
