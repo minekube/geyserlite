@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.29](https://github.com/minekube/geyserlite/compare/v0.5.28...v0.5.29) (2026-09-21)
+
+
+### Bug Fixes
+
+* **build:** register configurate-generated config classes for native-image ([#212](https://github.com/minekube/geyserlite/issues/212)) ([95a7226](https://github.com/minekube/geyserlite/commit/95a722625930304908b21c933630d30d8ad85e49))
+
 ## [0.5.28](https://github.com/minekube/geyserlite/compare/v0.5.27...v0.5.28) (2026-09-21)
 
 
