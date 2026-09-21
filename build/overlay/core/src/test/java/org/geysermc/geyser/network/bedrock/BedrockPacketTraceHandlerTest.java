@@ -12,7 +12,7 @@
  * all copies or substantial portions of the Software.
  */
 
-package org.geysermc.geyser.network;
+package org.geysermc.geyser.network.bedrock;
 
 import io.netty.buffer.Unpooled;
 import org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper;

@@ -4290,7 +4290,7 @@
     ]
   },
   {
-    "name": "org.geysermc.geyser.network.GeyserBedrockPeer",
+    "name": "org.geysermc.geyser.network.bedrock.GeyserBedrockPeer",
     "unsafeAllocated": true
   },
   {
@@ -4298,7 +4298,7 @@
     "unsafeAllocated": true
   },
   {
-    "name": "org.geysermc.geyser.network.InvalidPacketHandler",
+    "name": "org.geysermc.geyser.network.bedrock.InvalidPacketHandler",
     "methods": [
       {
         "name": "exceptionCaught",
@@ -4311,7 +4311,7 @@
     "unsafeAllocated": true
   },
   {
-    "name": "org.geysermc.geyser.network.netty.handler.RakConnectionRequestHandler",
+    "name": "org.geysermc.geyser.network.bedrock.raknet.RakConnectionRequestHandler",
     "unsafeAllocated": true,
     "methods": [
       {
@@ -4328,7 +4328,7 @@
     "unsafeAllocated": true
   },
   {
-    "name": "org.geysermc.geyser.network.netty.handler.RakPingHandler",
+    "name": "org.geysermc.geyser.network.bedrock.raknet.RakPingHandler",
     "unsafeAllocated": true
   },
   {

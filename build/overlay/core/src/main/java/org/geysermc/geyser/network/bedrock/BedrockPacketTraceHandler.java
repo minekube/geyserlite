@@ -12,7 +12,7 @@
  * all copies or substantial portions of the Software.
  */
 
-package org.geysermc.geyser.network;
+package org.geysermc.geyser.network.bedrock;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -23,7 +23,7 @@ import io.netty.channel.ChannelPromise;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.network.netty.BedrockRawDatagramTraceHandler;
+import org.geysermc.geyser.network.bedrock.raknet.BedrockRawDatagramTraceHandler;
 import org.geysermc.geyser.session.GeyserSession;
 
 import java.net.SocketAddress;
