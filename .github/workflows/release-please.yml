@@ -63,23 +63,36 @@ jobs:
         if: ${{ steps.rp.outputs.pr }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The release PR payload is JSON that repeats the merged commit subjects
+          # verbatim, so it must reach the shell as DATA. The pre-fix step built
+          # its command from a single-quoted shell literal
+          # (`echo '${{ steps.rp.outputs.pr }}' | jq -r '.number'`): one apostrophe
+          # in a merged subject (`don't`, `geyserlite's`) closed the literal, the
+          # rest of the payload was parsed as shell code, and the step died with
+          # `syntax error near unexpected token `('` — the release PR then never
+          # merged and the whole chain silently skipped the tag. Passed through
+          # the environment, the payload is never parsed by the shell. Pinned by
+          # TestReleasePleaseMergeStepNeverInterpolatesPayloadIntoShell and the
+          # apostrophe harness in release_please_payload_test.go.
+          RP_PR: ${{ steps.rp.outputs.pr }}
         run: |
           set -euo pipefail
 
-          PR_NUMBER=$(echo '${{ steps.rp.outputs.pr }}' | jq -r '.number')
+          # Parsed from the environment, never from script text.
+          PR_NUMBER=$(printf '%s' "$RP_PR" | jq -r '.number')
           PR_JSON=$(gh pr view "$PR_NUMBER" \
-            --repo "${{ github.repository }}" \
+            --repo "$GITHUB_REPOSITORY" \
             --json headRefName,headRefOid)
           HEAD_REF=$(echo "$PR_JSON" | jq -r '.headRefName')
           HEAD_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
 
           echo "Dispatching CI for release PR #$PR_NUMBER at $HEAD_REF ($HEAD_SHA)"
-          gh workflow run ci.yml --repo "${{ github.repository }}" --ref "$HEAD_REF"
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"
 
           RUN_ID=""
           for _ in $(seq 1 60); do
             RUN_ID=$(gh run list \
-              --repo "${{ github.repository }}" \
+              --repo "$GITHUB_REPOSITORY" \
               --workflow ci.yml \
               --branch "$HEAD_REF" \
               --event workflow_dispatch \
@@ -99,7 +112,7 @@ jobs:
           echo "Waiting for CI run $RUN_ID"
           for _ in $(seq 1 180); do
             RUN_JSON=$(gh run view "$RUN_ID" \
-              --repo "${{ github.repository }}" \
+              --repo "$GITHUB_REPOSITORY" \
               --json status,conclusion,url)
             STATUS=$(echo "$RUN_JSON" | jq -r '.status')
             CONCLUSION=$(echo "$RUN_JSON" | jq -r '.conclusion // ""')
@@ -120,7 +133,7 @@ jobs:
             CHECK_CONCLUSION="neutral"
           fi
 
-          gh api "repos/${{ github.repository }}/check-runs" \
+          gh api "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name='lint-test' \
             -f head_sha="$HEAD_SHA" \
             -f status='completed' \
@@ -133,7 +146,7 @@ jobs:
           if [ "$CONCLUSION" = "success" ]; then
             STATUS_STATE="success"
           fi
-          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
             -f state="$STATUS_STATE" \
             -f context='lint-test' \
             -f target_url="$RUN_URL" \
@@ -147,12 +160,12 @@ jobs:
           echo "Merging release PR #$PR_NUMBER"
           for _ in $(seq 1 30); do
             if gh pr merge "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
+              --repo "$GITHUB_REPOSITORY" \
               --merge; then
               break
             fi
             STATE=$(gh pr view "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
+              --repo "$GITHUB_REPOSITORY" \
               --json state \
               --jq '.state')
             if [ "$STATE" = "MERGED" ]; then
@@ -162,7 +175,7 @@ jobs:
           done
 
           STATE=$(gh pr view "$PR_NUMBER" \
-            --repo "${{ github.repository }}" \
+            --repo "$GITHUB_REPOSITORY" \
             --json state \
             --jq '.state')
           if [ "$STATE" != "MERGED" ]; then
@@ -171,7 +184,7 @@ jobs:
           fi
 
           gh workflow run release-please.yml \
-            --repo "${{ github.repository }}" \
+            --repo "$GITHUB_REPOSITORY" \
             --ref main
 
   # release-please pushes the v* tag with GITHUB_TOKEN, which by
@@ -188,7 +201,11 @@ jobs:
       - name: Dispatch release.yml on the new tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same boundary as the step above: the tag name reaches the shell
+          # through the environment, so no expression is rendered into the
+          # script text.
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
         run: |
           gh workflow run release.yml \
-            --repo "${{ github.repository }}" \
-            --ref "${{ needs.release-please.outputs.tag_name }}"
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$RELEASE_TAG"
