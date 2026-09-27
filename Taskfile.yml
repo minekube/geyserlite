@@ -100,6 +100,10 @@ tasks:
   test:overlay:
     desc: Apply the Geyser overlay and run its regression tests
     cmds:
+      - >-
+        python3 build/test-embedded-config-failure.py
+        --apply-overlay build/apply-overlay.sh
+        --bridge build/overlay/geyserlite-native/src/main/java/com/minekube/geyserlite/bridge/GeyserBridge.java
       - task: overlay:apply
       - >-
         cd build/.work/Geyser && ./gradlew :core:test

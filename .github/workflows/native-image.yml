@@ -137,6 +137,19 @@ jobs:
           docker cp "$ID:/geyserlite" artifacts/geyserlite-linux-${{ matrix.arch }}
           docker rm "$ID"
 
+      - name: Fail fast when embedded config loading fails
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          invalid_config="$RUNNER_TEMP/geyserlite-invalid-config"
+          stderr_log="$RUNNER_TEMP/geyserlite-invalid-config.stderr"
+          mkdir -p "$invalid_config"
+          timeout 5s python3 build/test-embedded-config-failure-native.py \
+            "artifacts/libgeyserlite-linux-${{ matrix.arch }}.so" \
+            "$invalid_config" \
+            2> >(tee "$stderr_log" >&2)
+          grep -qE 'geyserlite: failed to load Geyser config .*Exception' "$stderr_log"
+
       - name: Assert C-ABI exports are reachable
         if: github.event_name != 'pull_request'
         # When @CEntryPoint discovery silently regresses (e.g. the
