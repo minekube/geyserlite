@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.31](https://github.com/minekube/geyserlite/compare/v0.5.30...v0.5.31) (2026-09-27)
+
+
+### Bug Fixes
+
+* **release:** don't let a merged commit's apostrophe stall the release-please auto-merge step ([#218](https://github.com/minekube/geyserlite/issues/218)) ([5537716](https://github.com/minekube/geyserlite/commit/553771698442f2097d1691b774535b6886a89141))
+
 ## [0.5.30](https://github.com/minekube/geyserlite/compare/v0.5.29...v0.5.30) (2026-09-21)
 
 
