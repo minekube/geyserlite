@@ -59,6 +59,13 @@ jobs:
       # mirror its result to the required lint-test context, merge the validated
       # PR, and dispatch this workflow once more on main so release-please can
       # create the tag. GITHUB_TOKEN-created merges do not fire push workflows.
+      #
+      # The exception is the approval-gated run GitHub still creates for a
+      # GITHUB_TOKEN pull request (opened/synchronize/reopened): it never gets
+      # approved, so it resolves to `failure` with 0 jobs when the release PR is
+      # merged. That run is the red `CI` check on every release PR; the
+      # acceptance note in ci.yml explains why it must never become a required
+      # check, and go/release_check_contract_test.go pins the facts behind it.
       - name: Validate release PR
         if: ${{ steps.rp.outputs.pr }}
         env:

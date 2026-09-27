@@ -7,6 +7,32 @@ name: CI
 # changes. Doc-only edits skip CI. build/** is included because branch
 # protection requires lint-test; build-only Renovate PRs otherwise cannot
 # satisfy the required check even when native-image succeeds.
+#
+# The red `CI` check on every release PR is NOT a filter artefact and NOT a
+# broken job — it is GitHub's approval gate for pull requests created with
+# GITHUB_TOKEN: `pull_request` events with the opened/synchronize/reopened
+# activity types from GITHUB_TOKEN "create workflow runs that require
+# approval" (docs: Events that trigger workflows -> pull_request). Nobody
+# approves them, so when release-please's PR is merged the run resolves to
+# `failure` with 0 jobs (v0.5.31: run 36324253811 on #219, annotated "This
+# workflow run required approval but was not approved before it expired";
+# minekube/gate shows the same runs with the raw `action_required`
+# conclusion). The release PR *does* match these paths — release-please
+# rewrites go/version.go, rust/**, CHANGELOG.md and the manifest — which is
+# why the run is created at all: a workflow whose filter does not match gets
+# no run whatsoever (native-image.yml never runs on a release PR, and a
+# docs-only PR produces zero runs).
+#
+# Consequence: never add `CI` (or `CI / …`) to main's required status checks.
+# A release PR can never satisfy that context, so every release PR would stop
+# being mergeable by the automation and the release chain would stall until a
+# human removed the check. Release branches are validated by the ci.yml run
+# that release-please.yml dispatches and mirrors onto `lint-test`, the only
+# context required on main. Making the check real would require release-please
+# to open its PR with a GitHub App/PAT token instead of GITHUB_TOKEN (docs:
+# Trigger a workflow -> triggering a workflow from a workflow) — a credential
+# change, not a workflow edit. go/release_check_contract_test.go pins all of
+# the above.
 on:
   push:
     branches: [main]
