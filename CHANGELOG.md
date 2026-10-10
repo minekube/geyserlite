@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.32](https://github.com/minekube/geyserlite/compare/v0.5.31...v0.5.32) (2026-10-10)
+
+
+### Bug Fixes
+
+* **deps:** update Geyser to patched build 1251 ([#223](https://github.com/minekube/geyserlite/issues/223)) ([d7d8bd5](https://github.com/minekube/geyserlite/commit/d7d8bd5785bbe8f4bd3d0f5a45747aff27a83350))
+
 ## [0.5.31](https://github.com/minekube/geyserlite/compare/v0.5.30...v0.5.31) (2026-09-27)
 
 
