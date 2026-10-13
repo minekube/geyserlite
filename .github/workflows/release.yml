@@ -513,6 +513,7 @@ jobs:
   dispatch-moxy-geyserlite-bump:
     concurrency:
       group: moxy-geyserlite-release-update
+      queue: max
       cancel-in-progress: false
     needs: release
     if: startsWith(inputs.release_tag || github.ref_name, 'v')

@@ -34,6 +34,7 @@ type releaseWorkflowJob struct {
 	Steps       []releaseWorkflowStep `yaml:"steps"`
 	Concurrency struct {
 		Group            string `yaml:"group"`
+		Queue            string `yaml:"queue"`
 		CancelInProgress bool   `yaml:"cancel-in-progress"`
 	} `yaml:"concurrency"`
 }
@@ -159,11 +160,12 @@ func validMoxyDispatchWorkflowJob() releaseWorkflowJob {
 		},
 	}
 	job.Concurrency.Group = "moxy-geyserlite-release-update"
+	job.Concurrency.Queue = "max"
 	return job
 }
 
 func validateMoxyDispatchWorkflowContract(dispatch releaseWorkflowJob) error {
-	if dispatch.Concurrency.Group != "moxy-geyserlite-release-update" || dispatch.Concurrency.CancelInProgress {
+	if dispatch.Concurrency.Group != "moxy-geyserlite-release-update" || dispatch.Concurrency.Queue != "max" || dispatch.Concurrency.CancelInProgress {
 		return fmt.Errorf("Moxy updates must serialize without canceling a publisher")
 	}
 	if dispatch.Needs != "release" || dispatch.If != "startsWith(inputs.release_tag || github.ref_name, 'v')" || dispatch.RunsOn != "ubuntu-24.04" {
@@ -192,6 +194,7 @@ func TestReleaseMoxyDispatchWorkflowContractRejectsMutations(t *testing.T) {
 	}{
 		{"early dispatch", func(job *releaseWorkflowJob) { job.Needs = "native-image" }},
 		{"parallel publishers", func(job *releaseWorkflowJob) { job.Concurrency.Group = "" }},
+		{"replaced pending publisher", func(job *releaseWorkflowJob) { job.Concurrency.Queue = "single" }},
 		{"interrupted publisher", func(job *releaseWorkflowJob) { job.Concurrency.CancelInProgress = true }},
 		{"wrong target repository", func(job *releaseWorkflowJob) { job.Steps[0].With["repositories"] = "gate" }},
 		{"missing Cosign", func(job *releaseWorkflowJob) { job.Steps[4].Uses = "" }},
