@@ -24,12 +24,23 @@ type releaseWorkflow struct {
 }
 
 type releaseWorkflowJob struct {
-	Needs       string            `yaml:"needs"`
-	If          string            `yaml:"if"`
-	Uses        string            `yaml:"uses"`
-	Permissions map[string]string `yaml:"permissions"`
-	With        map[string]string `yaml:"with"`
-	Secrets     string            `yaml:"secrets"`
+	Needs       string                `yaml:"needs"`
+	If          string                `yaml:"if"`
+	RunsOn      string                `yaml:"runs-on"`
+	Uses        string                `yaml:"uses"`
+	Permissions map[string]string     `yaml:"permissions"`
+	With        map[string]string     `yaml:"with"`
+	Secrets     string                `yaml:"secrets"`
+	Steps       []releaseWorkflowStep `yaml:"steps"`
+}
+
+type releaseWorkflowStep struct {
+	Name             string            `yaml:"name"`
+	Uses             string            `yaml:"uses"`
+	Run              string            `yaml:"run"`
+	WorkingDirectory string            `yaml:"working-directory"`
+	With             map[string]string `yaml:"with"`
+	Env              map[string]string `yaml:"env"`
 }
 
 func TestReleaseGateDispatchWorkflowContract(t *testing.T) {
@@ -56,6 +67,145 @@ func TestReleaseGateDispatchWorkflowContract(t *testing.T) {
 	}
 	if err := validateGateDispatchWorkflowContract(dispatch); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReleaseMoxyDispatchWorkflowContract(t *testing.T) {
+	const workflowPath = "../.github/workflows/release.yml"
+
+	workflowBytes, err := os.ReadFile(workflowPath)
+	if errors.Is(err, os.ErrNotExist) {
+		if _, checkoutErr := os.Stat("../.git"); errors.Is(checkoutErr, os.ErrNotExist) {
+			t.Skipf("%s is unavailable outside a repository checkout", workflowPath)
+		}
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var workflow releaseWorkflow
+	if err := yaml.Unmarshal(workflowBytes, &workflow); err != nil {
+		t.Fatal(err)
+	}
+
+	dispatch, ok := workflow.Jobs["dispatch-moxy-geyserlite-bump"]
+	if !ok {
+		t.Fatal("dispatch-moxy-geyserlite-bump job is missing")
+	}
+	if err := validateMoxyDispatchWorkflowContract(dispatch); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func validMoxyDispatchWorkflowJob() releaseWorkflowJob {
+	return releaseWorkflowJob{
+		Needs:       "release",
+		If:          "startsWith(inputs.release_tag || github.ref_name, 'v')",
+		RunsOn:      "ubuntu-24.04",
+		Permissions: map[string]string{"contents": "read"},
+		Steps: []releaseWorkflowStep{
+			{
+				Name: "Create Moxy release-cascade token",
+				Uses: "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
+				With: map[string]string{
+					"client-id": "${{ vars.RELEASE_CASCADE_APP_CLIENT_ID }}", "private-key": "${{ secrets.RELEASE_CASCADE_APP_PRIVATE_KEY }}",
+					"owner": "minekube", "repositories": "moxy", "permission-contents": "write", "permission-pull-requests": "write",
+				},
+			},
+			{
+				Name: "Create Gate read token for Moxy's local replace",
+				Uses: "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
+				With: map[string]string{
+					"client-id": "${{ vars.RELEASE_CASCADE_APP_CLIENT_ID }}", "private-key": "${{ secrets.RELEASE_CASCADE_APP_PRIVATE_KEY }}",
+					"owner": "minekube", "repositories": "gate", "permission-contents": "read",
+				},
+			},
+			{
+				Name: "Checkout Moxy main",
+				Uses: "actions/checkout@v6",
+				With: map[string]string{
+					"repository": "minekube/moxy", "ref": "main", "path": "moxy", "token": "${{ steps.moxy-token.outputs.token }}",
+				},
+			},
+			{
+				Name: "Checkout Gate main for Moxy's local replace",
+				Uses: "actions/checkout@v6",
+				With: map[string]string{
+					"repository": "minekube/gate", "ref": "main", "path": "gate", "token": "${{ steps.gate-token.outputs.token }}",
+				},
+			},
+			{
+				Name: "Install Go",
+				Uses: "actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff",
+				With: map[string]string{"go-version-file": "moxy/go.mod", "cache-dependency-path": "moxy/go.sum", "cache": "true"},
+			},
+			{
+				Name: "Install Bun",
+				Uses: "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6",
+				With: map[string]string{"bun-version": "1.3.7"},
+			},
+			{
+				Name:             "Update Moxy and open dependency PR",
+				WorkingDirectory: "moxy",
+				Run: `bun install --frozen-lockfile
+bun scripts/update-geyserlite-release.ts \
+  --version "$GEYSERLITE_VERSION" \
+  --source-release-url "$GEYSERLITE_RELEASE_URL" \
+  --publish`,
+				Env: map[string]string{
+					"GH_TOKEN": "${{ steps.moxy-token.outputs.token }}", "GH_APP_SLUG": "${{ steps.moxy-token.outputs.app-slug }}",
+					"GEYSERLITE_VERSION":     "${{ inputs.release_tag || github.ref_name }}",
+					"GEYSERLITE_RELEASE_URL": "${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.release_tag || github.ref_name }}",
+				},
+			},
+		},
+	}
+}
+
+func validateMoxyDispatchWorkflowContract(dispatch releaseWorkflowJob) error {
+	if dispatch.Needs != "release" || dispatch.If != "startsWith(inputs.release_tag || github.ref_name, 'v')" || dispatch.RunsOn != "ubuntu-24.04" {
+		return fmt.Errorf("Moxy dispatch = needs %q, if %q, runs-on %q", dispatch.Needs, dispatch.If, dispatch.RunsOn)
+	}
+	if !reflect.DeepEqual(dispatch.Permissions, map[string]string{"contents": "read"}) {
+		return fmt.Errorf("Moxy dispatch permissions = %#v", dispatch.Permissions)
+	}
+	actualSteps := append([]releaseWorkflowStep(nil), dispatch.Steps...)
+	expectedSteps := validMoxyDispatchWorkflowJob().Steps
+	if len(actualSteps) > 0 {
+		actualSteps[len(actualSteps)-1].Run = strings.TrimSpace(actualSteps[len(actualSteps)-1].Run)
+		expectedSteps[len(expectedSteps)-1].Run = strings.TrimSpace(expectedSteps[len(expectedSteps)-1].Run)
+	}
+	if !reflect.DeepEqual(actualSteps, expectedSteps) {
+		return fmt.Errorf("Moxy dispatch steps = %#v", dispatch.Steps)
+	}
+	return nil
+}
+
+func TestReleaseMoxyDispatchWorkflowContractRejectsMutations(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func(*releaseWorkflowJob)
+	}{
+		{"early dispatch", func(job *releaseWorkflowJob) { job.Needs = "native-image" }},
+		{"wrong target repository", func(job *releaseWorkflowJob) { job.Steps[0].With["repositories"] = "gate" }},
+		{"writable Gate checkout", func(job *releaseWorkflowJob) { job.Steps[1].With["permission-contents"] = "write" }},
+		{"wrong Moxy checkout", func(job *releaseWorkflowJob) { job.Steps[2].With["repository"] = "minekube/gate" }},
+		{"missing source URL", func(job *releaseWorkflowJob) { job.Steps[6].Env["GEYSERLITE_RELEASE_URL"] = "" }},
+		{"missing signed-update PR step", func(job *releaseWorkflowJob) {
+			job.Steps[6].Run = strings.ReplaceAll(job.Steps[6].Run, "--publish", "")
+		}},
+		{"excess permission", func(job *releaseWorkflowJob) { job.Permissions["contents"] = "write" }},
+		{"missing Gate local replace", func(job *releaseWorkflowJob) { job.Steps = append(job.Steps[:3], job.Steps[4:]...) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := validMoxyDispatchWorkflowJob()
+			tt.mutate(&job)
+			if err := validateMoxyDispatchWorkflowContract(job); err == nil {
+				t.Fatal("mutation unexpectedly satisfied the dispatch contract")
+			}
+		})
 	}
 }
 
