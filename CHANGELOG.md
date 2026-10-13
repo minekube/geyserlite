@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/minekube/geyserlite/compare/v0.5.32...v0.6.0) (2026-10-13)
+
+
+### Features
+
+* **release:** dispatch GeyserLite releases to Moxy ([#225](https://github.com/minekube/geyserlite/issues/225)) ([689b172](https://github.com/minekube/geyserlite/commit/689b1720baf643a52ab389cb01ee333f6d451400))
+
 ## [0.5.32](https://github.com/minekube/geyserlite/compare/v0.5.31...v0.5.32) (2026-10-10)
 
 
