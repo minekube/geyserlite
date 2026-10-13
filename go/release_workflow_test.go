@@ -32,6 +32,10 @@ type releaseWorkflowJob struct {
 	With        map[string]string     `yaml:"with"`
 	Secrets     string                `yaml:"secrets"`
 	Steps       []releaseWorkflowStep `yaml:"steps"`
+	Concurrency struct {
+		Group            string `yaml:"group"`
+		CancelInProgress bool   `yaml:"cancel-in-progress"`
+	} `yaml:"concurrency"`
 }
 
 type releaseWorkflowStep struct {
@@ -98,7 +102,7 @@ func TestReleaseMoxyDispatchWorkflowContract(t *testing.T) {
 }
 
 func validMoxyDispatchWorkflowJob() releaseWorkflowJob {
-	return releaseWorkflowJob{
+	job := releaseWorkflowJob{
 		Needs:       "release",
 		If:          "startsWith(inputs.release_tag || github.ref_name, 'v')",
 		RunsOn:      "ubuntu-24.04",
@@ -113,25 +117,10 @@ func validMoxyDispatchWorkflowJob() releaseWorkflowJob {
 				},
 			},
 			{
-				Name: "Create Gate read token for Moxy's local replace",
-				Uses: "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
-				With: map[string]string{
-					"client-id": "${{ vars.RELEASE_CASCADE_APP_CLIENT_ID }}", "private-key": "${{ secrets.RELEASE_CASCADE_APP_PRIVATE_KEY }}",
-					"owner": "minekube", "repositories": "gate", "permission-contents": "read",
-				},
-			},
-			{
 				Name: "Checkout Moxy main",
 				Uses: "actions/checkout@v6",
 				With: map[string]string{
 					"repository": "minekube/moxy", "ref": "main", "path": "moxy", "token": "${{ steps.moxy-token.outputs.token }}",
-				},
-			},
-			{
-				Name: "Checkout Gate main for Moxy's local replace",
-				Uses: "actions/checkout@v6",
-				With: map[string]string{
-					"repository": "minekube/gate", "ref": "main", "path": "gate", "token": "${{ steps.gate-token.outputs.token }}",
 				},
 			},
 			{
@@ -145,10 +134,19 @@ func validMoxyDispatchWorkflowJob() releaseWorkflowJob {
 				With: map[string]string{"bun-version": "1.3.7"},
 			},
 			{
+				Name: "Install Cosign",
+				Uses: "sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6",
+				With: map[string]string{"cosign-release": "v3.1.3"},
+			},
+			{
+				Name:             "Install Moxy dependencies",
+				WorkingDirectory: "moxy",
+				Run:              "bun install --frozen-lockfile",
+			},
+			{
 				Name:             "Update Moxy and open dependency PR",
 				WorkingDirectory: "moxy",
-				Run: `bun install --frozen-lockfile
-bun scripts/update-geyserlite-release.ts \
+				Run: `bun scripts/update-geyserlite-release.ts \
   --version "$GEYSERLITE_VERSION" \
   --source-release-url "$GEYSERLITE_RELEASE_URL" \
   --publish`,
@@ -160,9 +158,14 @@ bun scripts/update-geyserlite-release.ts \
 			},
 		},
 	}
+	job.Concurrency.Group = "moxy-geyserlite-release-update"
+	return job
 }
 
 func validateMoxyDispatchWorkflowContract(dispatch releaseWorkflowJob) error {
+	if dispatch.Concurrency.Group != "moxy-geyserlite-release-update" || dispatch.Concurrency.CancelInProgress {
+		return fmt.Errorf("Moxy updates must serialize without canceling a publisher")
+	}
 	if dispatch.Needs != "release" || dispatch.If != "startsWith(inputs.release_tag || github.ref_name, 'v')" || dispatch.RunsOn != "ubuntu-24.04" {
 		return fmt.Errorf("Moxy dispatch = needs %q, if %q, runs-on %q", dispatch.Needs, dispatch.If, dispatch.RunsOn)
 	}
@@ -188,15 +191,17 @@ func TestReleaseMoxyDispatchWorkflowContractRejectsMutations(t *testing.T) {
 		mutate func(*releaseWorkflowJob)
 	}{
 		{"early dispatch", func(job *releaseWorkflowJob) { job.Needs = "native-image" }},
+		{"parallel publishers", func(job *releaseWorkflowJob) { job.Concurrency.Group = "" }},
+		{"interrupted publisher", func(job *releaseWorkflowJob) { job.Concurrency.CancelInProgress = true }},
 		{"wrong target repository", func(job *releaseWorkflowJob) { job.Steps[0].With["repositories"] = "gate" }},
-		{"writable Gate checkout", func(job *releaseWorkflowJob) { job.Steps[1].With["permission-contents"] = "write" }},
-		{"wrong Moxy checkout", func(job *releaseWorkflowJob) { job.Steps[2].With["repository"] = "minekube/gate" }},
+		{"missing Cosign", func(job *releaseWorkflowJob) { job.Steps[4].Uses = "" }},
+		{"wrong Moxy checkout", func(job *releaseWorkflowJob) { job.Steps[1].With["repository"] = "minekube/gate" }},
 		{"missing source URL", func(job *releaseWorkflowJob) { job.Steps[6].Env["GEYSERLITE_RELEASE_URL"] = "" }},
 		{"missing signed-update PR step", func(job *releaseWorkflowJob) {
 			job.Steps[6].Run = strings.ReplaceAll(job.Steps[6].Run, "--publish", "")
 		}},
 		{"excess permission", func(job *releaseWorkflowJob) { job.Permissions["contents"] = "write" }},
-		{"missing Gate local replace", func(job *releaseWorkflowJob) { job.Steps = append(job.Steps[:3], job.Steps[4:]...) }},
+		{"missing dependency installation", func(job *releaseWorkflowJob) { job.Steps[5].Run = "" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
