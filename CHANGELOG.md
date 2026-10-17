@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/minekube/geyserlite/compare/v0.6.0...v0.6.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **config:** stop gating Java keepalives on the Bedrock echo ([#227](https://github.com/minekube/geyserlite/issues/227)) ([c2b8007](https://github.com/minekube/geyserlite/commit/c2b80079b1092ac29a3321ccbb2bb687090e5fac))
+
 ## [0.6.0](https://github.com/minekube/geyserlite/compare/v0.5.32...v0.6.0) (2026-10-13)
 
 
