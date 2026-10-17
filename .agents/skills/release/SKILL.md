@@ -39,4 +39,3 @@ Two consequences, both load-bearing:
   `go test -run TestNativeArtifacts ./go` after touching it — the test drives
   the real script against a stub `gh` for every branch, including the expired-
   artifact repair and the fail-closed paths.
-
