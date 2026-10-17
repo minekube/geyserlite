@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/minekube/geyserlite/compare/v0.6.1...v0.6.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **release:** republish expired native artifacts instead of publishing an empty release ([#229](https://github.com/minekube/geyserlite/issues/229)) ([a0f2fbd](https://github.com/minekube/geyserlite/commit/a0f2fbdad8eeab218fdbcc1a9dcf66eef99fe36b))
+
 ## [0.6.1](https://github.com/minekube/geyserlite/compare/v0.6.0...v0.6.1) (2026-10-17)
 
 
