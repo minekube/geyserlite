@@ -94,6 +94,44 @@ func TestBuildConfigMap_OverrideBeatsTypedOption(t *testing.T) {
 	}
 }
 
+func TestBuildConfigMap_DoesNotForwardPlayerPing(t *testing.T) {
+	t.Parallel()
+	// forward-player-ping makes Geyser answer Java keepalive/ping packets only
+	// when the Bedrock client echoes NetworkStackLatency. A client that stops
+	// echoing (backgrounded app, lossy UDP leg) then starves the Java backend's
+	// keepalive and the player is kicked with "Timed out" ~30s later. Keep the
+	// upstream default (false) so MCPL answers keepalives on its own.
+	cfg, err := buildConfigMap(Options{Listen: ":19132", Upstream: "127.0.0.1:25565"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := cfg["forward-player-ping"]
+	if !ok {
+		t.Fatal("forward-player-ping missing from rendered config")
+	}
+	if got != false {
+		t.Errorf("forward-player-ping = %v, want false", got)
+	}
+}
+
+func TestBuildConfigMap_ForwardPlayerPingOverrideWins(t *testing.T) {
+	t.Parallel()
+	// Operators can still opt back in explicitly.
+	cfg, err := buildConfigMap(Options{
+		Listen:   ":19132",
+		Upstream: "127.0.0.1:25565",
+		ConfigOverrides: map[string]any{
+			"forward-player-ping": true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg["forward-player-ping"]; got != true {
+		t.Errorf("explicit override should win, got = %v", got)
+	}
+}
+
 func TestMergeMap_Recursive(t *testing.T) {
 	t.Parallel()
 	dst := map[string]any{
