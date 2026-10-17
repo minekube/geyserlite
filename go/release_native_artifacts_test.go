@@ -584,10 +584,20 @@ func TestReleasePullsNativeArtifactsThroughTheSelfHealingScript(t *testing.T) {
 	if step == nil {
 		t.Fatalf("release.yml has no %q step", nativeArtifactsStepName)
 	}
-	if !strings.Contains(step.Run, "bash ./.github/scripts/fetch-native-artifacts.sh") &&
-		!strings.Contains(step.Run, "bash .github/scripts/fetch-native-artifacts.sh") {
-		t.Errorf("%q does not invoke .github/scripts/fetch-native-artifacts.sh; run:\n%s",
+	if !strings.Contains(step.Run, "fetch-native-artifacts.sh") {
+		t.Errorf("%q does not invoke the acquisition script; run:\n%s", nativeArtifactsStepName, step.Run)
+	}
+	// A repair dispatch checks the TAG out, so a tag cut before this script
+	// existed has no in-tree copy. The step must fall back to the default
+	// branch's version instead of failing on a missing file.
+	if !strings.Contains(step.Run, `[ ! -f "$script" ]`) {
+		t.Errorf("%q does not fall back when the checked-out ref has no copy of the script; "+
+			"a repair dispatch of an older tag would fail with \"No such file\"; run:\n%s",
 			nativeArtifactsStepName, step.Run)
+	}
+	if !strings.Contains(step.Run, "DEFAULT_BRANCH") || !strings.Contains(step.Env["DEFAULT_BRANCH"], "default_branch") {
+		t.Errorf("%q does not take the fallback copy from the repository's default branch; env:\n%v",
+			nativeArtifactsStepName, step.Env)
 	}
 	if strings.Contains(step.Run, "gh run download") {
 		t.Errorf("%q still downloads artifacts inline; the download must go through the "+

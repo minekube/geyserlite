@@ -54,6 +54,8 @@ jobs:
       - name: Pull native artifacts for this release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_REF: ${{ inputs.release_tag || github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         # The artifacts belong to the last first-parent commit that touched the
         # native build inputs (build/**, mise.toml, native-image.yml), NOT to
         # the tag commit: a go/**-only fix does not move that commit, so a
@@ -65,7 +67,23 @@ jobs:
         # completed/success and never substitutes another run or SHA, so a red
         # native tree fails the release closed. Behaviour and every branch are
         # pinned by go/release_native_artifacts_test.go.
-        run: bash ./.github/scripts/fetch-native-artifacts.sh
+        #
+        # The checkout above is the release TAG (or the dispatched ref), so a
+        # repair dispatch of a tag cut before this script existed has no copy of
+        # it in-tree. Take the acquisition logic from the default branch in that
+        # case instead of failing: the tag still supplies every release input
+        # (version, Cargo.toml, crate sources); only the fetch tool is newer.
+        run: |
+          set -euo pipefail
+          script=.github/scripts/fetch-native-artifacts.sh
+          if [ ! -f "$script" ]; then
+            echo "::notice::${script} is not in ${RELEASE_REF}; using ${DEFAULT_BRANCH}'s copy"
+            gh api -H 'Accept: application/vnd.github.raw' \
+              "/repos/${GITHUB_REPOSITORY}/contents/${script}?ref=${DEFAULT_BRANCH}" \
+              > /tmp/fetch-native-artifacts.sh
+            script=/tmp/fetch-native-artifacts.sh
+          fi
+          bash "$script"
 
       - name: Generate checksums.txt
         # The auto-download path in go/ and rust/ resolves asset SHAs
