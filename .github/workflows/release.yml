@@ -23,7 +23,11 @@ on:
 permissions:
   contents: write    # GitHub Release upload
   id-token: write    # cosign keyless + crates.io Trusted Publishing OIDC
-  actions: read      # locate and download matching native-image artifacts
+  # `write`, not `read`: the self-heal in .github/scripts/fetch-native-artifacts.sh
+  # re-runs the native-image.yml run whose uploads expired. `read` was enough
+  # only while artifacts could never expire before the release that needs them;
+  # v0.6.1 shipped 0 assets and silently skipped crates.io + both cascades that way.
+  actions: write
 
 jobs:
   release:
@@ -50,71 +54,18 @@ jobs:
       - name: Pull native artifacts for this release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p artifacts
-
-          # Release commits usually only bump metadata. The native assets
-          # belong to the latest first-parent commit that changed native build
-          # inputs, so wait for that exact native-image.yml run instead of
-          # resolving a side-branch commit that never ran on main or racing
-          # against successful artifacts from an older commit.
-          NATIVE_SHA=$(git log --first-parent -n 1 --format=%H -- \
-            build \
-            mise.toml \
-            .github/workflows/native-image.yml)
-
-          if [ -z "$NATIVE_SHA" ]; then
-            echo "::error::Could not resolve native artifact source commit"
-            exit 1
-          fi
-
-          echo "Waiting for native-image.yml artifacts from $NATIVE_SHA"
-          RUN_ID=""
-          RUN_URL=""
-          for _ in $(seq 1 240); do
-            RUN_JSON=$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow=native-image.yml \
-              --branch=main \
-              --limit=100 \
-              --json databaseId,headSha,status,conclusion,url,createdAt \
-              --jq "map(select(.headSha == \"$NATIVE_SHA\")) | sort_by(.createdAt) | reverse | .[0] // {}")
-
-            RUN_ID=$(echo "$RUN_JSON" | jq -r '.databaseId // ""')
-            STATUS=$(echo "$RUN_JSON" | jq -r '.status // ""')
-            CONCLUSION=$(echo "$RUN_JSON" | jq -r '.conclusion // ""')
-            RUN_URL=$(echo "$RUN_JSON" | jq -r '.url // ""')
-
-            if [ -z "$RUN_ID" ]; then
-              echo "No native-image.yml run for $NATIVE_SHA yet; waiting..."
-              sleep 10
-              continue
-            fi
-
-            echo "native-image.yml run $RUN_ID is $STATUS/$CONCLUSION: $RUN_URL"
-            if [ "$STATUS" = "completed" ]; then
-              if [ "$CONCLUSION" = "success" ]; then
-                break
-              fi
-              echo "::error::native-image.yml run $RUN_ID concluded $CONCLUSION"
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-          if [ -z "$RUN_ID" ] || [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
-            echo "::error::Timed out waiting for successful native-image.yml artifacts from $NATIVE_SHA"
-            exit 1
-          fi
-
-          # Only download our own upload-artifact outputs; skip the
-          # docker/build-push-action build-summary blobs (which gh run
-          # download mistakes for zips and chokes on).
-          gh run download "$RUN_ID" --dir artifacts --pattern 'geyserlite-*'
-          ls -la artifacts/
+        # The artifacts belong to the last first-parent commit that touched the
+        # native build inputs (build/**, mise.toml, native-image.yml), NOT to
+        # the tag commit: a go/**-only fix does not move that commit, so a
+        # release cut after the native uploads' retention window finds an empty
+        # run and used to publish 0 assets (v0.6.1, 2026-10-17: tag + release
+        # object, no binaries, crates.io and both cascade dispatches skipped).
+        # The script re-runs that exact run (same run id, same head sha) to
+        # republish the expired uploads, then downloads them. It still requires
+        # completed/success and never substitutes another run or SHA, so a red
+        # native tree fails the release closed. Behaviour and every branch are
+        # pinned by go/release_native_artifacts_test.go.
+        run: bash ./.github/scripts/fetch-native-artifacts.sh
 
       - name: Generate checksums.txt
         # The auto-download path in go/ and rust/ resolves asset SHAs

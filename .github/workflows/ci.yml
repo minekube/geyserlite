@@ -51,6 +51,9 @@ on:
       - '.github/workflows/native-image.yml'
       - '.github/workflows/release-please.yml'
       - '.github/workflows/release.yml'
+      # release.yml's native-artifact self-heal; a script-only PR must still
+      # produce the required `lint-test` context or it can never merge.
+      - '.github/scripts/**'
   pull_request:
     paths:
       - 'go/**'
@@ -67,6 +70,9 @@ on:
       - '.github/workflows/native-image.yml'
       - '.github/workflows/release-please.yml'
       - '.github/workflows/release.yml'
+      # release.yml's native-artifact self-heal; a script-only PR must still
+      # produce the required `lint-test` context or it can never merge.
+      - '.github/scripts/**'
   workflow_dispatch:
 
 permissions:

@@ -188,7 +188,14 @@ jobs:
           name: geyserlite-${{ matrix.arch }}
           path: artifacts/
           if-no-files-found: error
-          retention-days: 7
+          # release.yml publishes THESE uploads for the last commit that touched
+          # the native build inputs, which can be long before the tag is cut
+          # (a go/**-only fix does not move that commit). 7 days was short
+          # enough that v0.6.1's release found nothing and published 0 assets;
+          # 30 keeps a normal release delayed by weeks working, and the
+          # self-heal re-run in .github/scripts/fetch-native-artifacts.sh
+          # covers anything older. Pinned by go/release_native_artifacts_test.go.
+          retention-days: 30
 
   build-windows:
     runs-on: windows-latest
@@ -373,7 +380,11 @@ jobs:
           name: geyserlite-windows-amd64
           path: artifacts/
           if-no-files-found: error
-          retention-days: 7
+          # Same retention contract as the linux uploads above: release.yml
+          # publishes this upload for the last commit that touched the native
+          # build inputs, possibly weeks before the tag (v0.6.1 shipped 0
+          # assets at 7 days). Pinned by go/release_native_artifacts_test.go.
+          retention-days: 30
 
   # Multi-arch manifest + smoke
   publish-manifest:
