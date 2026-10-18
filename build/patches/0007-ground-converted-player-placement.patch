@@ -1,0 +1,418 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
+index 25aadc277..4bf3a9804 100644
+--- a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
++++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
+@@ -451,6 +451,24 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
+ 
+     @Setter
+     private boolean spawned;
++
++    /**
++     * Set when the converted player is placed (initial spawn, server switch, respawn) and cleared the
++     * first time its client reports solid ground. While set, a suspended placement is resolved onto
++     * the world's own surface instead of being accepted, so the Java backend never sees the player
++     * hovering (fault C - Paper's {@code multiplayer.disconnect.flying} after 81 ticks).
++     */
++    @Setter
++    private boolean placementPending;
++
++    /**
++     * Consecutive movement samples in which a converted client reported itself suspended in the air
++     * with no vertical motion. A survival player cannot hold that state on Java; the backend reads it
++     * as flight, so {@code BedrockMovePlayer} stops forwarding it once it is sustained and grounds the
++     * client instead.
++     */
++    @Setter
++    private int suspendedAirborneSamples;
+     /**
+      * Accessed on the initial Java and Bedrock packet processing threads
+      */
+diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
+index 00dcdca50..7764d11c3 100644
+--- a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
++++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
+@@ -36,9 +36,12 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+ import org.geysermc.geyser.level.physics.BoundingBox;
+ import org.geysermc.geyser.level.physics.CollisionResult;
+ import org.geysermc.geyser.session.GeyserSession;
++import org.geysermc.geyser.session.cache.TeleportCache;
+ import org.geysermc.geyser.text.ChatColor;
+ import org.geysermc.geyser.util.MathUtils;
++import org.geysermc.geyser.util.PlacementGrounding;
+ import org.geysermc.mcprotocollib.network.packet.Packet;
++import org.geysermc.mcprotocollib.protocol.data.game.entity.player.GameMode;
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerRotPacket;
+@@ -49,6 +52,19 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
+  */
+ final class BedrockMovePlayer {
+ 
++    /**
++     * Paper's "not descending" threshold (net.minecraft.server.network.ServerGamePacketListenerImpl):
++     * a sample whose vertical delta is at least this negative is treated as falling rather than
++     * floating.
++     */
++    private static final double VERTICAL_MOTION_EPSILON = 0.03125;
++
++    /**
++     * How many consecutive suspended, motionless samples a client must send before we stop forwarding
++     * them (10 samples = 0.5 s at 20 Hz, well inside Paper's 81-tick / 4.05 s budget).
++     */
++    private static final int SUSPENDED_SAMPLE_THRESHOLD = 10;
++
+     static void translate(GeyserSession session, PlayerAuthInputPacket packet) {
+         SessionPlayerEntity entity = session.getPlayerEntity();
+         if (!session.isSpawned()) return;
+@@ -122,6 +138,14 @@ final class BedrockMovePlayer {
+             isOnGround = entity.isCollidingVertically() && entity.getLastTickEndVelocity().getY() < 0;
+         }
+ 
++        // Fault C: a converted client suspended in the air with no vertical motion is not a state a Java
++        // client can produce. Paper's own floating check (clientIsFloating: not on ground, not
++        // descending, no block within 0.55 below the feet) latches on it and disconnects the player with
++        // multiplayer.disconnect.flying after 81 ticks. Ground the placement instead of forwarding it.
++        if (groundSuspendedPlacement(session, entity, packet, isOnGround, hasVehicle, onClimbableBlock)) {
++            return;
++        }
++
+         // Resolve https://github.com/GeyserMC/Geyser/issues/3521, no void floor on java so player not supposed to collide with anything.
+         // Therefore, we're fixing this by allowing player to no clip to clip through the floor, not only this fixed the issue but
+         // player y velocity should match java perfectly, much better than teleport player right down :)
+@@ -238,6 +262,82 @@ final class BedrockMovePlayer {
+         }
+     }
+ 
++    /**
++     * Stops a converted client from being reported to the Java backend as flying while it has nothing
++     * under it, and puts it back on the world's surface when it should be standing.
++     * <p>
++     * The condition is deliberately narrow: the client must report no support within 0.55 blocks below
++     * its feet <i>and</i> essentially no vertical motion (Paper's own "not descending" threshold,
++     * 0.03125) for {@link #SUSPENDED_SAMPLE_THRESHOLD} consecutive samples. A jumping, falling,
++     * swimming, climbing, riding or flying player never satisfies it, so nothing legitimate is pinned:
++     * only the state that a Bedrock client produces when it has no terrain under it (chunk still
++     * loading, or a placement carried across a server hand-over) is caught.
++     *
++     * @return true if this sample must not be forwarded
++     */
++    private static boolean groundSuspendedPlacement(GeyserSession session, SessionPlayerEntity entity,
++                                                    PlayerAuthInputPacket packet, boolean isOnGround,
++                                                    boolean hasVehicle, boolean onClimbableBlock) {
++        if (hasVehicle || session.isNoClip() || session.isFlying() || onClimbableBlock
++            || session.getGameMode() == GameMode.SPECTATOR || session.getGameMode() == GameMode.CREATIVE
++            || session.getCollisionManager().isPlayerTouchingWater()) {
++            session.setSuspendedAirborneSamples(0);
++            return false;
++        }
++
++        Vector3d feetPosition = packet.getPosition().down(VanillaEntities.PLAYER_ENTITY_OFFSET).toDouble();
++        if (session.isPlacementPending() && (isOnGround || PlacementGrounding.hasSupport(session, feetPosition))) {
++            // The converted player is standing on the world; the placement is settled.
++            session.setPlacementPending(false);
++        }
++        boolean suspended = !isOnGround
++            && Math.abs(packet.getDelta().getY()) <= VERTICAL_MOTION_EPSILON
++            && PlacementGrounding.isSuspended(session, feetPosition);
++
++        if (!suspended) {
++            session.setSuspendedAirborneSamples(0);
++            return false;
++        }
++
++        int samples = session.getSuspendedAirborneSamples() + 1;
++        session.setSuspendedAirborneSamples(samples);
++        if (samples < SUSPENDED_SAMPLE_THRESHOLD) {
++            return false;
++        }
++
++        // Log once per latch, not once per sample.
++        boolean firstSample = samples == SUSPENDED_SAMPLE_THRESHOLD;
++
++        Vector3d grounded = PlacementGrounding.groundBelow(session, feetPosition);
++        if (grounded == null) {
++            // No surface we can prove exists below the feet (void column, or the converted client's
++            // chunk data genuinely has no terrain there). Never freeze the player on a guess: the
++            // sample is forwarded as before and the next one with terrain under it is grounded.
++            if (firstSample) {
++                session.getGeyser().getLogger().debug("No surface to ground suspended converted position "
++                    + feetPosition + " - leaving the sample alone");
++            }
++            session.setSuspendedAirborneSamples(0);
++            return false;
++        }
++
++        if (Math.abs(grounded.getY() - feetPosition.getY()) <= 1.0E-4) {
++            // Already level with the surface below: supported, so nothing to correct.
++            session.setSuspendedAirborneSamples(0);
++            return false;
++        }
++
++        if (firstSample) {
++            session.getGeyser().getLogger().debug("Grounding suspended converted player at " + feetPosition
++                + " to " + grounded);
++        }
++        entity.moveAbsolute(grounded.toFloat(), entity.getYaw(), entity.getPitch(), false, true);
++        session.setUnconfirmedTeleport(new TeleportCache(session, grounded.toFloat(),
++            entity.getPitch(), entity.getYaw(), -1));
++        session.setSuspendedAirborneSamples(0);
++        return true;
++    }
++
+     private static boolean isInvalidNumber(float val) {
+         return Float.isNaN(val) || Float.isInfinite(val);
+     }
+diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaLoginTranslator.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaLoginTranslator.java
+index 22ef8b275..0fe4596b5 100644
+--- a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaLoginTranslator.java
++++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaLoginTranslator.java
+@@ -65,6 +65,9 @@ public class JavaLoginTranslator extends PacketTranslator<ClientboundLoginPacket
+         // If the player is already initialized and a join game packet is sent, they
+         // are swapping servers
+         if (session.isSpawned()) {
++            // Fault C: a server swap re-places the converted player in a new world; do not accept an
++            // airborne placement (see JavaPlayerPositionTranslator / PlacementGrounding).
++            session.setPlacementPending(true);
+             int fakeDim = DimensionUtils.getTemporaryDimension(session.getBedrockDimension().bedrockId(), newDimension.bedrockId());
+             if (fakeDim != newDimension.bedrockId()) {
+                 // The player's current dimension and new dimension are the same
+diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaRespawnTranslator.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaRespawnTranslator.java
+index f755abb0f..b913f6067 100644
+--- a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaRespawnTranslator.java
++++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/JavaRespawnTranslator.java
+@@ -58,6 +58,8 @@ public class JavaRespawnTranslator extends PacketTranslator<ClientboundRespawnPa
+         }
+ 
+         session.setSpawned(false);
++        // Fault C: a respawn re-places the converted player; do not accept an airborne placement.
++        session.setPlacementPending(true);
+         entity.setMotion(Vector3f.ZERO);
+         entity.setLastTickEndVelocity(Vector3f.ZERO);
+ 
+diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
+index 8046eab0c..6c9c64c36 100644
+--- a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
++++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
+@@ -39,6 +39,7 @@ import org.geysermc.geyser.translator.protocol.PacketTranslator;
+ import org.geysermc.geyser.translator.protocol.Translator;
+ import org.geysermc.geyser.util.ChunkUtils;
+ import org.geysermc.geyser.util.MathUtils;
++import org.geysermc.geyser.util.PlacementGrounding;
+ import org.geysermc.mcprotocollib.protocol.data.game.entity.player.PositionElement;
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerPositionPacket;
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.level.ServerboundAcceptTeleportationPacket;
+@@ -64,6 +65,21 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
+             packet.getRelatives().contains(PositionElement.Y) ? entity.position().getY() : 0,
+             packet.getRelatives().contains(PositionElement.Z) ? entity.position().getZ() : 0);
+ 
++        // Fault C: never place a converted player in the air when the world has ground to stand on.
++        // A Bedrock client that is placed in the air keeps reporting that fixed position (it has no
++        // terrain to fall against), the Java backend reads it as flight and disconnects it with
++        // multiplayer.disconnect.flying after 81 ticks. This only applies while the session is being
++        // placed - the initial spawn, a server switch, or a respawn - so deliberate airborne teleports
++        // during play (jump pads, elytra launches) are untouched.
++        if (!session.isSpawned() || session.isPlacementPending()) {
++            Vector3d groundedPlacement = PlacementGrounding.groundPlacement(session, position);
++            if (!groundedPlacement.equals(position)) {
++                session.getGeyser().getLogger().debug("Grounding converted player placement from "
++                    + position + " to " + groundedPlacement);
++                position = groundedPlacement;
++            }
++        }
++
+         float newPitch = MathUtils.clamp(packet.getXRot() + (packet.getRelatives().contains(PositionElement.X_ROT) ? entity.getPitch() : 0), -90, 90);
+         float newYaw = packet.getYRot() + (packet.getRelatives().contains(PositionElement.Y_ROT) ? entity.getYaw() : 0);
+ 
+@@ -97,6 +113,8 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
+             // Log out and back in - and you're looking elsewhere :)
+             entity.updateOwnRotation(entity.getYaw(), entity.getPitch(), entity.getHeadYaw());
+             session.setSpawned(true);
++            // Fault C: the placement is not settled until the client actually stands on something.
++            session.setPlacementPending(true);
+ 
+             // Make sure the player moves away from (0, 32767, 0) before accepting movement packets
+             Vector3f entityPosition = entity.position();
+diff --git a/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
+new file mode 100644
+index 000000000..4e5ba72ce
+--- /dev/null
++++ b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
+@@ -0,0 +1,178 @@
++/*
++ * Copyright (c) 2019-2022 GeyserMC. http://geysermc.org
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++package org.geysermc.geyser.util;
++
++import org.checkerframework.checker.nullness.qual.Nullable;
++import org.cloudburstmc.math.vector.Vector3d;
++import org.geysermc.geyser.level.physics.BoundingBox;
++import org.geysermc.geyser.session.GeyserSession;
++import org.geysermc.geyser.translator.collision.BlockCollision;
++
++/**
++ * Resolves whether a converted player is standing on something, and where the nearest surface below
++ * it is.
++ * <p>
++ * This exists for one defect: a Bedrock client that has no terrain under it (chunk still loading, or a
++ * placement carried across a server hand-over) reports a fixed position in the air with no vertical
++ * motion. A Java client cannot produce that state, and the Java backend reads it as flight - Paper's
++ * {@code ServerGamePacketListenerImpl} latches {@code clientIsFloating} when the client says "not on
++ * ground", is not descending ({@code dy >= -0.03125}) and has no block within 1/16 around the body or
++ * 0.55 below the feet, then disconnects with {@code multiplayer.disconnect.flying} after 81 ticks
++ * (~4.05 s). For a converted player the position - not the ground flag - is what has to change, so we
++ * need the world's own answer to "is there ground here".
++ */
++public final class PlacementGrounding {
++
++    /**
++     * Depth below the feet that the Java server treats as "standing on a block" (Paper's
++     * {@code noBlocksAround} distance).
++     */
++    public static final double SUPPORT_DEPTH = 0.55;
++
++    /**
++     * How far below the feet a surface is still considered the player's placement, instead of a
++     * different floor entirely.
++     */
++    public static final int MAX_GROUND_SEARCH = 32;
++
++    private static final double PLAYER_HALF_WIDTH = 0.3;
++    private static final double PLAYER_HEIGHT = 1.8;
++
++    private PlacementGrounding() {
++    }
++
++    /**
++     * Java's floor semantics, explicitly: the block coordinates below can be negative and a truncating
++     * conversion would silently skip the block directly under the player's feet.
++     */
++    private static int floor(double value) {
++        return (int) Math.floor(value);
++    }
++
++    private static boolean collides(GeyserSession session, int x, int y, int z) {
++        return BlockUtils.getCollision(session.getGeyser().getWorldManager().getBlockAt(session, x, y, z)) != null;
++    }
++
++    /**
++     * @return true if a collidable block exists within {@link #SUPPORT_DEPTH} below the given feet
++     * position, i.e. the Java server would consider the player supported by the world
++     */
++    public static boolean hasSupport(GeyserSession session, Vector3d feet) {
++        int minX = floor(feet.getX() - PLAYER_HALF_WIDTH);
++        int maxX = floor(feet.getX() + PLAYER_HALF_WIDTH);
++        int minZ = floor(feet.getZ() - PLAYER_HALF_WIDTH);
++        int maxZ = floor(feet.getZ() + PLAYER_HALF_WIDTH);
++        int minY = floor(feet.getY() - SUPPORT_DEPTH);
++        int maxY = floor(feet.getY());
++
++        for (int x = minX; x <= maxX; x++) {
++            for (int z = minZ; z <= maxZ; z++) {
++                for (int y = minY; y <= maxY; y++) {
++                    if (collides(session, x, y, z)) {
++                        return true;
++                    }
++                }
++            }
++        }
++        return false;
++    }
++
++    /**
++     * @return true if the player's own body volume overlaps a collidable block, i.e. the position is
++     * inside geometry rather than in the air above it
++     */
++    public static boolean intersectsCollidableBlock(GeyserSession session, Vector3d feet) {
++        int minX = floor(feet.getX() - PLAYER_HALF_WIDTH);
++        int maxX = floor(feet.getX() + PLAYER_HALF_WIDTH);
++        int minZ = floor(feet.getZ() - PLAYER_HALF_WIDTH);
++        int maxZ = floor(feet.getZ() + PLAYER_HALF_WIDTH);
++        int minY = floor(feet.getY());
++        int maxY = floor(feet.getY() + PLAYER_HEIGHT);
++
++        for (int x = minX; x <= maxX; x++) {
++            for (int z = minZ; z <= maxZ; z++) {
++                for (int y = minY; y <= maxY; y++) {
++                    if (collides(session, x, y, z)) {
++                        return true;
++                    }
++                }
++            }
++        }
++        return false;
++    }
++
++    /**
++     * @return true if the player is suspended in the air: nothing to stand on within
++     * {@link #SUPPORT_DEPTH} below the feet and not embedded in geometry either
++     */
++    public static boolean isSuspended(GeyserSession session, Vector3d feet) {
++        return !hasSupport(session, feet) && !intersectsCollidableBlock(session, feet);
++    }
++
++    /**
++     * @return the same position when it is already supported by the world, otherwise the nearest
++     * standing position on a surface below it, or the original position when there is no surface to
++     * stand on at all
++     */
++    public static Vector3d groundPlacement(GeyserSession session, Vector3d position) {
++        if (!isSuspended(session, position)) {
++            return position;
++        }
++        Vector3d grounded = groundBelow(session, position);
++        return grounded != null ? grounded : position;
++    }
++
++    /**
++     * Finds the nearest position on top of a collidable block below the given feet position, within
++     * {@link #MAX_GROUND_SEARCH} blocks and within the dimension's height.
++     *
++     * @return the grounded feet position in the same column, or null when there is no surface to
++     * stand on (void world, or the player is already at the dimension floor)
++     */
++    public static @Nullable Vector3d groundBelow(GeyserSession session, Vector3d feet) {
++        int x = floor(feet.getX());
++        int z = floor(feet.getZ());
++        int minY = Math.max(session.getBedrockDimension().minY(), floor(feet.getY()) - MAX_GROUND_SEARCH);
++
++        for (int y = floor(feet.getY()) - 1; y >= minY; y--) {
++            BlockCollision collision = BlockUtils.getCollision(
++                session.getGeyser().getWorldManager().getBlockAt(session, x, y, z));
++            if (collision == null) {
++                continue;
++            }
++
++            // Top of the highest collision box in this block - full blocks land the feet on y + 1,
++            // partial blocks (slabs, carpets, snow) on their actual surface height.
++            double top = y;
++            for (BoundingBox box : collision.getBoundingBoxes()) {
++                top = Math.max(top, y + box.getMiddleY() + (box.getSizeY() / 2.0));
++            }
++
++            Vector3d candidate = Vector3d.from(feet.getX(), top, feet.getZ());
++            if (hasSupport(session, candidate) && !intersectsCollidableBlock(session, candidate)) {
++                return candidate;
++            }
++        }
++        return null;
++    }
++}

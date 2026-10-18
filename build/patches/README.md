@@ -33,6 +33,19 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   generated into `EMPTY_SKIN`, so the extra `BufferedImage` was pure overhead;
   `downloadImage` now returns `null` for disallowed texture domains and
   `requestImage` raises instead of returning the AWT fallback.
+- `0007-ground-converted-player-placement.patch` — grounds a converted player's
+  placement (initial spawn, server switch, respawn) onto the world's surface
+  instead of accepting an airborne one, and stops forwarding a sustained
+  suspended-and-motionless Bedrock position. Upstream has no equivalent: a
+  Bedrock client with no terrain under it (chunk still loading, or a placement
+  carried over a server hand-over) reports a fixed airborne position with no
+  vertical motion, which a Java client cannot produce. Paper's
+  `ServerGamePacketListenerImpl` latches `clientIsFloating` and disconnects it
+  with `multiplayer.disconnect.flying` after 81 ticks (~4.05 s). Exempt:
+  vehicle, no-clip, flying, climbing, spectator/creative, water; when no
+  surface can be proven below the feet the sample is forwarded unchanged, so a
+  false negative cannot freeze a player. Reference implementation and lab A/B
+  (Paper 26.3, `allow-flight=false`): kanban `t_1e9c9090`.
 
 ## Generating new patches
 
