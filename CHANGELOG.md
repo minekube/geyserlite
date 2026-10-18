@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/minekube/geyserlite/compare/v0.6.2...v0.6.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **bedrock:** ground a converted player's placement + bump Geyser to 8d7e425 (Java 26.3) ([#231](https://github.com/minekube/geyserlite/issues/231)) ([78c0daf](https://github.com/minekube/geyserlite/commit/78c0daf0dc7bda58c455e3f904286aace2ce4b87))
+
 ## [0.6.2](https://github.com/minekube/geyserlite/compare/v0.6.1...v0.6.2) (2026-10-17)
 
 
