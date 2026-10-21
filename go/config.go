@@ -58,11 +58,22 @@ func buildConfigMap(opts Options) (map[string]any, error) {
 			"server-name": defaultStr(opts.MOTD.Line1, "geyserlite"),
 		},
 		"java": map[string]any{
-			"address":            upstreamAddr,
-			"port":               upstreamPort,
-			"auth-type":          opts.AuthType.String(),
-			"use-proxy-protocol": opts.AuthType == Floodgate,
-			"forward-hostname":   true,
+			"address":          upstreamAddr,
+			"port":             upstreamPort,
+			"auth-type":        opts.AuthType.String(),
+			"forward-hostname": true,
+		},
+		// The Java-side HAProxy toggle is advanced.java.use-haproxy-protocol in
+		// Geyser 2.x (GeyserConfig.AdvancedJavaConfig.useHaproxyProtocol). It is
+		// NOT java.use-proxy-protocol: that pre-2.0 key is in no migration path,
+		// so Geyser drops it silently and never sends the header, which makes an
+		// upstream that requires one close every managed join. Geyser's own v5
+		// migration only rewrites the older root key remote.use-proxy-protocol,
+		// so render the final path directly instead of relying on a migration.
+		"advanced": map[string]any{
+			"java": map[string]any{
+				"use-haproxy-protocol": opts.AuthType == Floodgate,
+			},
 		},
 	})
 	if opts.AuthType == Floodgate {
@@ -121,8 +132,11 @@ java:
   address: 127.0.0.1
   port: 25565
   auth-type: floodgate
-  use-proxy-protocol: false
   forward-hostname: true
+
+advanced:
+  java:
+    use-haproxy-protocol: false
 
 passthrough-motd: false
 passthrough-player-counts: false

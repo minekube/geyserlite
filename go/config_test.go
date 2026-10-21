@@ -2,8 +2,12 @@
 package geyserlite
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestBuildConfigMap_TypedOptionsApply(t *testing.T) {
@@ -91,6 +95,85 @@ func TestBuildConfigMap_OverrideBeatsTypedOption(t *testing.T) {
 	}
 	if got := cfg["bedrock"].(map[string]any)["port"]; got != 19999 {
 		t.Errorf("override should win, got port = %v", got)
+	}
+}
+
+// TestBuildConfigMap_RendersHaproxyToggleAtGeyser2Path pins the Java-side
+// HAProxy toggle to the config path the bundled Geyser build actually reads.
+//
+// Geyser 2.x reads it from advanced.java.use-haproxy-protocol
+// (GeyserConfig.AdvancedJavaConfig.useHaproxyProtocol). Its own v5 migration
+// only rewrites the pre-2.0 root key remote.use-proxy-protocol
+// (ConfigMigrations.addVersion(5)); a key at java.use-proxy-protocol is in no
+// migration path and is silently dropped. When that happened, the header was
+// never sent and Gate's Geyser listener (which required one) closed every
+// managed Bedrock join with "proxyproto: proxy protocol signature not present".
+//
+// Asserting the final path - and the absence of the legacy ones - keeps the
+// render correct without depending on any migration being applied by the
+// Geyser build that consumes it.
+func TestBuildConfigMap_RendersHaproxyToggleAtGeyser2Path(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		auth AuthType
+		want bool
+	}{
+		{name: "floodgate sends the header", auth: Floodgate, want: true},
+		{name: "online mode does not", auth: Online, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := buildConfigMap(Options{
+				Listen:   ":19132",
+				Upstream: "127.0.0.1:25567",
+				AuthType: tc.auth,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			advanced, ok := cfg["advanced"].(map[string]any)
+			if !ok {
+				t.Fatalf("rendered config has no advanced section; got %v", cfg["advanced"])
+			}
+			javaAdvanced, ok := advanced["java"].(map[string]any)
+			if !ok {
+				t.Fatalf("rendered config has no advanced.java section; got %v", advanced["java"])
+			}
+			got, ok := javaAdvanced["use-haproxy-protocol"]
+			if !ok {
+				t.Fatalf("advanced.java.use-haproxy-protocol missing from rendered config; "+
+					"Geyser 2.x ignores every other path (advanced.java = %v)", javaAdvanced)
+			}
+			if got != tc.want {
+				t.Errorf("advanced.java.use-haproxy-protocol = %v, want %v", got, tc.want)
+			}
+
+			// The legacy paths must stay absent: Geyser drops both silently, so
+			// rendering either one again is the same outage.
+			if java, ok := cfg["java"].(map[string]any); ok {
+				if legacy, ok := java["use-proxy-protocol"]; ok {
+					t.Errorf("rendered config still carries the pre-2.0 java.use-proxy-protocol = %v, "+
+						"which Geyser 2.x drops without an error", legacy)
+				}
+			}
+			if remote, ok := cfg["remote"]; ok {
+				t.Errorf("rendered config carries a pre-v5 remote section (%v); "+
+					"the toggle must be at its final path, not reachable only through a migration", remote)
+			}
+
+			// Prove the emitted YAML (what Geyser parses) carries the toggle too,
+			// not just the in-memory map.
+			out, err := yaml.Marshal(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := fmt.Sprintf("use-haproxy-protocol: %t", tc.want); !strings.Contains(string(out), want) {
+				t.Errorf("rendered YAML is missing %q:\n%s", want, out)
+			}
+		})
 	}
 }
 
