@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/minekube/geyserlite/compare/v0.6.3...v0.6.4) (2026-10-21)
+
+
+### Bug Fixes
+
+* **config:** render the HAProxy toggle where Geyser 2.x reads it ([#233](https://github.com/minekube/geyserlite/issues/233)) ([462d4ca](https://github.com/minekube/geyserlite/commit/462d4ca6f7a8c2f9052d15ed30208c319635425d))
+
 ## [0.6.3](https://github.com/minekube/geyserlite/compare/v0.6.2...v0.6.3) (2026-10-18)
 
 
