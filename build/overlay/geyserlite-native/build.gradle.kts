@@ -135,6 +135,11 @@ graalvmNative {
                 "-H:+SharedArenaSupport",
                 "-H:+RemoveSaturatedTypeFlows",
                 "-H:-ReportExceptionStackTraces",
+                // ARM64 CI has 16 GiB total RAM. Four analysis workers reached
+                // 14.18 GB RSS in a passing run and exhausted the 14g builder
+                // heap on main. Bound parallel allocation pressure without
+                // changing the generated library's optimization/runtime flags.
+                "--parallelism=${if (osArch == "aarch64" || osArch == "arm64") 2 else 4}",
                 // Keep this in sync with build/flags.sh. Without an
                 // explicit cap, native-image auto-sized the builder heap
                 // to ~7.6g on GitHub's arm64 runner and OOMed while
