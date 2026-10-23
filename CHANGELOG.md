@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.6](https://github.com/minekube/geyserlite/compare/v0.6.5...v0.6.6) (2026-10-23)
+
+
+### Bug Fixes
+
+* **build:** bound ARM64 native analysis parallelism ([#237](https://github.com/minekube/geyserlite/issues/237)) ([726d5cc](https://github.com/minekube/geyserlite/commit/726d5cc42abf9087c4d81618578da6a527b9482d))
+
 ## [0.6.5](https://github.com/minekube/geyserlite/compare/v0.6.4...v0.6.5) (2026-10-23)
 
 
