@@ -1,5 +1,5 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
-index 0cc4d4b29..bab31bf47 100644
+index 0cc4d4b29..50caee40d 100644
 --- a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
 +++ b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
 @@ -285,6 +285,7 @@ public final class NetherNetServer implements EventRegistrar {
@@ -32,7 +32,7 @@ index 0cc4d4b29..bab31bf47 100644
 +    // cannot reach that address. Keep ICE/RakNet on the configured UDP bind
 +    // while letting the hosting runtime bind signaling independently.
 +    static String signalingAddress(String bedrockAddress) {
-+        return signalingAddress(bedrockAddress, System.getenv("GEYSER_SIGNALING_ADDRESS"));
++        return signalingAddress(bedrockAddress, System.getenv("GEYSERLITE_SIGNALING_ADDRESS"));
 +    }
 +
 +    static String signalingAddress(String bedrockAddress, String environmentAddress) {

@@ -163,7 +163,7 @@ the alias. Without the environment override, discovery cannot reach that
 different bind; this also exercises the embedded-accessible override path.
 
 On Fly, keep the UDP bind on `fly-global-services`, and set
-`GEYSER_SIGNALING_ADDRESS=0.0.0.0` for the TCP signaling listener. This works
+`GEYSERLITE_SIGNALING_ADDRESS=0.0.0.0` for the TCP signaling listener. This works
 for both embedding APIs and subprocess mode. The subprocess system property
 `-DgeyserSignalingAddress` takes precedence over that environment setting.
 For `transport: both`, expose TCP 19132, keep RakNet UDP 19132, and expose

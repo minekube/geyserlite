@@ -12,8 +12,8 @@
 //	    port = 19132
 //
 // For NetherNet alongside RakNet, also expose TCP 19132 and UDP 19133,
-// set GEYSER_SIGNALING_ADDRESS=0.0.0.0 in Fly's [env], and set
-// GEYSER_ADVERTISE_ADDRESS to the dedicated public IPv4 address. The signaling
+// set GEYSERLITE_SIGNALING_ADDRESS=0.0.0.0 in Fly's [env], and set
+// GEYSERLITE_ADVERTISE_ADDRESS to the dedicated public IPv4 address. The signaling
 // bind setting works in embedded mode too; JVMArgs only applies to subprocesses.
 //
 // Plus a dedicated v4 IP (`fly ips allocate-v4` — UDP doesn't ride on
@@ -44,7 +44,7 @@ func main() {
 	// same code works in dev too.
 	listen := fmt.Sprintf("%s:19132", geyserlite.FlyGlobalServices())
 	var overrides map[string]any
-	if advertised := os.Getenv("GEYSER_ADVERTISE_ADDRESS"); advertised != "" {
+	if advertised := os.Getenv("GEYSERLITE_ADVERTISE_ADDRESS"); advertised != "" {
 		overrides = map[string]any{
 			"bedrock": map[string]any{
 				"transport": "both", "webrtc-port": 19133,
