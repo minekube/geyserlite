@@ -150,6 +150,11 @@ be used as a production configuration. Production joins still need a real
 authenticated client, and this test does not claim support for an unreleased
 Bedrock packet codec.
 
+CI maps `fly-global-services` to loopback alias `127.0.0.2` and uses the host
+network. TCP discovery targets `127.0.0.1`, while both UDP transports bind
+the alias. Without the environment override, discovery cannot reach that
+different bind; this also exercises the embedded-accessible override path.
+
 On Fly, keep the UDP bind on `fly-global-services`, and set
 `GEYSER_SIGNALING_ADDRESS=0.0.0.0` for the TCP signaling listener. This works
 for both embedding APIs and subprocess mode. The subprocess system property
@@ -177,6 +182,12 @@ The post-patch submodule update checks out the mapping commit the preview
 requires. The native WebRTC smoke uses the actual advertised codec and thus
 also exercises the protocol-2225 NetworkSettings path, while older-client
 joins still need the RakNet and NetherNet canary gates.
+
+Patch `0010` corrects a startup defect in that preview: `Old.INSTANCE`
+inherited the parent singleton and bypassed the old palette's block remapping,
+which aborted startup on `minecraft:poplar_planks` in the 26.30 palette.
+The regression test requires the pale-oak replacement; it fails without the
+subclass singleton. Reconcile/remove this patch together with `0009`.
 
 ## Local build (for development)
 

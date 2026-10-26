@@ -1,12 +1,12 @@
 # Isolated CI fixture only. Never use this offline identity policy in production.
 bedrock:
-  address: 0.0.0.0
+  address: fly-global-services
   port: 19132
   transport: both
   webrtc-port: 19133
   signaling:
     mode: builtin
-    advertise-addresses: [127.0.0.1]
+    advertise-addresses: [127.0.0.2]
     stun-discovery: false
 java:
   address: 127.0.0.1

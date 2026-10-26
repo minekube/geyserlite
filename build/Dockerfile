@@ -67,6 +67,7 @@ RUN bash -c 'source /work/build/flags.sh \
 # Build the shared library from the same Geyser-Standalone.jar.
 # The @CEntryPoint methods in build/overlay/geyserlite-native/.../GeyserBridge.java
 # are picked up because the overlay registered that subproject in settings.gradle.kts.
+FROM builder AS shared-builder
 WORKDIR /work/build/.work/Geyser
 RUN ./gradlew :geyserlite-native:nativeCompile --no-daemon \
     || (echo "geyserlite-native subproject build failed — see build/overlay/" && exit 1)
@@ -75,7 +76,6 @@ RUN ./gradlew :geyserlite-native:nativeCompile --no-daemon \
 # graal_isolate.h would produce an artifact that cannot satisfy the host ABI.
 RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
     && mkdir -p /out \
-    && cp /build/geyserlite /out/geyserlite \
     && cp "$NC/libgeyserlite.so" /out/libgeyserlite.so \
     && test -f "$NC/libgeyserlite.h" \
     && cp "$NC/libgeyserlite.h" /out/libgeyserlite.h
@@ -88,7 +88,7 @@ RUN mkdir -p /runtime-libs \
 
 # ── Output stage: minimal runnable image + permissions.yml ───────────────────
 FROM gcr.io/distroless/base-debian12 AS image
-COPY --from=builder /out/geyserlite /geyserlite
+COPY --from=builder /build/geyserlite /geyserlite
 COPY --from=runtime-deps /runtime-libs/libz.so.1 /usr/lib/libz.so.1
 # permissions.yml moved upstream from bootstrap/standalone to core/
 # (see GeyserMC/Geyser commit history). Pinning to the new location.
@@ -99,5 +99,5 @@ ENTRYPOINT ["/geyserlite", "--nogui"]
 
 # ── Output stage: just the shared library + header ───────────────────────────
 FROM scratch AS shared
-COPY --from=builder /out/libgeyserlite.so /libgeyserlite.so
-COPY --from=builder /out/libgeyserlite.h  /libgeyserlite.h
+COPY --from=shared-builder /out/libgeyserlite.so /libgeyserlite.so
+COPY --from=shared-builder /out/libgeyserlite.h  /libgeyserlite.h
