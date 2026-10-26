@@ -84,12 +84,14 @@ RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
 # zlib from the target platform for the same runtime on both architectures.
 FROM debian:bookworm-slim AS runtime-deps
 RUN mkdir -p /runtime-libs \
-    && cp -L /usr/lib/*-linux-gnu/libz.so.1 /runtime-libs/libz.so.1
+    && cp -L /usr/lib/*-linux-gnu/libz.so.1 /runtime-libs/libz.so.1 \
+    && cp -L /lib/*-linux-gnu/libgcc_s.so.1 /runtime-libs/libgcc_s.so.1
 
 # ── Output stage: minimal runnable image + permissions.yml ───────────────────
 FROM gcr.io/distroless/base-debian12 AS image
 COPY --from=builder /build/geyserlite /geyserlite
 COPY --from=runtime-deps /runtime-libs/libz.so.1 /usr/lib/libz.so.1
+COPY --from=runtime-deps /runtime-libs/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
 # permissions.yml moved upstream from bootstrap/standalone to core/
 # (see GeyserMC/Geyser commit history). Pinning to the new location.
 COPY --from=builder /work/build/.work/Geyser/core/src/main/resources/permissions.yml /permissions.yml

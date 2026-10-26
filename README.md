@@ -23,7 +23,9 @@ surface. `geyserlite` ships Geyser standalone compiled with **GraalVM
 flags, and a baked 256 MB heap, so the same workload fits in **~110 MB
 idle / ~175 MB peak** alongside a Go or Rust proxy on the same machine.
 
-Linux binaries require glibc 2.34 or newer and zlib. NetherNet's libdatachannel
+Linux binaries require glibc 2.34 or newer and zlib. NetherNet also needs the
+OpenSSL 3 and libgcc runtime libraries (`libssl3` and `libgcc-s1` on Debian).
+NetherNet's libdatachannel
 JNI library is bundled inside each binary and extracted at startup; static
 musl executables cannot load it. Debian 12 and the published container include
 the required runtime libraries. Plain Alpine requires a glibc environment.

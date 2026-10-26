@@ -140,6 +140,11 @@ entries selected from a GraalVM 25 tracing-agent run of Geyser `036293d`,
 libdatachannel `0.24.6.0-20261020.080217-6`, Linux arm64, with both transports
 and built-in signaling enabled. Its JNI loader eagerly resolves the callback
 methods when loading the library, including callbacks not used during startup.
+The minimal container already supplies OpenSSL3; its runtime stage also copies
+libgcc_s and zlib from Debian. Without libgcc_s, libdatachannel cannot load even
+though its JNI resource is present. Verify all DT_NEEDED entries, not only the
+executable's direct dependencies, when changing the runtime base.
+
 The selected entries are converted to the legacy JNI metadata schema so both
 the Linux GraalVM25 and Windows GraalVM21 builds use the same registrations.
 
