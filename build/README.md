@@ -212,7 +212,6 @@ Accepted consequences of following the stable series: upstream drops Bedrock
 `build/validate-geyser-source.py` now validates three palette registrations
 (26_40, 26_50, 26_60) with no duplicate codec.
 
-
 ## Local build (for development)
 
 Requires Docker. `make build` (or directly):
