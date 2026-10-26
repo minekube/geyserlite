@@ -7222,4 +7222,9 @@
       }
     ]
   }
+,
+{"name":"org.cloudburstmc.netty.util.nethernet.Identity$Assertion","methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"]},{"name":"fingerprints","parameterTypes":[]},{"name":"token","parameterTypes":[]}],"allDeclaredFields":true},
+{"name":"org.cloudburstmc.netty.util.nethernet.Identity$Idp","methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"]},{"name":"domain","parameterTypes":[]},{"name":"protocol","parameterTypes":[]}],"allDeclaredFields":true},
+{"name":"org.cloudburstmc.netty.util.nethernet.Identity$Raw","methods":[{"name":"<init>","parameterTypes":["org.cloudburstmc.netty.util.nethernet.Identity$Idp","java.lang.String"]},{"name":"assertion","parameterTypes":[]},{"name":"idp","parameterTypes":[]}],"allDeclaredFields":true}
+
 ]

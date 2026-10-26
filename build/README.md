@@ -147,6 +147,11 @@ executable's direct dependencies, when changing the runtime base.
 
 The selected entries are converted to the legacy JNI metadata schema so both
 the Linux GraalVM25 and Windows GraalVM21 builds use the same registrations.
+The three `Identity` record types in `reflect-config.json` come from a second
+agent run that completed a signed protocol2225 WebRTC round trip, not startup
+alone. Their canonical constructors/accessors and record fields are needed by
+Gson to parse the SDP identity assertion; omitting them turns valid signed
+offers into native-only HTTP401 responses.
 
 The native-image CI smoke uses `nethernet-smoke/config.yml` in an isolated
 container. The separate Go module performs HTTP discovery, signed SDP/ICE/
