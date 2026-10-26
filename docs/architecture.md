@@ -32,10 +32,13 @@ The full memory journey is in [`../ROADMAP.md`](../ROADMAP.md). Headlines:
 - JVM Geyser idles at ~440 MB RSS — too big for a 256 MB Fly.io VM.
 - `native-image` with default flags cuts that to ~220 MB.
 - Tuning the Netty allocator, capping direct memory, lowering thread counts,
-  and using `--strict-image-heap` + `--static --libc=musl` brings it to
+  and using `--strict-image-heap` with the former static musl link brought it to
   **~80 MB RSS** under load with the binary at **~107 MB**.
 - Executable flags live in [`../build/flags.sh`](../build/flags.sh), each
   annotated; the shared-library Gradle build mirrors the compatible set.
+- Both Linux architectures now use dynamic glibc so NetherNet can load its
+  bundled libdatachannel JNI library. The historical static-link measurements
+  above are not a memory guarantee for the additional WebRTC transport.
 
 ## Soft fork without contributions
 

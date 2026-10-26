@@ -109,6 +109,8 @@ tasks:
         --tests org.geysermc.geyser.network.bedrock.BedrockPacketTraceHandlerTest
         --tests org.geysermc.geyser.network.bedrock.raknet.BedrockRawDatagramTraceHandlerTest
         --tests org.geysermc.geyser.skin.SkinPngDecoderTest
+        --tests org.geysermc.geyser.network.bedrock.nethernet.NetherNetSignalingAddressTest
+        --tests org.geysermc.geyser.registry.populator.conversion.LegacyBlockRemapperTest
         --no-daemon
 
   test:

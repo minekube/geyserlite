@@ -12,22 +12,17 @@
 # Architecture-specific flags. Detected from `uname -m` so the same
 # flags.sh works under both linux/amd64 and linux/arm64 buildx targets.
 #
-# Static musl linking is only applied on amd64. On aarch64 the GraalVM
-# 25-ol9 image doesn't ship the static JDK pieces required for
-# --libc=musl, so we fall back to dynamic glibc (still produces a clean
-# ELF, just one with the standard glibc runtime dependency).
-NI_LIBC_FLAGS=()
+# Both Linux architectures use dynamic glibc. NetherNet loads its bundled JNI
+# library at runtime; a static musl executable cannot dlopen that library.
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*|Windows_NT)
-        # Windows native-image uses MSVC. Linux-only musl/static flags do
-        # not apply, and -march=compatibility keeps the .exe broadly usable.
+        # Windows native-image uses MSVC; keep the .exe broadly usable.
         NI_MARCH="-march=compatibility"
         ;;
     *)
         case "$(uname -m)" in
             x86_64|amd64)
                 NI_MARCH="-march=x86-64-v2"
-                NI_LIBC_FLAGS=(--static --libc=musl)
                 ;;
             aarch64|arm64)
                 NI_MARCH="-march=armv8-a"
@@ -60,7 +55,7 @@ NI_FLAGS_COMMON=(
     # (and similar) because native-image discards classpath resources
     # by default. The patterns cover the YAML configs, JSON schemas,
     # mappings, language packs, and the embedded resource pack.
-    '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$'
+    '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack|(linux|windows|macos)-[^/]+/native/libdatachannel-java\.(so|dll|dylib))$'
 
     # Don't fall back to bytecode at runtime if static analysis can't reach a method —
     # we want a true native binary, not a JVM wrapper.
@@ -97,8 +92,8 @@ NI_FLAGS_COMMON=(
     # These keep the image building; they do NOT give it a working AWT. Player
     # skins use the GeyserLite pure-Java PNG patch instead, while unrelated
     # Geyser AWT paths remain unavailable. No combination of native-image flags
-    # links AWT statically, and the amd64 build below is --static, so it cannot
-    # dlopen the libraries either. Before adding
+    # links AWT statically, and our single-file release omits its sibling libs.
+    # Before adding
     # -Djava.awt.headless=true or shipping libawt*.so, read
     # "Why AWT cannot be enabled" in build/README.md — the experiment is already
     # written up there.
@@ -107,12 +102,6 @@ NI_FLAGS_COMMON=(
     # Stricter image-heap policy. Catches accidentally retained mutable state at
     # build time. Slightly larger binary; cleaner image.
     --strict-image-heap
-
-    # Linkage: amd64 statically links musl for a single-file ELF with no
-    # glibc dependency. aarch64 falls back to dynamic glibc because the
-    # GraalVM 25-ol9 image doesn't ship the static JDK pieces required
-    # for --libc=musl on aarch64. NI_LIBC_FLAGS is empty there.
-    "${NI_LIBC_FLAGS[@]}"
 
     # Architecture-specific baseline. x86-64-v2 covers every modern x86 host
     # (Fly machines, most VPSs); on aarch64 we use armv8-a, the standard

@@ -125,6 +125,10 @@ if [ ${#patches[@]} -gt 0 ]; then
   done
 fi
 
+# Compatibility patches can advance an upstream resource submodule. Its
+# checkout must match the patched gitlink before Gradle consumes the mappings.
+( cd "${GEYSER_DIR}" && git submodule update --init --recursive )
+
 echo "▸ Validating Geyser source assumptions"
 "${PYTHON_BIN}" "${REPO_ROOT}/build/validate-geyser-source.py" "${GEYSER_DIR}"
 

@@ -14,7 +14,7 @@ executable flags are:
 | Flag | Effect |
 |---|---|
 | `--strict-image-heap` | Tighter image-heap policy. ~5-10 MB less RSS. |
-| `--static --libc=musl` | Single static ELF; no glibc dep. Slightly larger binary, removes runtime deps. |
+| Dynamic glibc link | Allows NetherNet to load the bundled libdatachannel JNI library on both Linux architectures. |
 | `-march=x86-64-v2` | CPU instruction baseline. v3 is faster but excludes some hosts. |
 | `-O2` | Optimization level. `-Ob` is faster to build, smaller, but slower at runtime. |
 | `-R:MaxHeapSize=256m` | Bake the maximum heap ceiling into the image. Override at runtime with `-Xmx`. |
