@@ -135,11 +135,13 @@ into the runtime stage: the release download path does not distribute them.
 The executable, Windows build and shared-library build retain upstream
 `libdatachannel-java` native resources. Linux executables use dynamic glibc
 because static musl executables cannot load JNI libraries at runtime.
-`agent-config/reachability-metadata.json` contains the libdatachannel JNI
+`agent-config/jni-config.json` contains the libdatachannel JNI
 entries selected from a GraalVM 25 tracing-agent run of Geyser `036293d`,
 libdatachannel `0.24.6.0-20261020.080217-6`, Linux arm64, with both transports
 and built-in signaling enabled. Its JNI loader eagerly resolves the callback
 methods when loading the library, including callbacks not used during startup.
+The selected entries are converted to the legacy JNI metadata schema so both
+the Linux GraalVM25 and Windows GraalVM21 builds use the same registrations.
 
 The native-image CI smoke uses `nethernet-smoke/config.yml` in an isolated
 container. The separate Go module performs HTTP discovery, signed SDP/ICE/
