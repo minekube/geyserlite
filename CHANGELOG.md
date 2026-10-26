@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/minekube/geyserlite/compare/v0.6.7...v0.7.0) (2026-10-26)
+
+
+### Features
+
+* enable native NetherNet ingress and Bedrock 26.60 compatibility ([#241](https://github.com/minekube/geyserlite/issues/241)) ([ba86e00](https://github.com/minekube/geyserlite/commit/ba86e006c6e1355fcb3328f9c1111cf9e7e12885))
+
 ## [0.6.7](https://github.com/minekube/geyserlite/compare/v0.6.6...v0.6.7) (2026-10-26)
 
 
