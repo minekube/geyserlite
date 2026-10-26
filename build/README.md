@@ -176,30 +176,42 @@ WebRTC UDP 19133 without port rewriting. Advertise the app's dedicated IPv4
 address with `bedrock.signaling.advertise-addresses`; Fly's egress/STUN address
 is not the public service address.
 
-## Temporary Bedrock 26.60 compatibility patch
+## Geyser 26.60 stable pin
 
-Stable Geyser `036293d` includes NetherNet but advertises codecs only through
-26.52. Patch `0009` is the unmodified upstream feature-branch commit
-[`10607971`](https://github.com/GeyserMC/Geyser/commit/10607971cb4400906badfe352b2906a6998a6290)
-of 21 October 2026, adding protocol 2225, its mappings and block/item assets.
-It is applied to current stable instead of downgrading to that older branch,
-which lacks the later NetherNet CR6, native-library and signaling fixes.
-This is an explicit preview exception ahead of 26.60's planned 27 October
-release, not an assertion that upstream has released stable 26.60 support.
+`build/geyser.version` pins upstream commit `d515a97e3d` ("Remove legacy 26.30
+code, clean up CodecProcessor"), the tip of the 26.60 support series before two
+behaviour-changing commits landed on upstream master. `GameProtocol` registers
+`Bedrock_v2225` as Bedrock `26.60`, and the 26.60 block/item palettes, mappings
+and `ICanHasMoreStates` remapper chain are upstream source rather than a
+patch. The temporary preview pair (`0009`, `0010`) and the
+`LegacyBlockRemapperTest` that guarded `0010` are gone: upstream removed the
+`ICanHasMoreStates.Old` palette (26.30) in the same series, so the identity
+remapper is now used for 26.60 and the startup defect `0010` patched cannot
+recur.
 
-Remove `0009` in the same PR that updates `build/geyser.version` to upstream's
-stable 26.60 commit. Patch application is deliberately fail-closed, so an
-upstream bump cannot silently retain or double-apply this temporary change.
-The post-patch submodule update checks out the mapping commit the preview
-requires. The native WebRTC smoke uses the actual advertised codec and thus
-also exercises the protocol-2225 NetworkSettings path, while older-client
-joins still need the RakNet and NetherNet canary gates.
+Deliberately **not** taken yet, all upstream-after-this-pin:
 
-Patch `0010` corrects a startup defect in that preview: `Old.INSTANCE`
-inherited the parent singleton and bypassed the old palette's block remapping,
-which aborted startup on `minecraft:poplar_planks` in the 26.30 palette.
-The regression test requires the pale-oak replacement; it fails without the
-subclass singleton. Reconcile/remove this patch together with `0009`.
+- `014d8bb529` flips the `bedrock.transport` default from `raknet` to
+  `nethernet`. Our consumers (moxy's managed `geyserlite` engine) supply
+  Bedrock config overrides without a `transport` key, so the Geyser default is
+  what decides the listener. Taking the flip silently removes the RakNet UDP
+  listener every current client and every RakNet status probe uses. NetherNet
+  ingress needs an explicit edge decision (moxy `transport: both`, WebRTC UDP
+  port exposure, client-version floor) and is tracked separately.
+- `5a617feac8` restructures Bedrock packet/login handling
+  (`UpstreamPacketHandler`, `LoginEncryptionUtils`, `SkinProvider`,
+  `GeyserSession`), which is exactly what patches `0002`, `0004`, `0005`,
+  `0006` and `0007` modify; retargeting them belongs in its own reviewable
+  change, not bundled into a version pin.
+- `3869346cb6` and later only move the mappings gitlink to master, adjust API
+  deprecation metadata, and bump the upstream version/README.
+
+Accepted consequences of following the stable series: upstream drops Bedrock
+26.30 (`Bedrock_v1001`) support in it, so the supported Bedrock range becomes
+26.40 – 26.60; the 26.30 palette files were removed upstream and
+`build/validate-geyser-source.py` now validates three palette registrations
+(26_40, 26_50, 26_60) with no duplicate codec.
+
 
 ## Local build (for development)
 
