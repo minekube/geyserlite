@@ -19,9 +19,14 @@ JVM Geyser idles around **440 MB RSS**. That's bigger than a `shared-cpu-1x`
 Fly machine (256 MB), so adding Bedrock cross-play to a Java proxy
 historically meant running it as its own VM — extra cost, extra IP, extra
 surface. `geyserlite` ships Geyser standalone compiled with **GraalVM
-`native-image`** (musl-static on amd64, glibc-dynamic on arm64), tuned
+`native-image`** (glibc-dynamic on Linux amd64 and arm64), tuned
 flags, and a baked 256 MB heap, so the same workload fits in **~110 MB
 idle / ~175 MB peak** alongside a Go or Rust proxy on the same machine.
+
+Linux binaries require glibc 2.34 or newer and zlib. NetherNet's libdatachannel
+JNI library is bundled inside each binary and extracted at startup; static
+musl executables cannot load it. Debian 12 and the published container include
+the required runtime libraries. Plain Alpine requires a glibc environment.
 
 Two flagship language libraries (Go and Rust, peers, same release cycle)
 load `libgeyserlite.so` in-process via `dlopen` on Linux, or spawn the

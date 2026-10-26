@@ -12,39 +12,19 @@ ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:25-ol9
 # ── Build stage ──────────────────────────────────────────────────────────────
 FROM ${GRAALVM_IMAGE} AS builder
 
-# musl + static zlib for --libc=musl static linking.
-#
 # The GraalVM 25-ol9 image baked-in glibc-static 2.34-83 from @System,
 # which depsolves against glibc-devel 2.34-83 only — but ol9_appstream
 # has moved on to 2.34-231 and refuses to coexist. microdnf doesn't
 # support --allowerasing, so we instead remove the stale static libs
 # from @System first; the gcc/gcc-c++ install then pulls fresh devel
 # packages from appstream cleanly.
-# (glibc-static itself isn't needed: the static-link target uses musl,
-# built below from source.)
+# Neither artifact needs the stale static libc package. Both must support
+# loading NetherNet's bundled libdatachannel JNI library at runtime.
 RUN rpm -e --nodeps glibc-static libstdc++-static 2>/dev/null || true \
     && microdnf install -y --setopt=install_weak_deps=0 \
         git curl tar gzip findutils python3 \
         gcc gcc-c++ zlib-static \
     && microdnf clean all
-
-# Build a static zlib against musl (the system zlib is glibc).
-RUN curl -fsSLO https://musl.libc.org/releases/musl-1.2.5.tar.gz \
-    && tar xzf musl-1.2.5.tar.gz && cd musl-1.2.5 \
-    && ./configure --prefix=/usr/local/musl --disable-shared \
-    && make -j"$(nproc)" install \
-    && cd .. && rm -rf musl-1.2.5* \
-    && curl -fsSL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz | tar xz \
-    && cd zlib-1.3.1 \
-    && CC=/usr/local/musl/bin/musl-gcc ./configure --prefix=/usr/local/musl --static \
-    && make -j"$(nproc)" install \
-    && cp /usr/local/musl/lib/libz.a /usr/lib64/ \
-    && cd .. && rm -rf zlib-1.3.1 \
-    # GraalVM's --libc=musl looks up the C compiler as
-    # `<arch>-linux-musl-gcc` on PATH (see CCompilerInvoker.java).
-    # Provide both linkage names from our musl install.
-    && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/x86_64-linux-musl-gcc \
-    && ln -sf /usr/local/musl/bin/musl-gcc /usr/local/bin/aarch64-linux-musl-gcc
 
 WORKDIR /work
 COPY build/geyser.version build/apply-overlay.sh build/flags.sh build/augment-annotation-reflect-config.py build/mark-reflect-unsafe.py build/validate-geyser-source.py ./build/
@@ -100,9 +80,8 @@ RUN NC=/work/build/.work/Geyser/geyserlite-native/build/native/nativeCompile \
     && test -f "$NC/libgeyserlite.h" \
     && cp "$NC/libgeyserlite.h" /out/libgeyserlite.h
 
-# The amd64 executable is fully static, while arm64 currently falls back to
-# dynamic glibc and zlib. Stage zlib from the target platform so the same final
-# image works on both architectures.
+# Both executables use dynamic glibc to load NetherNet's JNI library. Stage
+# zlib from the target platform for the same runtime on both architectures.
 FROM debian:bookworm-slim AS runtime-deps
 RUN mkdir -p /runtime-libs \
     && cp -L /usr/lib/*-linux-gnu/libz.so.1 /runtime-libs/libz.so.1

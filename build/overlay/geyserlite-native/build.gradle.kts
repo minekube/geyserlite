@@ -108,7 +108,7 @@ graalvmNative {
                 // Without those the .so loads fine but log4j's static
                 // init chain trips on UpperLookup / ReusableMessageFactory
                 // construction and the whole isolate is poisoned.
-                """-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$""",
+                """-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack|(linux|windows|macos)-[^/]+/native/libdatachannel-java\.(so|dll|dylib))$""",
                 "--no-fallback",
                 "--enable-url-protocols=https,http",
                 "--initialize-at-build-time=" + listOf(

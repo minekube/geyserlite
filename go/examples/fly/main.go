@@ -11,6 +11,11 @@
 //	  [[services.ports]]
 //	    port = 19132
 //
+// For NetherNet alongside RakNet, also expose TCP 19132 and UDP 19133,
+// set GEYSER_SIGNALING_ADDRESS=0.0.0.0 in Fly's [env], and set
+// GEYSER_ADVERTISE_ADDRESS to the dedicated public IPv4 address. The signaling
+// bind setting works in embedded mode too; JVMArgs only applies to subprocesses.
+//
 // Plus a dedicated v4 IP (`fly ips allocate-v4` — UDP doesn't ride on
 // shared IPs).
 //
@@ -38,6 +43,17 @@ func main() {
 	// set (always the case on Fly machines), else "0.0.0.0" — so the
 	// same code works in dev too.
 	listen := fmt.Sprintf("%s:19132", geyserlite.FlyGlobalServices())
+	var overrides map[string]any
+	if advertised := os.Getenv("GEYSER_ADVERTISE_ADDRESS"); advertised != "" {
+		overrides = map[string]any{
+			"bedrock": map[string]any{
+				"transport": "both", "webrtc-port": 19133,
+				"signaling": map[string]any{
+					"mode": "builtin", "advertise-addresses": []string{advertised}, "stun-discovery": false,
+				},
+			},
+		}
+	}
 
 	// Decode the Floodgate key from a Fly secret. Secrets are env vars,
 	// so the 16 random bytes need a base64 wrapping.
@@ -53,11 +69,12 @@ func main() {
 	// In a co-located deployment (Gate + Geyser in the same Fly machine),
 	// upstream is loopback because Gate's bedrock listener is on 127.0.0.1.
 	srv, err := geyserlite.New(geyserlite.Options{
-		Listen:       listen,
-		Upstream:     "127.0.0.1:25567",
-		AuthType:     geyserlite.Floodgate,
-		FloodgateKey: key,
-		Logger:       slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		Listen:          listen,
+		Upstream:        "127.0.0.1:25567",
+		AuthType:        geyserlite.Floodgate,
+		FloodgateKey:    key,
+		ConfigOverrides: overrides,
+		Logger:          slog.New(slog.NewJSONHandler(os.Stdout, nil)),
 	})
 	if err != nil {
 		log.Fatal(err)

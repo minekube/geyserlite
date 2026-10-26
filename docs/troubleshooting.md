@@ -62,6 +62,14 @@ not provide general AWT support; see
 
 ### Bedrock client can't connect on Fly.io but TCP services work
 
+NetherNet needs a separate TCP signaling bind: set
+`GEYSER_SIGNALING_ADDRESS=0.0.0.0` in the Fly app environment. The UDP
+`bedrock.address` remains `fly-global-services`; TCP cannot bind there.
+With `bedrock.transport: both`, keep UDP 19132 for RakNet, expose TCP 19132
+for signaling and set/expose `bedrock.webrtc-port: 19133` over UDP. Set
+`bedrock.signaling.advertise-addresses` to the dedicated public IPv4 address.
+This environment setting also works in Go/Rust embedded mode.
+
 Fly's UDP edge NATs external traffic to a special internal IPv4 address.
 Your Geyser config must bind to it, not `0.0.0.0`:
 

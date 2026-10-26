@@ -1,0 +1,46 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
+index 0cc4d4b29..bab31bf47 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
+@@ -285,6 +285,7 @@ public final class NetherNetServer implements EventRegistrar {
+             }
+ 
+             BedrockListener listener = geyser.config().bedrock();
++            String signalingAddress = signalingAddress(listener.address());
+             // The channel binds HTTP signaling over TCP to the signaling port, and by default pins ICE to its UDP side.
+             // When the WebRTC port is another port, ICE goes there instead.
+             boolean separateIcePort = webrtcPort != signalingPort;
+@@ -302,11 +303,11 @@ public final class NetherNetServer implements EventRegistrar {
+                 b.option(NetherChannelOption.NETHER_SERVER_ICE_ADDRESS, new InetSocketAddress(listener.address(), webrtcPort));
+             }
+ 
+-            this.inbuiltChannel = b.bind(new InetSocketAddress(listener.address(), signalingPort)).sync().channel();
++            this.inbuiltChannel = b.bind(new InetSocketAddress(signalingAddress, signalingPort)).sync().channel();
+ 
+             // With a certificate configured, plain HTTP is rejected
+             String scheme = https.certificate().isBlank() ? "http://" : "https://";
+-            logger().info("Built-in signaling started on " + scheme + listener.address() + ":" + signalingPort
++            logger().info("Built-in signaling started on " + scheme + signalingAddress + ":" + signalingPort
+                 + (separateIcePort ? ", with NetherNet on UDP port " + webrtcPort : ""));
+         } catch (Throwable e) {
+             // Throwable: the WebRTC natives are not available on every platform
+@@ -315,6 +316,19 @@ public final class NetherNetServer implements EventRegistrar {
+         }
+     }
+ 
++    // Fly's UDP reply path requires fly-global-services, but its TCP proxy
++    // cannot reach that address. Keep ICE/RakNet on the configured UDP bind
++    // while letting the hosting runtime bind signaling independently.
++    static String signalingAddress(String bedrockAddress) {
++        return signalingAddress(bedrockAddress, System.getenv("GEYSER_SIGNALING_ADDRESS"));
++    }
++
++    static String signalingAddress(String bedrockAddress, String environmentAddress) {
++        String fallback = environmentAddress == null || environmentAddress.isBlank()
++                ? bedrockAddress : environmentAddress;
++        return System.getProperty("geyserSignalingAddress", fallback);
++    }
++
+     /**
+      * The addresses both signaling modes announce: those in {@code -DgeyserAdvertiseAddresses}, comma separated, else
+      * those in the config. An address this machine does not hold is announced as the public side of a NAT forwarding

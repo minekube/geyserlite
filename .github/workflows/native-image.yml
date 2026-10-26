@@ -95,12 +95,20 @@ jobs:
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             docker pull "$image"
           fi
-          docker run -d --name geyser-image-smoke "$image"
+          mkdir -p "$RUNNER_TEMP/geyser-nethernet-smoke"
+          cp build/nethernet-smoke/config.yml "$RUNNER_TEMP/geyser-nethernet-smoke/config.yml"
+          docker run -d --name geyser-image-smoke \
+            -p 127.0.0.1:19132:19132/tcp -p 127.0.0.1:19132:19132/udp \
+            -p 127.0.0.1:19133:19133/udp \
+            -v "$RUNNER_TEMP/geyser-nethernet-smoke:/smoke" -w /smoke "$image"
           trap 'docker logs geyser-image-smoke 2>&1 || true; docker rm -f geyser-image-smoke >/dev/null 2>&1 || true' EXIT
 
           for _ in $(seq 1 60); do
             logs=$(docker logs geyser-image-smoke 2>&1)
-            if grep -q "Started Geyser on UDP port" <<<"$logs"; then
+            if grep -q "Started Geyser on UDP port" <<<"$logs" && \
+               grep -q "Built-in signaling started" <<<"$logs"; then
+              (cd build/nethernet-smoke && GEYSERLITE_NETHERNET_SMOKE_ADDRESS=http://127.0.0.1:19132 go test -v -count=1 -timeout 60s ./...)
+              (cd go && go run ./cmd/bedrock-probe -addr 127.0.0.1:19132 -wait 5s)
               exit 0
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' geyser-image-smoke)" != "true" ]; then
@@ -269,7 +277,7 @@ jobs:
           $buildXmx = if ($env:NI_BUILD_JVM_XMX) { $env:NI_BUILD_JVM_XMX } else { "6g" }
           $flags = @(
             "-H:ConfigurationFileDirectories=$configDir",
-            '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack)$',
+            '-H:IncludeResources=^(custom-skulls\.yml|permissions\.yml|.+\.json|.+\.properties|.+\.lang|.+\.dat|META-INF/services/.+|languages/.+|mappings/.+|bedrock/.+|assets/.+|.+\.mcpack|(linux|windows|macos)-[^/]+/native/libdatachannel-java\.(so|dll|dylib))$',
             "--no-fallback",
             "--enable-url-protocols=https,http",
             "--initialize-at-build-time=org.apache.logging.log4j,net.minecrell.terminalconsoleappender,org.jline,org.fusesource.jansi,org.yaml.snakeyaml,java.awt.Color,com.sun.jna",

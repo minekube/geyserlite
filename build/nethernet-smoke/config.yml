@@ -1,0 +1,18 @@
+# Isolated CI fixture only. Never use this offline identity policy in production.
+bedrock:
+  address: 0.0.0.0
+  port: 19132
+  transport: both
+  webrtc-port: 19133
+  signaling:
+    mode: builtin
+    advertise-addresses: [127.0.0.1]
+    stun-discovery: false
+java:
+  address: 127.0.0.1
+  port: 25565
+  auth-type: offline
+advanced:
+  bedrock:
+    validate-bedrock-login: false
+config-version: 5
