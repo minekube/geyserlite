@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.7](https://github.com/minekube/geyserlite/compare/v0.6.6...v0.6.7) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** keep Geyser updates ahead of the routine backlog ([6e54c84](https://github.com/minekube/geyserlite/commit/6e54c842de48e05167b02c05757c1b2e7439b77b))
+* **deps:** keep Geyser updates ahead of the routine backlog ([5b8e437](https://github.com/minekube/geyserlite/commit/5b8e4377cbf95207f3be0ba5284423fea37bba0f))
+
 ## [0.6.6](https://github.com/minekube/geyserlite/compare/v0.6.5...v0.6.6) (2026-10-23)
 
 
