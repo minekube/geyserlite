@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/minekube/geyserlite/compare/v0.7.0...v0.7.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **deps:** bump Geyser to upstream stable 26.60 and drop preview patches ([#243](https://github.com/minekube/geyserlite/issues/243)) ([b82ab65](https://github.com/minekube/geyserlite/commit/b82ab6562da2d9eea72ac6a1728996ebca23e0fc))
+
 ## [0.7.0](https://github.com/minekube/geyserlite/compare/v0.6.7...v0.7.0) (2026-10-26)
 
 
