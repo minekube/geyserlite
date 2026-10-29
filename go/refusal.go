@@ -139,7 +139,6 @@ func observeVersionRefusal(refusal VersionRefusal, logger *slog.Logger) {
 		refusal.Kind,
 		strconv.Itoa(refusal.ClientProtocol),
 		strconv.Itoa(refusal.MaxSupportedProtocol),
-		refusal.BedrockIngress,
 	).Inc()
 
 	if logger == nil {

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
@@ -19,9 +20,9 @@ const refusalLine = `[20:36:05 INFO] GEYSERLITE_REFUSAL refusal=newer_than_edge 
 	`client_protocol=9999 max_supported_protocol=827 bedrock_ingress=fly-global-services:19132`
 
 // refusalCount reads the counter for one label set without needing a registry.
-func refusalCount(t *testing.T, kind, clientProtocol, maxSupported, ingress string) float64 {
+func refusalCount(t *testing.T, kind, clientProtocol, maxSupported string) float64 {
 	t.Helper()
-	return testutil.ToFloat64(bedrockVersionRefusals.WithLabelValues(kind, clientProtocol, maxSupported, ingress))
+	return testutil.ToFloat64(bedrockVersionRefusals.WithLabelValues(kind, clientProtocol, maxSupported))
 }
 
 // captureLogger returns a JSON slog handler writing into buf.
@@ -34,7 +35,7 @@ func TestVersionRefusalIncrementsCounterOnce(t *testing.T) {
 	var buf bytes.Buffer
 	pipeToLogger(strings.NewReader(refusalLine+"\n"), captureLogger(&buf), slog.LevelInfo, nil)
 
-	if got := refusalCount(t, "newer_than_edge", "9999", "827", "fly-global-services:19132"); got != 1 {
+	if got := refusalCount(t, "newer_than_edge", "9999", "827"); got != 1 {
 		t.Fatalf("refused client protocol counter = %v, want 1", got)
 	}
 	// A single refusal is one event: one counter increment, one log record.
@@ -57,7 +58,7 @@ func TestAcceptedHandshakeDoesNotIncrementCounter(t *testing.T) {
 
 	for _, kind := range []string{VersionRefusalNewerThanEdge, VersionRefusalOlderThanEdge} {
 		for _, protocol := range []string{"9999", "0", "827"} {
-			if got := refusalCount(t, kind, protocol, "827", "fly-global-services:19132"); got != 0 {
+			if got := refusalCount(t, kind, protocol, "827"); got != 0 {
 				t.Fatalf("counter for kind=%s protocol=%s = %v, want 0 for accepted handshake", kind, protocol, got)
 			}
 		}
@@ -111,13 +112,53 @@ func TestVersionRefusalLineCarriesNoPlayerIdentity(t *testing.T) {
 	}
 }
 
+func TestVersionRefusalMetricHasBoundedLabels(t *testing.T) {
+	bedrockVersionRefusals.Reset()
+	pipeToLogger(strings.NewReader(refusalLine+"\n"), captureLogger(&bytes.Buffer{}), slog.LevelInfo, nil)
+
+	families, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("gather: %v", err)
+	}
+	var found bool
+	for _, family := range families {
+		if family.GetName() != "geyserlite_bedrock_version_refused_total" {
+			continue
+		}
+		found = true
+		if len(family.GetMetric()) != 1 {
+			t.Fatalf("expected one series, got %d", len(family.GetMetric()))
+		}
+		labels := map[string]string{}
+		for _, label := range family.GetMetric()[0].GetLabel() {
+			labels[label.GetName()] = label.GetValue()
+		}
+		want := map[string]bool{"refusal": true, "client_protocol": true, "max_supported_protocol": true}
+		for name := range labels {
+			if !want[name] {
+				// Connect's telemetry federation drops endpoint/address/identity
+				// dimensions; the exporter must not publish them at all.
+				t.Fatalf("unexpected metric label %q in %v", name, labels)
+			}
+		}
+		for name := range want {
+			if _, ok := labels[name]; !ok {
+				t.Fatalf("missing metric label %q in %v", name, labels)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("geyserlite_bedrock_version_refused_total was not gathered from the default registry")
+	}
+}
+
 func TestVersionRefusalRecordsOlderClientKind(t *testing.T) {
 	bedrockVersionRefusals.Reset()
 	line := `[09:00:00 INFO] GEYSERLITE_REFUSAL refusal=older_than_edge ` +
 		`client_protocol=594 max_supported_protocol=827 bedrock_ingress=[::]:19132`
 	pipeToLogger(strings.NewReader(line+"\n"), captureLogger(&bytes.Buffer{}), slog.LevelInfo, nil)
 
-	if got := refusalCount(t, "older_than_edge", "594", "827", "[::]:19132"); got != 1 {
+	if got := refusalCount(t, "older_than_edge", "594", "827"); got != 1 {
 		t.Fatalf("older_than_edge counter = %v, want 1", got)
 	}
 }

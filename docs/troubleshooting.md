@@ -148,13 +148,15 @@ WARN bedrock version refused event=bedrock.version_refused refusal=newer_than_ed
 and increment
 
 ```
-geyserlite_bedrock_version_refused_total{refusal="newer_than_edge",client_protocol="9999",max_supported_protocol="2193",bedrock_ingress="fly-global-services:19132"}
+geyserlite_bedrock_version_refused_total{refusal="newer_than_edge",client_protocol="9999",max_supported_protocol="2193"}
 ```
 
 The counter is registered on the default Prometheus registry, so whatever
 `/metrics` handler the embedding process serves exports it (moxy serves it on
-its health address, which Fly's managed Prometheus federates). Query a rate
-instead of grepping logs:
+its health address, which Fly's managed Prometheus federates). Its labels stay
+bounded and identity-free on purpose — the ingress listener appears in the log
+record, not in a time series — and the Connect telemetry federation accepts the
+family by name. Query a rate instead of grepping logs:
 
 ```promql
 sum by (client_protocol) (rate(geyserlite_bedrock_version_refused_total[1h]))
