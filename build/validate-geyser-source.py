@@ -45,6 +45,22 @@ def main() -> int:
             print(f"  - {failure}", file=sys.stderr)
         return 1
 
+    refusal = (
+        geyser_dir
+        / "core/src/main/java/org/geysermc/geyser/network/bedrock/UpstreamPacketHandler.java"
+    )
+    refusal_source = refusal.read_text()
+    # 0009-bedrock-version-refusal-telemetry.patch: the refusal line is the only
+    # source of a countable refusal, so a source bump that drops it must fail
+    # here instead of silently shipping a build with no refusal telemetry.
+    if "GEYSERLITE_REFUSAL" not in refusal_source:
+        print(
+            f"missing GEYSERLITE_REFUSAL telemetry in {refusal}; "
+            "re-apply or rebase build/patches/0009-bedrock-version-refusal-telemetry.patch",
+            file=sys.stderr,
+        )
+        return 1
+
     print(f"validated {len(entries)} Geyser block palette registrations")
     return 0
 

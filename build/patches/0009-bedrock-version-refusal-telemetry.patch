@@ -1,0 +1,44 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/network/bedrock/UpstreamPacketHandler.java b/core/src/main/java/org/geysermc/geyser/network/bedrock/UpstreamPacketHandler.java
+index cdb51b988..b50de1f1e 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/bedrock/UpstreamPacketHandler.java
++++ b/core/src/main/java/org/geysermc/geyser/network/bedrock/UpstreamPacketHandler.java
+@@ -119,6 +119,7 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
+             // None of our Bedrock codecs support this client version, so we can simply compare it to our default protocol.
+             String supportedVersions = GameProtocol.getAllSupportedBedrockVersions();
+             if (protocolVersion > GameProtocol.DEFAULT_BEDROCK_PROTOCOL) {
++                logVersionRefusal(protocolVersion, "newer_than_edge");
+                 // Too early to determine session locale
+                 String disconnectMessage = GeyserLocale.getLocaleStringLog("geyser.network.outdated.server", supportedVersions);
+                 // If the latest release matches this version, then let the user know.
+@@ -130,6 +131,7 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
+                 session.disconnect(disconnectMessage);
+                 return false;
+             } else if (protocolVersion < GameProtocol.DEFAULT_BEDROCK_PROTOCOL) {
++                logVersionRefusal(protocolVersion, "older_than_edge");
+                 // A note on the following line: various older client versions have different forms of DisconnectPacket.
+                 // Using only the latest BedrockCompat for such clients leads to inaccurate disconnect messages: https://github.com/GeyserMC/Geyser/issues/4378
+                 // This updates the BedrockCompat protocol if necessary:
+@@ -146,6 +148,23 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
+         return true;
+     }
+ 
++    /**
++     * Emits one machine-readable line for a Bedrock version refusal.
++     *
++     * <p>Only the two refusal paths above call this, so operators can count
++     * refused joins (and label them by the refused client protocol) instead of
++     * grepping for the player-visible disconnect text. The line deliberately
++     * carries no player identity: the client has not authenticated yet, and
++     * {@code bedrock_ingress} is the configured listener the refusal arrived
++     * on, never a client address.
++     */
++    private void logVersionRefusal(int protocolVersion, String refusal) {
++        geyser.getLogger().info("GEYSERLITE_REFUSAL refusal=" + refusal
++            + " client_protocol=" + protocolVersion
++            + " max_supported_protocol=" + GameProtocol.DEFAULT_BEDROCK_PROTOCOL
++            + " bedrock_ingress=" + geyser.config().bedrock().address() + ":" + geyser.config().bedrock().port());
++    }
++
+     @Override
+     public void onDisconnect(CharSequence reason) {
+         // Use our own disconnect messages for these reasons

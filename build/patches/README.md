@@ -46,6 +46,14 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   surface can be proven below the feet the sample is forwarded unchanged, so a
   false negative cannot freeze a player. Reference implementation and lab A/B
   (Paper 26.3, `allow-flight=false`): kanban `t_1e9c9090`.
+- `0009-bedrock-version-refusal-telemetry.patch` — makes a Bedrock version
+  refusal countable. Both refusal branches of
+  `UpstreamPacketHandler#setCorrectCodec` log one machine-readable line
+  (`GEYSERLITE_REFUSAL refusal=… client_protocol=… max_supported_protocol=…
+  bedrock_ingress=…`) before the unchanged player-visible disconnect. It adds no
+  player identity (the client has not logged in yet) and does not touch the
+  supported-version list, so `go/refusal.go` can turn it into one structured
+  record plus the `geyserlite_bedrock_version_refused_total` counter.
 
 ## Generating new patches
 
