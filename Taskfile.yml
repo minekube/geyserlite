@@ -104,6 +104,7 @@ tasks:
       - >-
         cd build/.work/Geyser && ./gradlew :core:test
         --tests org.geysermc.geyser.entity.type.EntityMovementTest
+        --tests org.geysermc.geyser.translator.protocol.bedrock.entity.player.input.BedrockMovePlayerSuspendedPlacementTest
         --tests org.geysermc.geyser.util.GeyserLiteVerifiedIngressProducerTest
         --tests org.geysermc.geyser.util.VerifiedIngressSubprocessTest
         --tests org.geysermc.geyser.network.bedrock.BedrockPacketTraceHandlerTest
