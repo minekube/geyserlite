@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/minekube/geyserlite/compare/v0.7.1...v0.7.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **bedrock:** hold and ground suspended converted placements ([#247](https://github.com/minekube/geyserlite/issues/247)) ([4c94833](https://github.com/minekube/geyserlite/commit/4c94833c02484f80a12de73b7162e0e9a7f3d57b))
+
 ## [0.7.1](https://github.com/minekube/geyserlite/compare/v0.7.0...v0.7.1) (2026-10-27)
 
 
