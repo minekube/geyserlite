@@ -113,7 +113,7 @@ index c6e78a33b..42097801e 100644
          if (!cache) {
              return;
 diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-index 00dcdca50..39428b26d 100644
+index 00dcdca50..353d09011 100644
 --- a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 +++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 @@ -36,9 +36,12 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
@@ -129,7 +129,7 @@ index 00dcdca50..39428b26d 100644
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerRotPacket;
-@@ -49,6 +52,53 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
+@@ -49,6 +52,51 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
   */
  final class BedrockMovePlayer {
  
@@ -172,10 +172,8 @@ index 00dcdca50..39428b26d 100644
 +    private enum Suspension {
 +        /** No suspension: forward the sample as computed. */
 +        NONE,
-+        /** Held placement: report the client's own position as supported. */
++        /** Held placement: the sample is withheld from the backend until the column is provable. */
 +        HOLDING,
-+        /** Same as {@link #HOLDING}, on the first held sample, which is always sent. */
-+        HOLDING_START,
 +        /** A ground teleport was issued; the sample must not be forwarded. */
 +        GROUNDED
 +    }
@@ -183,35 +181,41 @@ index 00dcdca50..39428b26d 100644
      static void translate(GeyserSession session, PlayerAuthInputPacket packet) {
          SessionPlayerEntity entity = session.getPlayerEntity();
          if (!session.isSpawned()) return;
-@@ -122,6 +172,27 @@ final class BedrockMovePlayer {
+@@ -122,6 +170,33 @@ final class BedrockMovePlayer {
              isOnGround = entity.isCollidingVertically() && entity.getLastTickEndVelocity().getY() < 0;
          }
  
 +        // Fault C: a converted client suspended in the air with no vertical motion is not a state a Java
 +        // client can produce. Paper's own floating check (clientIsFloating: not on ground, not
 +        // descending, no block within 0.55 below the feet) latches on it and counts every server tick,
-+        // disconnecting the player with multiplayer.disconnect.flying after 81 ticks. Neither the latch
-+        // nor the counter is refreshed by our packets: withholding samples does not stop it, so the
-+        // placement has to be resolved or reported as supported (see resolveSuspendedPlacement).
++        // disconnecting the player with multiplayer.disconnect.flying after 81 ticks. The latch is
++        // geometric - Paper reads the position, not the client's on-ground flag - so the placement has
++        // to be resolved against real terrain, and until it can be, no sample may be sent at all (see
++        // resolveSuspendedPlacement).
 +        Suspension suspension = resolveSuspendedPlacement(session, entity, packet, isOnGround, hasVehicle, onClimbableBlock);
 +        if (suspension == Suspension.GROUNDED) {
 +            return;
 +        }
-+        if (suspension == Suspension.HOLDING || suspension == Suspension.HOLDING_START) {
-+            // Terrain under this placement is not known (yet). Do not report the state the backend
-+            // disconnects for; the client itself reports no vertical motion, i.e. its own world says
-+            // it is standing, so standing is what goes over the wire until the surface is provable.
-+            isOnGround = true;
-+            // A Java client standing still sends one position update per second (the reminder); the
-+            // backend only re-evaluates the latch when a sample arrives, so always settle the first
-+            // held sample and let the reminder cadence carry the rest.
-+            positionChangedAndShouldUpdate |= suspension == Suspension.HOLDING_START;
++        if (suspension == Suspension.HOLDING) {
++            // Terrain under this placement is not known (yet). Nothing may go over the wire: Paper's
++            // floating check is geometric, so any sample it reads at an unsupported height re-latches
++            // the 81-tick counter, whatever the client claims about being on ground (round 5: a 1 Hz
++            // ServerboundMovePlayerPos at y=103 with the on-ground flag set was still disconnected at
++            // tp+4.7 s). Staying silent leaves the latch where the backend's own placement left it,
++            // which is what keeps the player alive until the column can be grounded against. The
++            // converter still follows the client locally so chunk tracking and the reminder cadence
++            // stay in step.
++            entity.setPositionFromBedrockPos(packet.getPosition());
++            entity.setLastTickEndVelocity(packet.getDelta());
++            entity.setMotion(packet.getDelta());
++            session.getInputCache().markPositionPacketSent();
++            return;
 +        }
 +
          // Resolve https://github.com/GeyserMC/Geyser/issues/3521, no void floor on java so player not supposed to collide with anything.
          // Therefore, we're fixing this by allowing player to no clip to clip through the floor, not only this fixed the issue but
          // player y velocity should match java perfectly, much better than teleport player right down :)
-@@ -238,6 +309,148 @@ final class BedrockMovePlayer {
+@@ -238,6 +313,155 @@ final class BedrockMovePlayer {
          }
      }
  
@@ -227,9 +231,12 @@ index 00dcdca50..39428b26d 100644
 +     * loading, or a placement carried across a server hand-over) is caught.
 +     * <p>
 +     * The backend's floating counter is not driven by how many samples we forward - it latches from
-+     * the last one and counts server ticks - so an unprovable placement cannot be hidden by silence.
-+     * It is held instead: the sample is reported as supported (the client itself says it is resting)
-+     * until the world can answer, and once terrain is provable the player is moved onto the surface.
++     * the last one a movement packet delivers and counts server ticks - so an unprovable placement
++     * cannot be hidden by relabelling it either: Paper 26.3 reads the position, not the client's
++     * on-ground flag (round 5: 1 Hz {@code ServerboundMovePlayerPos} at an unsupported {@code y=103},
++     * flag {@code 0x01}, was disconnected at tp+4.7 s). The hold therefore sends <b>nothing</b> while
++     * the placement has no provable support - the latch stays where the backend's own placement left
++     * it - and once terrain is provable the player is moved onto the surface.
 +     * <p>
 +     * What the hold may <i>not</i> do is expire on a wall-clock timer: geyserlite runs in its own
 +     * process, so its sample clock keeps running while the backend is frozen, and a 5 s budget is
@@ -247,9 +254,11 @@ index 00dcdca50..39428b26d 100644
 +     *       nothing, so a stall can never consume the budget.</li>
 +     * </ul>
 +     * Bookkeeping is per episode: {@code suspendedAirborneSamples} counts the consecutive suspended
-+     * samples (1..9 grace, from 10 the placement is held), {@code suspendedHoldLiveSamples} counts
-+     * only the samples during which the backend proved it was ticking, and the episode resets the
-+     * moment the client is supported, exempt, or grounded.
++     * samples (nothing is decided before {@link #SUSPENDED_SAMPLE_THRESHOLD} of them, so the apex of
++     * a jump is never mistaken for a frozen client, but every one of them is withheld from the
++     * backend), {@code suspendedHoldLiveSamples} counts only the samples during which the backend
++     * proved it was ticking, and the episode resets the moment the client is supported, exempt, or
++     * grounded.
 +     */
 +    private static Suspension resolveSuspendedPlacement(GeyserSession session, SessionPlayerEntity entity,
 +                                                        PlayerAuthInputPacket packet, boolean isOnGround,
@@ -295,7 +304,9 @@ index 00dcdca50..39428b26d 100644
 +        samples++;
 +        session.setSuspendedAirborneSamples(samples);
 +        if (samples < SUSPENDED_SAMPLE_THRESHOLD) {
-+            return Suspension.NONE;
++            // Too early to decide anything (this is what the apex of a jump looks like), but the
++            // sample is still withheld: forwarding it is exactly what arms the backend's counter.
++            return Suspension.HOLDING;
 +        }
 +
 +        boolean placement = session.isPlacementPending();
@@ -343,7 +354,7 @@ index 00dcdca50..39428b26d 100644
 +            session.getGeyser().getLogger().debug("Holding suspended converted placement at " + feetPosition
 +                + " - no terrain provable under it yet");
 +        }
-+        return samples == SUSPENDED_SAMPLE_THRESHOLD ? Suspension.HOLDING_START : Suspension.HOLDING;
++        return Suspension.HOLDING;
 +    }
 +
 +    /**

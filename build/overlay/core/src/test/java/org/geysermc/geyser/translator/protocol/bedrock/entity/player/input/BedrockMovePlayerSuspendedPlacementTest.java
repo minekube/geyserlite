@@ -46,6 +46,7 @@ import org.geysermc.geyser.session.cache.TeleportCache;
 import org.geysermc.geyser.session.cache.WorldBorder;
 import org.geysermc.geyser.translator.collision.BlockCollision;
 import org.geysermc.geyser.util.BlockUtils;
+import org.geysermc.geyser.util.PlacementGrounding;
 import org.geysermc.mcprotocollib.network.packet.Packet;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.player.GameMode;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
@@ -199,6 +200,73 @@ class BedrockMovePlayerSuspendedPlacementTest {
     }
 
     /**
+     * Round-5 finding, the reason the shipped hold cannot save the customer: a held placement may not
+     * put <i>any</i> sample on the wire. Paper 26.3's {@code clientIsFloating} does not read the
+     * client's on-ground flag, so the 0.5 s grace and the 1 Hz "supported" reminder are themselves what
+     * arms the 81-tick counter at an unsupported height. In the lab the v0.7.3 converter sent exactly
+     * that reminder ({@code ServerboundMovePlayerPos} at {@code y=103.0}, flag {@code 0x01}) once a
+     * second and was disconnected at tp+4.7 s with 8 s of terrain still outstanding.
+     * <p>
+     * RED on the shipped converter: the grace samples and the reminder are forwarded.
+     */
+    @Test
+    @DisplayName("a held placement puts no movement sample on the wire")
+    void heldPlacementSendsNothingToTheBackend() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        // Terrain arrives 8 s late: the arm-5 cell where all three builds were kicked at tp+4..5 s.
+        int arrival = SAMPLES_PER_SECOND * 8;
+        harness.publishBlock(5, -21, 5, arrival);
+
+        harness.run(SAMPLES_PER_SECOND * 12);
+
+        assertNull(harness.backend.kickTick, "the converted player was reported as flying (kick at tick "
+            + harness.backend.kickTick + ") before the terrain arrived");
+        for (Sample sample : harness.samples) {
+            assertTrue(sample.index() >= arrival, "a movement sample reached the backend at sample "
+                + sample.index() + ", before the column arrived at " + arrival);
+        }
+
+        // ... and the arrival of the column ends the silence on the surface itself.
+        assertNotNull(harness.groundingTeleportY, "the placement was never grounded once the column arrived");
+        assertEquals(-20.0, harness.groundingTeleportY, 1.0E-4);
+        assertEquals(-20.0, harness.clientFeetY, 1.0E-4, "the client did not adopt the grounded position");
+    }
+
+    /**
+     * The card's requested RED test, run against the released v0.7.3 gate: a column the session has
+     * been sent must make {@code surfaceBelow(..., placement = true)} report a provable surface.
+     * <p>
+     * This is GREEN on v0.7.3 source, and round 5's probe agrees: after the column arrived, an RCON
+     * teleport 0.25 blocks up in the same column immediately produced
+     * "Grounding suspended converted player at (60000.5, 103.25, 0.5) to (60000.5, 101.0, 0.5)".
+     * The gate is therefore not what kept the hold unresolved; see {@link #heldPlacementSendsNothingToTheBackend}.
+     * The test stays as the contract for the gate: delivered means provable, not resident-by-accident.
+     */
+    @Test
+    @DisplayName("a delivered column makes a pending placement's surface provable")
+    void deliveredColumnMakesPlacementSurfaceProvable() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        harness.publishBlock(5, -21, 5, 0);
+        harness.sample = 0;
+
+        PlacementGrounding.Surface surface = PlacementGrounding.surfaceBelow(harness.session,
+            Vector3d.from(X, harness.clientFeetY, Z), true);
+
+        assertTrue(surface.provable(), "a column the server has sent was not provable");
+        assertNotNull(surface.grounded(), "no surface was found in a delivered column that has one");
+        assertEquals(-20.0, surface.grounded().getY(), 1.0E-4);
+
+        // The void-vs-unknown distinction the hold depends on: a column that was never sent is not
+        // "empty", so the hold must keep waiting rather than read the empty default as a void.
+        Harness unsent = new Harness(geyserImpl, playerOffset);
+        unsent.sample = 0;
+        PlacementGrounding.Surface unknown = PlacementGrounding.surfaceBelow(unsent.session,
+            Vector3d.from(X, unsent.clientFeetY, Z), true);
+        assertFalse(unknown.provable(), "an unsent column was reported as the world's own answer");
+        assertNull(unknown.grounded(), "an unsent column produced a surface out of the empty default");
+    }
+
+    /**
      * The same placement with a terrain gap longer than Paper's own 81-tick (4.05 s) budget: the
      * released converter has already latched the floating check by then and is disconnected, even
      * though the terrain does turn up.
@@ -304,7 +372,7 @@ class BedrockMovePlayerSuspendedPlacementTest {
         assertTrue(releasedAt > 0, "never released the placement back to the backend");
         assertTrue(releasedAt >= HOLD_ALIVE_CAP_SAMPLES, "released at sample " + releasedAt
             + " of a backend that was alive the whole time, before the 60 s cap");
-        assertTrue(releasedAt <= HOLD_ALIVE_CAP_SAMPLES + GRACE_SAMPLES + 5,
+        assertTrue(releasedAt <= HOLD_ALIVE_CAP_SAMPLES + SAMPLES_PER_SECOND * 2,
             "held the placement to sample " + releasedAt + ", far beyond the 60 s cap");
         assertNotNull(harness.backend.kickTick, "the released placement was still masked from the backend");
     }
@@ -442,11 +510,22 @@ class BedrockMovePlayerSuspendedPlacementTest {
         abstract void apply(Harness harness);
     }
 
-    /** One movement sample as the backend saw it. */
+    /**
+     * One movement sample as the backend saw it.
+     * <p>
+     * {@code latchesFloating} models what round 5 measured on Paper 26.3-205 rather than what the
+     * vanilla source reads: the latch is <b>geometric</b>. In the lab a converter that reported
+     * {@code isOnGround = true} every second at a placement with no support (9 x
+     * {@code ServerboundMovePlayerPos} at {@code (60000.5, 103.0, 0.5)} with flag byte {@code 0x01},
+     * tp+0.9 s .. tp+4.9 s) was still disconnected at tp+4.7 s with "kicked for floating too long",
+     * i.e. the client's own on-ground flag does not clear {@code clientIsFloating}. What matters is
+     * the backend's view of the position: airborne, not descending, and nothing within 0.55 below the
+     * feet.
+     */
     private record Sample(int index, boolean onGround, boolean supportedByWorld, boolean descending) {
         /** Paper's {@code clientIsFloating} latch: airborne, not descending, nothing under it. */
         boolean latchesFloating() {
-            return !onGround && !supportedByWorld && !descending;
+            return !supportedByWorld && !descending;
         }
     }
 
