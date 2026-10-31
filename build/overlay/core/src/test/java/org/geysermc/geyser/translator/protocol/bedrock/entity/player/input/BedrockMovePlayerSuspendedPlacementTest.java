@@ -39,6 +39,7 @@ import org.geysermc.geyser.level.physics.CollisionManager;
 import org.geysermc.geyser.level.physics.CollisionResult;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.BookEditCache;
+import org.geysermc.geyser.session.cache.ChunkCache;
 import org.geysermc.geyser.session.cache.InputCache;
 import org.geysermc.geyser.session.cache.SkullCache;
 import org.geysermc.geyser.session.cache.TeleportCache;
@@ -61,6 +62,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,6 +74,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -103,6 +106,12 @@ class BedrockMovePlayerSuspendedPlacementTest {
     private static final int MAX_FLYING_TICKS = 80;
     /** The converter's own grace before it starts holding an unprovable placement. */
     private static final int GRACE_SAMPLES = SAMPLES_PER_SECOND / 2;
+    /** The customer's stall: one Paper tick of 26375 ms (2026-10-31 22:24:36 log line). */
+    private static final int STALL_SAMPLES = 26 * SAMPLES_PER_SECOND;
+    /** The hold's budget in backend-alive time: 60 s, >= 5x the observed stall and ~15x 81 ticks. */
+    private static final int HOLD_ALIVE_CAP_SAMPLES = 60 * SAMPLES_PER_SECOND;
+    /** Sample index at which the consecutive-suspended-sample counter reaches its threshold. */
+    private static final int HOLD_START_SAMPLE = GRACE_SAMPLES - 1;
     /** Paper's support distance below the feet ({@code noBlocksAround}). */
     private static final double SUPPORT_DEPTH = 0.55;
 
@@ -212,25 +221,111 @@ class BedrockMovePlayerSuspendedPlacementTest {
     }
 
     /**
-     * Fail-safe for terrain that never becomes available: the converter bridges a bounded window and
-     * then hands the placement back to the backend instead of pinning it forever.
+     * The card's regression. geyserlite runs in its own process, so its 20 Hz sample clock keeps
+     * running while the backend is frozen; a hold measured in wall-clock samples therefore expires
+     * inside a stall, and every sample it hands over after that is queued for a server that reads the
+     * last one as flight the moment it resumes. The customer's Paper produced a 26375 ms tick with
+     * TPS 0.1 and his placement-to-kick window was still only 6 s: the stall is longer than the whole
+     * 5.5 s budget the released fix shipped with.
+     * <p>
+     * Here the backend stops ticking for 26 s ({@link #STALL_SAMPLES}) right after the placement,
+     * streams nothing (no chunk, no packet), and publishes the column only after it resumes. The
+     * converted player must survive and end on the surface.
      */
     @Test
-    @DisplayName("terrain that never appears is released after a bounded grace")
-    void unavailableTerrainIsReleasedAfterABoundedGrace() {
+    @DisplayName("a 26 s backend stall with unprovable terrain does not hand the placement back")
+    void aBackendStallDoesNotReleaseTheHeldPlacement() {
         Harness harness = new Harness(geyserImpl, playerOffset);
+        // The column only arrives after the stall: nothing is provable while the backend is frozen.
+        harness.publishBlock(5, -21, 5, 20 + STALL_SAMPLES + 20);
+        harness.stall(20, 20 + STALL_SAMPLES);
+
+        harness.run(SAMPLES_PER_SECOND * 40);
+
+        assertNull(harness.backend.kickTick, "the converted player was disconnected for flying (tick "
+            + harness.backend.kickTick + ") after a 26 s backend stall");
+        assertEquals(0, harness.airborneSamplesSince(GRACE_SAMPLES),
+            "airborne movement samples were handed to a frozen backend and latched on resume");
+        assertNotNull(harness.groundingTeleportY, "the placement was never grounded once the column arrived");
+        assertEquals(-20.0, harness.groundingTeleportY, 1.0E-4);
+        assertEquals(-20.0, harness.clientFeetY, 1.0E-4, "the client did not adopt the grounded position");
+    }
+
+    /** The same stall, but longer than the customer's and longer than any wall-clock budget: 39 s. */
+    @Test
+    @DisplayName("a 39 s backend stall is still not evidence of a void")
+    void aLongerBackendStallIsStillBridged() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        harness.publishBlock(5, -21, 5, 20 + 39 * SAMPLES_PER_SECOND + 20);
+        harness.stall(20, 20 + 39 * SAMPLES_PER_SECOND);
+
+        harness.run(SAMPLES_PER_SECOND * 60);
+
+        assertNull(harness.backend.kickTick, "disconnected for flying (tick " + harness.backend.kickTick + ")");
+        assertEquals(0, harness.airborneSamplesSince(GRACE_SAMPLES),
+            "airborne movement samples were handed to a frozen backend");
+        assertNotNull(harness.groundingTeleportY, "the placement was never grounded once the column arrived");
+        assertEquals(-20.0, harness.clientFeetY, 1.0E-4);
+    }
+
+    /**
+     * A column the world really has sent, with nothing collidable in it, is a real void: the backend
+     * reads the same blocks, so its verdict is the honest one and must not be masked.
+     */
+    @Test
+    @DisplayName("a loaded but empty column is a real void and goes back to the backend")
+    void aProvablyEmptyColumnIsReleased() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        harness.publishColumn(5, 5, 0);
 
         harness.run(SAMPLES_PER_SECOND * 12);
 
         assertNull(harness.groundingTeleportY, "grounded a placement with no surface to stand on");
-        int releasedAt = harness.firstAirborneSampleSince(GRACE_SAMPLES);
-        assertTrue(releasedAt > 0, "never released the placement back to the backend");
-        double releasedAfterSeconds = (releasedAt - GRACE_SAMPLES) / (double) SAMPLES_PER_SECOND;
-        assertTrue(releasedAfterSeconds <= 6.0,
-            "held the placement for " + releasedAfterSeconds + " s, beyond the bounded grace");
-        // Once released, the backend's own verdict applies (vanilla behaviour for a converted client
-        // that keeps claiming to hover with nothing under it).
+        int releasedAt = harness.firstAirborneSampleSince(HOLD_START_SAMPLE);
+        assertTrue(releasedAt >= HOLD_START_SAMPLE && releasedAt <= HOLD_START_SAMPLE + SAMPLES_PER_SECOND,
+            "a provably empty column was masked until sample " + releasedAt
+                + " instead of being handed back to the backend");
         assertNotNull(harness.backend.kickTick, "the released placement was still masked from the backend");
+    }
+
+    /**
+     * Terrain that stays unknown while the backend keeps ticking and talking: the hold cannot last
+     * forever, but its budget is backend-alive time, so it expires only after 60 s of it (>= 60 s is
+     * the card's floor), roughly fifteen times Paper's own 81-tick budget.
+     */
+    @Test
+    @DisplayName("terrain that stays unknown for 60 s of backend time is then released")
+    void unknownTerrainIsReleasedAfterSixtySecondsOfBackendTime() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+
+        harness.run(SAMPLES_PER_SECOND * 75);
+
+        int releasedAt = harness.firstAirborneSampleSince(HOLD_START_SAMPLE);
+        assertTrue(releasedAt > 0, "never released the placement back to the backend");
+        assertTrue(releasedAt >= HOLD_ALIVE_CAP_SAMPLES, "released at sample " + releasedAt
+            + " of a backend that was alive the whole time, before the 60 s cap");
+        assertTrue(releasedAt <= HOLD_ALIVE_CAP_SAMPLES + GRACE_SAMPLES + 5,
+            "held the placement to sample " + releasedAt + ", far beyond the 60 s cap");
+        assertNotNull(harness.backend.kickTick, "the released placement was still masked from the backend");
+    }
+
+    /**
+     * A client that starts moving is simulating physics of its own, so it is no longer holding the
+     * frozen position a client with no terrain produces. That motion must not be hidden.
+     */
+    @Test
+    @DisplayName("a suspended client that starts moving is handed back")
+    void aMovingClientIsReleased() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        harness.deltaX = 0.2F;
+
+        harness.run(SAMPLES_PER_SECOND * 8);
+
+        int releasedAt = harness.firstAirborneSampleSince(HOLD_START_SAMPLE);
+        assertTrue(releasedAt == HOLD_START_SAMPLE,
+            "a moving client stayed masked until sample " + releasedAt);
+        assertTrue(harness.clientX > X + 1.0, "the client did not actually move: " + harness.clientX);
+        assertNotNull(harness.backend.kickTick, "the moving client was still masked from the backend");
     }
 
     /**
@@ -365,9 +460,27 @@ class BedrockMovePlayerSuspendedPlacementTest {
         private int aboveGroundTicks;
         private int tick;
         Integer kickTick;
+        /** Set while the server's main thread is frozen: samples queue up instead of being applied. */
+        boolean frozen;
+        private Sample queuedWhileFrozen;
 
         void movementSample(Sample sample) {
+            if (frozen) {
+                // Paper's socket keeps reading; the movement sample is only applied by the main thread,
+                // so the latch is taken from the last sample that was queued when the stall ends.
+                queuedWhileFrozen = sample;
+                return;
+            }
             this.clientIsFloating = sample.latchesFloating();
+        }
+
+        /** The backend resumes: everything the socket buffered is applied in one go, then ticking. */
+        void resume() {
+            frozen = false;
+            if (queuedWhileFrozen != null) {
+                this.clientIsFloating = queuedWhileFrozen.latchesFloating();
+                queuedWhileFrozen = null;
+            }
         }
 
         void serverTick() {
@@ -388,9 +501,11 @@ class BedrockMovePlayerSuspendedPlacementTest {
         final CollisionManager collisionManager = mock(CollisionManager.class);
         final InputCache inputCache = mock(InputCache.class);
         final WorldManager worldManager = mock(WorldManager.class);
+        final ChunkCache chunkCache = mock(ChunkCache.class);
         final PaperFloatingCounter backend = new PaperFloatingCounter();
 
         final List<int[]> publishedBlocks = new ArrayList<>(); // x, y, z, firstVisibleSample
+        final List<int[]> loadedColumns = new ArrayList<>(); // chunkX, chunkZ, firstLoadedSample
         final List<Sample> samples = new ArrayList<>();
 
         final AtomicInteger suspendedSamples = new AtomicInteger();
@@ -405,10 +520,23 @@ class BedrockMovePlayerSuspendedPlacementTest {
         final AtomicBoolean onClimbableBlock = new AtomicBoolean(false);
         final AtomicReference<Entity> vehicle = new AtomicReference<>();
 
+        final AtomicInteger holdLiveSamples = new AtomicInteger();
+        final AtomicLong holdPacketMark = new AtomicLong();
+        final AtomicLong downstreamPackets = new AtomicLong();
+
         final float playerOffset;
         int sample;
         double clientFeetY = -18.0;
+        double clientX = X;
+        /** Where the converter last told the backend the player is (the real entity position). */
+        double entityX = X;
+        double entityFeetY = -18.0;
         float deltaY;
+        float deltaX;
+        /** Backend stall window in sample indices: the server neither ticks nor sends anything. */
+        int stallFrom = Integer.MAX_VALUE;
+        int stallUntil = -1;
+        boolean stalled;
         Double groundingTeleportY;
         Double pendingTeleportFeetY;
         int groundedBySample = -1;
@@ -440,6 +568,30 @@ class BedrockMovePlayerSuspendedPlacementTest {
             when(session.getBedrockDimension()).thenReturn(BedrockDimension.OVERWORLD);
             when(session.getCollisionManager()).thenReturn(collisionManager);
             when(session.getInputCache()).thenReturn(inputCache);
+            // The converter can only distinguish "this column has no surface" from "this column was
+            // never sent" through the world manager + chunk cache: a standalone session caches chunks.
+            when(worldManager.hasOwnChunkCache()).thenReturn(false);
+            when(session.getChunkCache()).thenReturn(chunkCache);
+            // The overworld's cached height: section -4 (y=-64) upwards, 24 sections tall.
+            when(chunkCache.getChunkMinY()).thenReturn(BedrockDimension.OVERWORLD.minY() >> 4);
+            when(chunkCache.getChunkHeightY()).thenReturn(24);
+            when(chunkCache.isChunkLoaded(anyInt(), anyInt()))
+                .thenAnswer(invocation -> columnLoaded(invocation.getArgument(0), invocation.getArgument(1)));
+            when(session.downstreamPacketCount()).thenAnswer(invocation -> downstreamPackets.get());
+            doAnswer(invocation -> {
+                downstreamPackets.incrementAndGet();
+                return null;
+            }).when(session).noteDownstreamPacket();
+            when(session.getSuspendedHoldLiveSamples()).thenAnswer(invocation -> holdLiveSamples.get());
+            doAnswer(invocation -> {
+                holdLiveSamples.set(invocation.getArgument(0));
+                return null;
+            }).when(session).setSuspendedHoldLiveSamples(anyInt());
+            when(session.getSuspendedHoldPacketMark()).thenAnswer(invocation -> holdPacketMark.get());
+            doAnswer(invocation -> {
+                holdPacketMark.set(invocation.getArgument(0));
+                return null;
+            }).when(session).setSuspendedHoldPacketMark(anyLong());
             when(session.getBookEditCache()).thenReturn(mock(BookEditCache.class));
             when(session.getSkullCache()).thenReturn(mock(SkullCache.class));
             when(session.getWorldBorder()).thenReturn(mock(WorldBorder.class));
@@ -463,7 +615,7 @@ class BedrockMovePlayerSuspendedPlacementTest {
             doAnswer(invocation -> null).when(inputCache).setLastHorizontalCollision(anyBoolean());
             when(inputCache.lastHorizontalCollision()).thenReturn(false);
 
-            when(entity.bedrockPosition()).thenAnswer(invocation -> Vector3f.from(X, (float) clientFeetY + playerOffset, Z));
+            when(entity.bedrockPosition()).thenAnswer(invocation -> Vector3f.from((float) entityX, (float) entityFeetY + playerOffset, Z));
             when(entity.getBedPosition()).thenReturn(null);
             when(entity.getJavaYaw()).thenReturn(0.0F);
             when(entity.getYaw()).thenReturn(0.0F);
@@ -518,6 +670,9 @@ class BedrockMovePlayerSuspendedPlacementTest {
                     Sample recorded = new Sample(sample, onGround, supportedByWorld(), deltaY < -0.03125F);
                     samples.add(recorded);
                     backend.movementSample(recorded);
+                    // The converter adopts the position it just reported as the entity position.
+                    entityX = clientX;
+                    entityFeetY = clientFeetY;
                 }
                 return null;
             }).when(session).sendDownstreamGamePacket(any());
@@ -536,6 +691,28 @@ class BedrockMovePlayerSuspendedPlacementTest {
 
         void publishBlock(int x, int y, int z, int firstVisibleSample) {
             publishedBlocks.add(new int[]{x, y, z, firstVisibleSample});
+            // A block can only be read once its column has been sent.
+            publishColumn(x, z, firstVisibleSample);
+        }
+
+        /** The server streams this column from {@code firstLoadedSample} on (it may contain no blocks). */
+        void publishColumn(int blockX, int blockZ, int firstLoadedSample) {
+            loadedColumns.add(new int[]{blockX >> 4, blockZ >> 4, firstLoadedSample});
+        }
+
+        /** The backend stops ticking and sending anything between these sample indices. */
+        void stall(int fromSample, int untilSample) {
+            stallFrom = fromSample;
+            stallUntil = untilSample;
+        }
+
+        private boolean columnLoaded(int chunkX, int chunkZ) {
+            for (int[] column : loadedColumns) {
+                if (column[0] == chunkX && column[1] == chunkZ && sample >= column[2]) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean visible(int x, int y, int z) {
@@ -549,8 +726,8 @@ class BedrockMovePlayerSuspendedPlacementTest {
 
         /** Paper's {@code noBlocksAround}: a collidable block within 0.55 below the feet. */
         private boolean supportedByWorld() {
-            int minX = (int) Math.floor(X - 0.3);
-            int maxX = (int) Math.floor(X + 0.3);
+            int minX = (int) Math.floor(clientX - 0.3);
+            int maxX = (int) Math.floor(clientX + 0.3);
             int minZ = (int) Math.floor(Z - 0.3);
             int maxZ = (int) Math.floor(Z + 0.3);
             int minY = (int) Math.floor(clientFeetY - SUPPORT_DEPTH);
@@ -569,9 +746,26 @@ class BedrockMovePlayerSuspendedPlacementTest {
 
         void run(int ticks) {
             for (int i = 0; i < ticks; i++) {
+                boolean frozen = i >= stallFrom && i < stallUntil;
+                if (frozen != stalled) {
+                    stalled = frozen;
+                    backend.frozen = frozen;
+                    if (!frozen) {
+                        backend.resume();
+                    }
+                }
+                if (deltaX != 0.0F) {
+                    // The client keeps walking while it hovers: its samples are due every tick.
+                    clientX += deltaX;
+                }
                 sample = i;
                 BedrockMovePlayer.translate(session, packet());
-                backend.serverTick();
+                if (!stalled) {
+                    // A ticking backend sends this session at least one packet per tick (time update,
+                    // entity tracking, keepalive): that is the converter's only liveness evidence.
+                    downstreamPackets.incrementAndGet();
+                    backend.serverTick();
+                }
             }
         }
 
@@ -597,8 +791,8 @@ class BedrockMovePlayerSuspendedPlacementTest {
 
         private PlayerAuthInputPacket packet() {
             PlayerAuthInputPacket packet = new PlayerAuthInputPacket();
-            packet.setPosition(Vector3f.from(X, (float) clientFeetY + playerOffset, Z));
-            packet.setDelta(Vector3f.from(0.0F, deltaY, 0.0F));
+            packet.setPosition(Vector3f.from((float) clientX, (float) clientFeetY + playerOffset, Z));
+            packet.setDelta(Vector3f.from(deltaX, deltaY, 0.0F));
             packet.setRotation(Vector3f.from(0.0F, 0.0F, 0.0F));
             packet.setInteractRotation(Vector2f.ZERO);
             packet.setTick(sample);

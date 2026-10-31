@@ -1,8 +1,16 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
-index 93fb21959..458f1131e 100644
+index 93fb21959..bfa4ca0e0 100644
 --- a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
 +++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
-@@ -450,6 +450,24 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+@@ -264,6 +264,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
+ import java.util.concurrent.ScheduledFuture;
+ import java.util.concurrent.TimeUnit;
+ import java.util.concurrent.atomic.AtomicInteger;
++import java.util.concurrent.atomic.AtomicLong;
+ 
+ @Getter
+ public class GeyserSession implements GeyserConnection, GeyserCommandSource, JavaRegistryProvider.Provider {
+@@ -450,6 +451,63 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
  
      @Setter
      private boolean spawned;
@@ -24,11 +32,88 @@ index 93fb21959..458f1131e 100644
 +     */
 +    @Setter
 +    private int suspendedAirborneSamples;
++
++    /**
++     * Number of suspended samples during which the Java backend demonstrably ticked, i.e. sent this
++     * session at least one packet. This is the only budget a hold of unprovable terrain may spend: a
++     * frozen backend (see {@code BedrockMovePlayer}) leaves it untouched, so a stall can never look
++     * like proof that a placement is a void.
++     */
++    @Setter
++    private int suspendedHoldLiveSamples;
++
++    /**
++     * {@link #downstreamPacketCount()} value observed on the last sample of the current suspension
++     * episode; a later, different value is the evidence that the backend is ticking.
++     */
++    @Setter
++    private long suspendedHoldPacketMark;
++
++    /**
++     * Monotonic count of packets received from the Java backend. Used only as a liveness signal:
++     * geyserlite runs in its own process, so the backend stalling (a 26 s tick) is invisible to the
++     * converter except as an absence of inbound Java traffic.
++     */
++    private final AtomicLong downstreamPackets = new AtomicLong();
++
++    /**
++     * Records an inbound Java packet; called from the single clientbound dispatch point
++     * ({@code GeyserSessionAdapter#packetReceived}) so the liveness signal sees every packet.
++     */
++    public void noteDownstreamPacket() {
++        this.downstreamPackets.incrementAndGet();
++    }
++
++    /**
++     * @return how many packets the Java backend has sent this session
++     */
++    public long downstreamPacketCount() {
++        return this.downstreamPackets.get();
++    }
++
      /**
       * Accessed on the initial Java and Bedrock packet processing threads
       */
+diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
+index 70d49d487..570e03929 100644
+--- a/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
++++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
+@@ -226,6 +226,10 @@ public class GeyserSessionAdapter extends SessionAdapter {
+ 
+     @Override
+     public void packetReceived(Session session, Packet packet) {
++        // Fault C liveness signal: one inbound Java packet is proof the backend actually ticked, which
++        // is what lets the converter tell "the world has not answered yet because the server is frozen"
++        // apart from "the placement really is in the void" (see BedrockMovePlayer).
++        this.session.noteDownstreamPacket();
+         Registries.JAVA_PACKET_TRANSLATORS.translate(packet.getClass(), packet, this.session, true);
+     }
+ 
+diff --git a/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java b/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
+index c6e78a33b..42097801e 100644
+--- a/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
++++ b/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
+@@ -118,6 +118,18 @@ public class ChunkCache {
+         return palette.get(x & 0xF, y & 0xF, z & 0xF);
+     }
+ 
++    /**
++     * @return true if the server has sent this column, i.e. a block read inside it is the world's own
++     * answer rather than the empty default. A column that is not loaded yet must never be read as
++     * "there is nothing here" (see {@code PlacementGrounding}).
++     */
++    public boolean isChunkLoaded(int chunkX, int chunkZ) {
++        if (!cache) {
++            return false;
++        }
++        return chunks.containsKey(MathUtils.chunkPositionToLong(chunkX, chunkZ));
++    }
++
+     public void removeChunk(int chunkX, int chunkZ) {
+         if (!cache) {
+             return;
 diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-index 00dcdca50..c65674406 100644
+index 00dcdca50..39428b26d 100644
 --- a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 +++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 @@ -36,9 +36,12 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
@@ -44,7 +129,7 @@ index 00dcdca50..c65674406 100644
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerRotPacket;
-@@ -49,6 +52,40 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
+@@ -49,6 +52,53 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
   */
  final class BedrockMovePlayer {
  
@@ -62,13 +147,26 @@ index 00dcdca50..c65674406 100644
 +    private static final int SUSPENDED_SAMPLE_THRESHOLD = 10;
 +
 +    /**
-+     * How long the converter may hold an unprovable placement, in samples (100 = 5 s at 20 Hz). This
-+     * is the bounded grace for terrain that is not known yet (chunk/GC stall on the backend, a
-+     * placement carried across a hand-over): long enough to ride out a stall, short enough that a
-+     * client that genuinely has nothing under it is handed back to the backend's own verdict instead
-+     * of being pinned forever.
++     * How many samples of <i>demonstrably live</i> backend time the converter may hold a placement
++     * whose terrain it cannot prove (1200 = 60 s at 20 Hz). The hold budget is not wall-clock time:
++     * only samples during which the Java backend sent us at least one packet are counted, so a
++     * backend that stalls (one customer's Paper froze for a 26.375 s tick with TPS 0.1) consumes
++     * nothing and a frozen server is never mistaken for a void.
++     * <p>
++     * 60 s is fifteen times Paper's own 81-tick (4.05 s) floating budget, and more than twice the
++     * 26.375 s stall observed in production, so no plausible stall can exhaust it; it only expires
++     * when a backend that is <i>still talking to us</i> has failed to publish the column under the
++     * placement for a minute, i.e. the placement really is somewhere the world has no answer for.
 +     */
-+    private static final int SUSPENDED_HOLD_BUDGET = 100;
++    private static final int SUSPENDED_HOLD_LIVE_BUDGET = 1200;
++
++    /**
++     * A horizontal per-tick delta at or above this is the client moving under its own physics rather
++     * than reporting the frozen position it holds when it has no terrain at all. Such a client is no
++     * longer the suspended-placement state whatever our cache says, so the sample goes to the backend
++     * unchanged.
++     */
++    private static final double HORIZONTAL_MOTION_EPSILON = 0.03125;
 +
 +    /** What the converter does with a movement sample that has no support under it. */
 +    private enum Suspension {
@@ -85,7 +183,7 @@ index 00dcdca50..c65674406 100644
      static void translate(GeyserSession session, PlayerAuthInputPacket packet) {
          SessionPlayerEntity entity = session.getPlayerEntity();
          if (!session.isSpawned()) return;
-@@ -122,6 +159,27 @@ final class BedrockMovePlayer {
+@@ -122,6 +172,27 @@ final class BedrockMovePlayer {
              isOnGround = entity.isCollidingVertically() && entity.getLastTickEndVelocity().getY() < 0;
          }
  
@@ -113,7 +211,7 @@ index 00dcdca50..c65674406 100644
          // Resolve https://github.com/GeyserMC/Geyser/issues/3521, no void floor on java so player not supposed to collide with anything.
          // Therefore, we're fixing this by allowing player to no clip to clip through the floor, not only this fixed the issue but
          // player y velocity should match java perfectly, much better than teleport player right down :)
-@@ -238,6 +296,97 @@ final class BedrockMovePlayer {
+@@ -238,6 +309,148 @@ final class BedrockMovePlayer {
          }
      }
  
@@ -131,13 +229,27 @@ index 00dcdca50..c65674406 100644
 +     * The backend's floating counter is not driven by how many samples we forward - it latches from
 +     * the last one and counts server ticks - so an unprovable placement cannot be hidden by silence.
 +     * It is held instead: the sample is reported as supported (the client itself says it is resting)
-+     * for at most {@link #SUSPENDED_HOLD_BUDGET} samples, and once terrain is provable the player is
-+     * moved onto the surface. After the budget the sample is handed back to the backend unmodified,
-+     * so a client with nothing under it gets the backend's normal verdict rather than being pinned.
++     * until the world can answer, and once terrain is provable the player is moved onto the surface.
 +     * <p>
-+     * This is bookkeeping on the existing consecutive-sample counter: 1..9 is the grace,
-+     * 10..109 is the hold, and from 110 on the placement stays released until the suspension ends
-+     * (the counter is reset whenever the client is supported, moving or grounded).
++     * What the hold may <i>not</i> do is expire on a wall-clock timer: geyserlite runs in its own
++     * process, so its sample clock keeps running while the backend is frozen, and a 5 s budget is
++     * shorter than the 26.375 s stall one customer's Paper produced. Releasing there would hand the
++     * backend exactly the airborne sample it disconnects for, one stall later. A hold therefore ends
++     * only when
++     * <ul>
++     *   <li>the world's own data proves the column: a surface is found (grounded), or the column is
++     *       loaded and empty (a real void - the backend reads the same blocks, so its verdict is
++     *       the honest one);</li>
++     *   <li>the client itself moves convincingly, i.e. it is simulating physics rather than holding
++     *       the frozen position of a client with no terrain; or</li>
++     *   <li>{@link #SUSPENDED_HOLD_LIVE_BUDGET} samples of <i>backend-alive</i> time have passed
++     *       while the column stayed unknown - a backend that has stopped talking to us counts for
++     *       nothing, so a stall can never consume the budget.</li>
++     * </ul>
++     * Bookkeeping is per episode: {@code suspendedAirborneSamples} counts the consecutive suspended
++     * samples (1..9 grace, from 10 the placement is held), {@code suspendedHoldLiveSamples} counts
++     * only the samples during which the backend proved it was ticking, and the episode resets the
++     * moment the client is supported, exempt, or grounded.
 +     */
 +    private static Suspension resolveSuspendedPlacement(GeyserSession session, SessionPlayerEntity entity,
 +                                                        PlayerAuthInputPacket packet, boolean isOnGround,
@@ -145,7 +257,7 @@ index 00dcdca50..c65674406 100644
 +        if (hasVehicle || session.isNoClip() || session.isFlying() || onClimbableBlock
 +            || session.getGameMode() == GameMode.SPECTATOR || session.getGameMode() == GameMode.CREATIVE
 +            || session.getCollisionManager().isPlayerTouchingWater()) {
-+            session.setSuspendedAirborneSamples(0);
++            resetSuspendedPlacement(session);
 +            return Suspension.NONE;
 +        }
 +
@@ -159,17 +271,27 @@ index 00dcdca50..c65674406 100644
 +            && PlacementGrounding.isSuspended(session, feetPosition);
 +
 +        if (!suspended) {
-+            session.setSuspendedAirborneSamples(0);
++            resetSuspendedPlacement(session);
++            return Suspension.NONE;
++        }
++
++        // Backend liveness: a sample only buys hold time when the backend proved it is ticking during
++        // it (any inbound Java packet). A frozen backend leaves the counter untouched, which is what
++        // keeps a stall from being read as "the placement is a void".
++        long downstreamPackets = session.downstreamPacketCount();
++        if (downstreamPackets != session.getSuspendedHoldPacketMark()) {
++            session.setSuspendedHoldPacketMark(downstreamPackets);
++            session.setSuspendedHoldLiveSamples(session.getSuspendedHoldLiveSamples() + 1);
++        }
++
++        if (session.getSuspendedHoldLiveSamples() > SUSPENDED_HOLD_LIVE_BUDGET) {
++            // The budget is spent for this episode: never re-hold it (the live counter keeps growing
++            // while the backend is alive, and is only reset by the suspension ending). The backend's
++            // own floating check decides from here.
 +            return Suspension.NONE;
 +        }
 +
 +        int samples = session.getSuspendedAirborneSamples();
-+        if (samples > SUSPENDED_SAMPLE_THRESHOLD + SUSPENDED_HOLD_BUDGET) {
-+            // The bounded grace is spent for this episode: never re-hold it, the backend's own
-+            // floating check decides from here (its verdict for a client that keeps hovering with
-+            // nothing under it), and the next supported/failing sample resets the counter.
-+            return Suspension.NONE;
-+        }
 +        samples++;
 +        session.setSuspendedAirborneSamples(samples);
 +        if (samples < SUSPENDED_SAMPLE_THRESHOLD) {
@@ -177,11 +299,12 @@ index 00dcdca50..c65674406 100644
 +        }
 +
 +        boolean placement = session.isPlacementPending();
-+        Vector3d grounded = PlacementGrounding.groundBelow(session, feetPosition, placement);
++        PlacementGrounding.Surface surface = PlacementGrounding.surfaceBelow(session, feetPosition, placement);
++        Vector3d grounded = surface.grounded();
 +        if (grounded != null) {
 +            if (Math.abs(grounded.getY() - feetPosition.getY()) <= 1.0E-4) {
 +                // Already level with the surface below: supported, so nothing to correct.
-+                session.setSuspendedAirborneSamples(0);
++                resetSuspendedPlacement(session);
 +                return Suspension.NONE;
 +            }
 +
@@ -192,20 +315,46 @@ index 00dcdca50..c65674406 100644
 +            entity.moveAbsolute(grounded.toFloat(), entity.getYaw(), entity.getPitch(), false, true);
 +            session.setUnconfirmedTeleport(new TeleportCache(session, grounded.toFloat(),
 +                entity.getPitch(), entity.getYaw(), -1));
-+            session.setSuspendedAirborneSamples(0);
++            resetSuspendedPlacement(session);
 +            return Suspension.GROUNDED;
++        }
++
++        if (surface.provable()) {
++            // The world knows this column and there is nothing to stand on in it: a real void, which
++            // the backend sees exactly the same way. Do not mask its verdict (and do not pin a player
++            // in the void forever) - forward the sample untouched.
++            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
++                session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
++                    + " - the column is loaded and has no surface");
++            }
++            return Suspension.NONE;
++        }
++
++        if (Math.abs(packet.getDelta().getX()) >= HORIZONTAL_MOTION_EPSILON
++            || Math.abs(packet.getDelta().getZ()) >= HORIZONTAL_MOTION_EPSILON) {
++            // The client is moving under its own physics, so it is not holding the frozen position of
++            // a client with no terrain under it. Hand the sample over rather than hiding real motion.
++            session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
++                + " - the client is moving");
++            return Suspension.NONE;
 +        }
 +
 +        if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
 +            session.getGeyser().getLogger().debug("Holding suspended converted placement at " + feetPosition
 +                + " - no terrain provable under it yet");
-+        } else if (samples == SUSPENDED_SAMPLE_THRESHOLD + SUSPENDED_HOLD_BUDGET + 1) {
-+            session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
-+                + " - no terrain became provable within " + (SUSPENDED_HOLD_BUDGET + SUSPENDED_SAMPLE_THRESHOLD)
-+                / 20.0 + " s");
-+            return Suspension.NONE;
 +        }
 +        return samples == SUSPENDED_SAMPLE_THRESHOLD ? Suspension.HOLDING_START : Suspension.HOLDING;
++    }
++
++    /**
++     * Ends a suspension episode: the sample counter, the backend-alive budget and its packet mark
++     * all belong to one episode, because the packet mark only means anything relative to the last
++     * sample of the same episode.
++     */
++    private static void resetSuspendedPlacement(GeyserSession session) {
++        session.setSuspendedAirborneSamples(0);
++        session.setSuspendedHoldLiveSamples(0);
++        session.setSuspendedHoldPacketMark(session.downstreamPacketCount());
 +    }
 +
      private static boolean isInvalidNumber(float val) {
@@ -284,10 +433,10 @@ index 8046eab0c..de374729c 100644
              Vector3f entityPosition = entity.position();
 diff --git a/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
 new file mode 100644
-index 000000000..2c50a9915
+index 000000000..ec42ddf9c
 --- /dev/null
 +++ b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
-@@ -0,0 +1,198 @@
+@@ -0,0 +1,260 @@
 +/*
 + * Copyright (c) 2019-2022 GeyserMC. http://geysermc.org
 + *
@@ -316,6 +465,7 @@ index 000000000..2c50a9915
 +import org.cloudburstmc.math.vector.Vector3d;
 +import org.geysermc.geyser.level.physics.BoundingBox;
 +import org.geysermc.geyser.session.GeyserSession;
++import org.geysermc.geyser.session.cache.ChunkCache;
 +import org.geysermc.geyser.translator.collision.BlockCollision;
 +
 +/**
@@ -460,11 +610,52 @@ index 000000000..2c50a9915
 +     * stand on (void world, or the player is already at the dimension floor)
 +     */
 +    public static @Nullable Vector3d groundBelow(GeyserSession session, Vector3d feet, int maxSearchDepth) {
++        return surfaceBelow(session, feet, maxSearchDepth).grounded();
++    }
++
++    /**
++     * What the world can say about the column under a position, and whether it said anything at all.
++     *
++     * @param grounded the surface to stand on in this column, or null when there is nothing to stand
++     *                 on within the search depth
++     * @param provable whether the answer is the world's own: true when a surface was found, or when
++     *                 every block between the feet and the search floor is known and none of them is
++     *                 collidable; false when the column (or part of it) has not been sent yet, so
++     *                 "no surface" is only the empty default and must not be read as a void
++     */
++    public record Surface(@Nullable Vector3d grounded, boolean provable) {
++        static final Surface UNKNOWN = new Surface(null, false);
++        static final Surface EMPTY = new Surface(null, true);
++    }
++
++    /**
++     * Resolves the column under {@code feet} the way {@link #groundBelow} does, but also reports
++     * whether the absence of a surface is the world's answer or merely missing data.
++     * <p>
++     * This distinction is the whole difference between "the backend has not sent this chunk yet"
++     * (chunk streaming behind a stalled or slowly ticking server) and "this placement is in the
++     * void". A Bedrock client with no terrain under it reports a frozen airborne position, which the
++     * Java backend disconnects for; the converter has to keep bridging that while the data is
++     * missing, but must hand a genuine void back to the backend's own verdict.
++     */
++    public static Surface surfaceBelow(GeyserSession session, Vector3d feet, boolean placement) {
++        return surfaceBelow(session, feet, placement ? MAX_PLACEMENT_GROUND_SEARCH : MAX_GROUND_SEARCH);
++    }
++
++    /**
++     * Resolves the column under {@code feet} within {@code maxSearchDepth} blocks.
++     */
++    public static Surface surfaceBelow(GeyserSession session, Vector3d feet, int maxSearchDepth) {
 +        int x = floor(feet.getX());
 +        int z = floor(feet.getZ());
 +        int minY = Math.max(session.getBedrockDimension().minY(), floor(feet.getY()) - maxSearchDepth);
 +
 +        for (int y = floor(feet.getY()) - 1; y >= minY; y--) {
++            if (!blockKnown(session, x, y, z)) {
++                // Below this point nothing is known: a surface may still be there.
++                return Surface.UNKNOWN;
++            }
++
 +            BlockCollision collision = BlockUtils.getCollision(
 +                session.getGeyser().getWorldManager().getBlockAt(session, x, y, z));
 +            if (collision == null) {
@@ -480,9 +671,29 @@ index 000000000..2c50a9915
 +
 +            Vector3d candidate = Vector3d.from(feet.getX(), top, feet.getZ());
 +            if (hasSupport(session, candidate) && !intersectsCollidableBlock(session, candidate)) {
-+                return candidate;
++                return new Surface(candidate, true);
 +            }
 +        }
-+        return null;
++        return Surface.EMPTY;
++    }
++
++    /**
++     * @return true if the world's answer for this block is known: either the world manager owns its
++     * own chunk data (Spigot reads live blocks), the block is outside the cached world height (there
++     * is nothing there by definition), or the column has been sent to us
++     */
++    private static boolean blockKnown(GeyserSession session, int x, int y, int z) {
++        if (session.getGeyser().getWorldManager().hasOwnChunkCache()) {
++            return true;
++        }
++        ChunkCache cache = session.getChunkCache();
++        if (cache == null) {
++            return false;
++        }
++        int section = y >> 4;
++        if (section < cache.getChunkMinY() || section >= cache.getChunkMinY() + cache.getChunkHeightY()) {
++            return true;
++        }
++        return cache.isChunkLoaded(x >> 4, z >> 4);
 +    }
 +}
