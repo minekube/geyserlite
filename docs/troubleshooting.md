@@ -126,6 +126,49 @@ Optional settings:
 - `GEYSERLITE_BEDROCK_PACKET_TRACE_VERBOSE=1` logs each packet-metadata and
   channel-event record as it occurs and can produce high-volume output.
 
+## Observability
+
+### How many Bedrock players are refused for a version the edge doesn't support?
+
+A Bedrock client newer (or older) than the versions this build translates is
+disconnected before login. That path emits exactly one structured line and
+increments exactly one counter, labelled by the refused client protocol:
+
+```
+[20:36:05 INFO] GEYSERLITE_REFUSAL refusal=newer_than_edge client_protocol=9999 max_supported_protocol=2193 bedrock_ingress=fly-global-services:19132
+```
+
+Go embedders in subprocess mode do not re-log that raw line. They emit one
+structured record instead:
+
+```
+WARN bedrock version refused event=bedrock.version_refused refusal=newer_than_edge client_protocol=9999 max_supported_protocol=2193 bedrock_ingress=fly-global-services:19132
+```
+
+and increment
+
+```
+geyserlite_bedrock_version_refused_total{refusal="newer_than_edge",client_protocol="9999",max_supported_protocol="2193"}
+```
+
+The counter is registered on the default Prometheus registry, so whatever
+`/metrics` handler the embedding process serves exports it (moxy serves it on
+its health address, which Fly's managed Prometheus federates). Its labels stay
+bounded and identity-free on purpose — the ingress listener appears in the log
+record, not in a time series — and the Connect telemetry federation accepts the
+family by name. Query a rate instead of grepping logs:
+
+```promql
+sum by (client_protocol) (rate(geyserlite_bedrock_version_refused_total[1h]))
+```
+
+It deliberately carries no player identity: the refusal happens before login, so
+there is no username or XUID to attach, and `bedrock_ingress` is the configured
+listener, never a client address. That also bounds what it can answer — it
+counts refusal *events*, not distinct players or accounts, and it cannot
+attribute a refusal to a Connect endpoint, because a client does not reveal
+which endpoint it wanted until it logs in.
+
 ## Routing
 
 ### Player joins but lands in a different/unexpected world
