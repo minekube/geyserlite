@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/minekube/geyserlite/compare/v0.7.3...v0.7.4) (2026-10-31)
+
+
+### Bug Fixes
+
+* **bedrock:** hold a suspended placement by silence, not an on-ground claim ([#251](https://github.com/minekube/geyserlite/issues/251)) ([af7cbcf](https://github.com/minekube/geyserlite/commit/af7cbcf78683410ea7cee2098dffcc8e0afc0a2d))
+
 ## [0.7.3](https://github.com/minekube/geyserlite/compare/v0.7.2...v0.7.3) (2026-10-31)
 
 
