@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.3](https://github.com/minekube/geyserlite/compare/v0.7.2...v0.7.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* **bedrock:** hold a suspended placement on evidence, not a 5 s timer ([81e34f9](https://github.com/minekube/geyserlite/commit/81e34f99523afa1dad25be967b3d54f73f221848))
+* **bedrock:** hold a suspended placement on evidence, not a 5 s timer ([1d24923](https://github.com/minekube/geyserlite/commit/1d24923c36a244d847493f670ca0bd35d92e2d26))
+
 ## [0.7.2](https://github.com/minekube/geyserlite/compare/v0.7.1...v0.7.2) (2026-10-30)
 
 
