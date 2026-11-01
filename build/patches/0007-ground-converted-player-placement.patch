@@ -1,5 +1,5 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
-index 93fb21959..bfa4ca0e0 100644
+index 93fb21959..4ee8b7efa 100644
 --- a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
 +++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
 @@ -264,6 +264,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
@@ -10,7 +10,7 @@ index 93fb21959..bfa4ca0e0 100644
  
  @Getter
  public class GeyserSession implements GeyserConnection, GeyserCommandSource, JavaRegistryProvider.Provider {
-@@ -450,6 +451,63 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+@@ -450,6 +451,73 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
  
      @Setter
      private boolean spawned;
@@ -48,6 +48,16 @@ index 93fb21959..bfa4ca0e0 100644
 +     */
 +    @Setter
 +    private long suspendedHoldPacketMark;
++
++    /**
++     * Set when a suspension episode has been announced in the log (the {@code Holding ...} line on the
++     * {@code SUSPENDED_SAMPLE_THRESHOLD}-th sample) and cleared when that episode ends. It makes the
++     * end of a hold observable exactly once, however long the hold lasts: without it the end-of-hold
++     * lines could only ever be printed on the announcement sample, so a hold longer than 0.5 s ended
++     * silently and an operator could not tell "ended on terrain arrival" from "never ended".
++     */
++    @Setter
++    private boolean suspendedPlacementAnnounced;
 +
 +    /**
 +     * Monotonic count of packets received from the Java backend. Used only as a liveness signal:
@@ -113,10 +123,10 @@ index c6e78a33b..42097801e 100644
          if (!cache) {
              return;
 diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-index 00dcdca50..353d09011 100644
+index 00dcdca50..8fddea412 100644
 --- a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 +++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-@@ -36,9 +36,12 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+@@ -36,19 +36,75 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
  import org.geysermc.geyser.level.physics.BoundingBox;
  import org.geysermc.geyser.level.physics.CollisionResult;
  import org.geysermc.geyser.session.GeyserSession;
@@ -129,7 +139,12 @@ index 00dcdca50..353d09011 100644
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerRotPacket;
-@@ -49,6 +52,51 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
+ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerStatusOnlyPacket;
+ 
++import java.util.Locale;
++
+ /**
+  * Holds processing input coming in from the {@link PlayerAuthInputPacket} packet.
   */
  final class BedrockMovePlayer {
  
@@ -145,6 +160,12 @@ index 00dcdca50..353d09011 100644
 +     * resolving the placement instead of forwarding it (10 samples = 0.5 s at 20 Hz).
 +     */
 +    private static final int SUSPENDED_SAMPLE_THRESHOLD = 10;
++
++    /**
++     * The client's movement-sample cadence: 20 samples per second, i.e. one per server tick. Used only
++     * to express a hold's length in seconds in its end-of-hold log line.
++     */
++    private static final int SAMPLES_PER_SECOND = 20;
 +
 +    /**
 +     * How many samples of <i>demonstrably live</i> backend time the converter may hold a placement
@@ -181,7 +202,7 @@ index 00dcdca50..353d09011 100644
      static void translate(GeyserSession session, PlayerAuthInputPacket packet) {
          SessionPlayerEntity entity = session.getPlayerEntity();
          if (!session.isSpawned()) return;
-@@ -122,6 +170,33 @@ final class BedrockMovePlayer {
+@@ -122,6 +178,33 @@ final class BedrockMovePlayer {
              isOnGround = entity.isCollidingVertically() && entity.getLastTickEndVelocity().getY() < 0;
          }
  
@@ -215,7 +236,7 @@ index 00dcdca50..353d09011 100644
          // Resolve https://github.com/GeyserMC/Geyser/issues/3521, no void floor on java so player not supposed to collide with anything.
          // Therefore, we're fixing this by allowing player to no clip to clip through the floor, not only this fixed the issue but
          // player y velocity should match java perfectly, much better than teleport player right down :)
-@@ -238,6 +313,155 @@ final class BedrockMovePlayer {
+@@ -238,6 +321,199 @@ final class BedrockMovePlayer {
          }
      }
  
@@ -280,6 +301,10 @@ index 00dcdca50..353d09011 100644
 +            && PlacementGrounding.isSuspended(session, feetPosition);
 +
 +        if (!suspended) {
++            // The ordinary end of a hold: the client's own sample is supported again (the terrain
++            // arrived, or it landed under its own physics). Name the reason for an announced episode.
++            logEndOfHold(session, session.getSuspendedAirborneSamples(), "Releasing suspended converted placement at "
++                + feetPosition, " - the client is supported");
 +            resetSuspendedPlacement(session);
 +            return Suspension.NONE;
 +        }
@@ -297,6 +322,8 @@ index 00dcdca50..353d09011 100644
 +            // The budget is spent for this episode: never re-hold it (the live counter keeps growing
 +            // while the backend is alive, and is only reset by the suspension ending). The backend's
 +            // own floating check decides from here.
++            logEndOfHold(session, session.getSuspendedAirborneSamples(), "Releasing suspended converted placement at "
++                + feetPosition, " - the hold budget is spent");
 +            return Suspension.NONE;
 +        }
 +
@@ -315,6 +342,8 @@ index 00dcdca50..353d09011 100644
 +        if (grounded != null) {
 +            if (Math.abs(grounded.getY() - feetPosition.getY()) <= 1.0E-4) {
 +                // Already level with the surface below: supported, so nothing to correct.
++                logEndOfHold(session, samples, "Grounding suspended converted player at " + feetPosition
++                    + " to " + grounded, "");
 +                resetSuspendedPlacement(session);
 +                return Suspension.NONE;
 +            }
@@ -322,6 +351,9 @@ index 00dcdca50..353d09011 100644
 +            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
 +                session.getGeyser().getLogger().debug("Grounding suspended converted player at " + feetPosition
 +                    + " to " + grounded);
++            } else {
++                logEndOfHold(session, samples, "Grounding suspended converted player at " + feetPosition
++                    + " to " + grounded, "");
 +            }
 +            entity.moveAbsolute(grounded.toFloat(), entity.getYaw(), entity.getPitch(), false, true);
 +            session.setUnconfirmedTeleport(new TeleportCache(session, grounded.toFloat(),
@@ -337,6 +369,9 @@ index 00dcdca50..353d09011 100644
 +            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
 +                session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
 +                    + " - the column is loaded and has no surface");
++            } else {
++                logEndOfHold(session, samples, "Releasing suspended converted placement at " + feetPosition,
++                    " - the column is loaded and has no surface");
 +            }
 +            return Suspension.NONE;
 +        }
@@ -345,16 +380,44 @@ index 00dcdca50..353d09011 100644
 +            || Math.abs(packet.getDelta().getZ()) >= HORIZONTAL_MOTION_EPSILON) {
 +            // The client is moving under its own physics, so it is not holding the frozen position of
 +            // a client with no terrain under it. Hand the sample over rather than hiding real motion.
-+            session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
-+                + " - the client is moving");
++            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
++                session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
++                    + " - the client is moving");
++            } else {
++                logEndOfHold(session, samples, "Releasing suspended converted placement at " + feetPosition,
++                    " - the client is moving");
++            }
 +            return Suspension.NONE;
 +        }
 +
 +        if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
++            session.setSuspendedPlacementAnnounced(true);
 +            session.getGeyser().getLogger().debug("Holding suspended converted placement at " + feetPosition
 +                + " - no terrain provable under it yet");
 +        }
 +        return Suspension.HOLDING;
++    }
++
++    /**
++     * Prints the end-of-hold line of an <i>announced</i> episode, at most once: the {@code Holding ...}
++     * line is printed on the {@link #SUSPENDED_SAMPLE_THRESHOLD}-th sample and sets
++     * {@code suspendedPlacementAnnounced}, so the end of any hold - however long it lasts - names its
++     * reason and reports how many samples (and seconds) the placement was held. An episode that ends
++     * before the announcement prints nothing here; the sample-10 lines the release already had are
++     * printed unchanged by the callers.
++     * <p>
++     * The flag is cleared here as well as in {@link #resetSuspendedPlacement}, because three of the
++     * terminal branches (a provable void, a moving client, a spent budget) deliberately do not reset
++     * the episode: they end the hold but keep the counters for the backend's own verdict, so the flag
++     * must not let the same episode be reported again on the next sample.
++     */
++    private static void logEndOfHold(GeyserSession session, int samples, String prefix, String suffix) {
++        if (!session.isSuspendedPlacementAnnounced()) {
++            return;
++        }
++        session.setSuspendedPlacementAnnounced(false);
++        session.getGeyser().getLogger().debug(prefix + " after " + samples + " held samples ("
++            + String.format(Locale.ROOT, "%.1f", samples / (double) SAMPLES_PER_SECOND) + " s)" + suffix);
 +    }
 +
 +    /**
@@ -366,6 +429,8 @@ index 00dcdca50..353d09011 100644
 +        session.setSuspendedAirborneSamples(0);
 +        session.setSuspendedHoldLiveSamples(0);
 +        session.setSuspendedHoldPacketMark(session.downstreamPacketCount());
++        // One end-of-hold line per episode: the next episode announces itself again.
++        session.setSuspendedPlacementAnnounced(false);
 +    }
 +
      private static boolean isInvalidNumber(float val) {
