@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.5](https://github.com/minekube/geyserlite/compare/v0.7.4...v0.7.5) (2026-11-01)
+
+
+### Bug Fixes
+
+* **bedrock:** log how a suspended-placement hold ended ([#253](https://github.com/minekube/geyserlite/issues/253)) ([25c7917](https://github.com/minekube/geyserlite/commit/25c791706cc1aedfffc6c244c70cc6ebe87b1d05))
+
 ## [0.7.4](https://github.com/minekube/geyserlite/compare/v0.7.3...v0.7.4) (2026-10-31)
 
 
