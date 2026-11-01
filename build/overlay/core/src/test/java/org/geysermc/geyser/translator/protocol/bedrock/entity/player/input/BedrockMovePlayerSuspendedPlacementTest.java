@@ -76,6 +76,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -469,6 +470,86 @@ class BedrockMovePlayerSuspendedPlacementTest {
         }
     }
 
+    /**
+     * Fault C observability (kanban t_2ea55e29): a hold that outlives its announcement must still be
+     * visible when it ends. The converter logs the {@code Holding ...} line on the 10th suspended
+     * sample and, before this change, nothing on the way out - so the ordinary lab episode (terrain
+     * 8 s late) ends in a completely silent log, and an operator cannot tell "ended on terrain
+     * arrival" from "never ended".
+     * <p>
+     * RED on the unmodified 0007 converter: the episode emits <b>zero</b> end-of-hold lines.
+     * GREEN: exactly one line, from the grounding branch, carrying the held-sample count and the
+     * duration.
+     */
+    @Test
+    @DisplayName("a hold longer than the announcement sample logs one end-of-hold line on arrival")
+    void aHoldThatOutlivesTheAnnouncementLogsItsEnd() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        // The lab's arm-6 cell, at unit scale: the column arrives 8 s after the placement.
+        harness.publishBlock(5, -21, 5, SAMPLES_PER_SECOND * 8);
+
+        harness.run(SAMPLES_PER_SECOND * 12);
+
+        // Behaviour is untouched: the placement still ends on the surface it was held for.
+        assertEquals(-20.0, harness.groundingTeleportY, 1.0E-4);
+
+        List<String> ends = harness.holdEndLines();
+        assertEquals(1, ends.size(), "a hold of 8 s must end with exactly one end-of-hold line, got " + ends);
+        assertEquals("Grounding suspended converted player at (5.5, -18.0, 5.5) to (5.5, -20.0, 5.5)"
+            + " after 161 held samples (8.1 s)", ends.get(0));
+        // The announcement is not repeated: the line is the end of the episode, not another sample.
+        assertTrue(harness.debugLines.stream().anyMatch(line -> line.startsWith("Holding suspended")),
+            "the hold was never announced: " + harness.debugLines);
+    }
+
+    /**
+     * The other ordinary end of a hold: the client's own sample stops being suspended because a
+     * column arrived whose surface is exactly level with the feet (nothing to teleport). Before this
+     * change that exit was silent as well - the sample-10 line only ever covered a hold that ended
+     * on the announcement itself.
+     * <p>
+     * RED on the unmodified 0007 converter: zero end-of-hold lines. GREEN: exactly one, naming the
+     * reason and the held-sample count.
+     */
+    @Test
+    @DisplayName("a hold that ends because the client is supported logs exactly one line")
+    void aHoldThatEndsOnSupportLogsOneLine() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        // A full block whose top is level with the placement's feet: the client is supported again.
+        harness.publishBlock(5, -19, 5, SAMPLES_PER_SECOND * 2);
+
+        harness.run(SAMPLES_PER_SECOND * 3);
+
+        assertNull(harness.groundingTeleportY, "a placement that is already supported must not be teleported");
+
+        List<String> ends = harness.holdEndLines();
+        assertEquals(1, ends.size(), "a hold that ends on support must log exactly one line, got " + ends);
+        assertEquals("Releasing suspended converted placement at (5.5, -18.0, 5.5)"
+            + " after 40 held samples (2.0 s) - the client is supported", ends.get(0));
+    }
+
+    /**
+     * The third terminal branch the card names: the column arrives and provably has no surface. The
+     * hold must end there (a real void is the backend's own verdict to make) and, again, say once how
+     * long it held before handing the sample back.
+     * <p>
+     * RED on the unmodified 0007 converter: zero end-of-hold lines.
+     */
+    @Test
+    @DisplayName("a hold that ends on a provably empty column logs exactly one line")
+    void aHoldThatEndsOnAProvableVoidLogsOneLine() {
+        Harness harness = new Harness(geyserImpl, playerOffset);
+        // The column is streamed at 3 s and carries no block at all: the world's answer is "void".
+        harness.publishColumn(5, 5, SAMPLES_PER_SECOND * 3);
+
+        harness.run(SAMPLES_PER_SECOND * 5);
+
+        List<String> ends = harness.holdEndLines();
+        assertEquals(1, ends.size(), "a hold that ends on a provable void must log exactly one line, got " + ends);
+        assertEquals("Releasing suspended converted placement at (5.5, -18.0, 5.5)"
+            + " after 61 held samples (3.1 s) - the column is loaded and has no surface", ends.get(0));
+    }
+
     private enum Exemption {
         CREATIVE {
             @Override
@@ -575,7 +656,26 @@ class BedrockMovePlayerSuspendedPlacementTest {
     }
 
     private static final class Harness {
-        final GeyserSession session = mock(GeyserSession.class);
+        /**
+         * The session mock answers the observability flag by name: the tests must compile and run
+         * against the <i>unmodified</i> converter too (that is where they are RED), so the flag
+         * cannot be referenced as a method here.
+         */
+        final AtomicBoolean suspendedPlacementAnnounced = new AtomicBoolean(false);
+        final GeyserSession session = mock(GeyserSession.class, invocation -> {
+            switch (invocation.getMethod().getName()) {
+                case "isSuspendedPlacementAnnounced":
+                    return suspendedPlacementAnnounced.get();
+                case "setSuspendedPlacementAnnounced":
+                    suspendedPlacementAnnounced.set(invocation.getArgument(0));
+                    return null;
+                default:
+                    return Answers.RETURNS_DEFAULTS.answer(invocation);
+            }
+        });
+        final GeyserLogger logger = mock(GeyserLogger.class);
+        /** Every {@code debug} line the converter emitted during this scenario. */
+        final List<String> debugLines = new ArrayList<>();
         final SessionPlayerEntity entity = mock(SessionPlayerEntity.class);
         final CollisionManager collisionManager = mock(CollisionManager.class);
         final InputCache inputCache = mock(InputCache.class);
@@ -626,7 +726,11 @@ class BedrockMovePlayerSuspendedPlacementTest {
         Harness(GeyserImpl geyser, float playerOffset) {
             this.playerOffset = playerOffset;
             when(geyser.getWorldManager()).thenReturn(worldManager);
-            when(geyser.getLogger()).thenReturn(mock(GeyserLogger.class));
+            when(geyser.getLogger()).thenReturn(logger);
+            doAnswer(invocation -> {
+                debugLines.add(invocation.getArgument(0, String.class));
+                return null;
+            }).when(logger).debug(anyString());
 
             when(session.getGeyser()).thenReturn(geyser);
             when(session.isSpawned()).thenReturn(true);
@@ -866,6 +970,21 @@ class BedrockMovePlayerSuspendedPlacementTest {
                 }
             }
             return -1;
+        }
+
+        /**
+         * The converter's end-of-hold lines: exactly the lines that carry the held-sample count and
+         * the duration, i.e. {@code <prefix> after N held samples (T.T s)<suffix>}. The
+         * {@code Holding ...} announcement and the sample-10 release lines do not match.
+         */
+        List<String> holdEndLines() {
+            List<String> ends = new ArrayList<>();
+            for (String line : debugLines) {
+                if (line.contains("held samples")) {
+                    ends.add(line);
+                }
+            }
+            return ends;
         }
 
         private PlayerAuthInputPacket packet() {
