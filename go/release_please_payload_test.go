@@ -241,22 +241,39 @@ func releasePleaseWantCommands() []string {
 		// go/release_review_gate_test.go as well.
 		`REVIEW_WAIT_SECONDS=900`,
 		`REVIEW_POLL_SECONDS=15`,
+		`REVIEW_REQUEST_SECONDS=60`,
 		`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit")] | sort_by(.started_at) | last)'`,
 		`echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"`,
-		`ELAPSED=0`,
+		`REVIEW_DEADLINE=$(( $(date -u +%s) + REVIEW_WAIT_SECONDS ))`,
 		`REVIEW_STATUS="missing"`,
 		`REVIEW_CONCLUSION=""`,
 		`REVIEW_REASON=""`,
-		`while [ "$ELAPSED" -lt "$REVIEW_WAIT_SECONDS" ]; do`,
-		`REVIEW_JSON=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")`,
-		`REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"")`,
-		`REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"")`,
-		`REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\"")`,
+		`REVIEW_FAILURES=0`,
+		`while :; do`,
+		`REVIEW_REMAINING=$((REVIEW_DEADLINE - $(date -u +%s)))`,
+		`if [ "$REVIEW_REMAINING" -le 0 ]; then`,
+		`break`,
+		`fi`,
+		`REVIEW_TIMEOUT="$REVIEW_REQUEST_SECONDS"`,
+		`if [ "$REVIEW_TIMEOUT" -gt "$REVIEW_REMAINING" ]; then`,
+		`REVIEW_TIMEOUT="$REVIEW_REMAINING"`,
+		`fi`,
+		`if ! { REVIEW_JSON=$(timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100") && REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"") && REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"") && REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\""); }; then`,
+		`REVIEW_FAILURES=$((REVIEW_FAILURES + 1))`,
+		`REVIEW_REASON="request failed"`,
+		`fi`,
 		`if [ "$REVIEW_STATUS" = "completed" ]; then`,
 		`break`,
 		`fi`,
-		`sleep "$REVIEW_POLL_SECONDS"`,
-		`ELAPSED=$((ELAPSED + REVIEW_POLL_SECONDS))`,
+		`REVIEW_REMAINING=$((REVIEW_DEADLINE - $(date -u +%s)))`,
+		`if [ "$REVIEW_REMAINING" -le 0 ]; then`,
+		`break`,
+		`fi`,
+		`REVIEW_SLEEP="$REVIEW_POLL_SECONDS"`,
+		`if [ "$REVIEW_SLEEP" -gt "$REVIEW_REMAINING" ]; then`,
+		`REVIEW_SLEEP="$REVIEW_REMAINING"`,
+		`fi`,
+		`sleep "$REVIEW_SLEEP"`,
 		`done`,
 		`REVIEW_OUTCOME="$REVIEW_CONCLUSION"`,
 		`if [ -z "$REVIEW_OUTCOME" ]; then`,
@@ -279,6 +296,7 @@ func releasePleaseWantCommands() []string {
 		`printf '| conclusion | %s |\n' "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`,
 		`printf '| detail | %s |\n' "$REVIEW_REASON" >> "$GITHUB_STEP_SUMMARY"`,
 		`printf '| wait limit | %ss |\n' "$REVIEW_WAIT_SECONDS" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| request failures | %s |\n' "$REVIEW_FAILURES" >> "$GITHUB_STEP_SUMMARY"`,
 		`printf '| merge | %s |\n\n' "$REVIEW_APPROVED" >> "$GITHUB_STEP_SUMMARY"`,
 		`if [ "$REVIEW_APPROVED" != "true" ]; then`,
 		`printf 'Release PR #%s NOT merged (CodeRabbit: %s). Merge by hand if acceptable, else re-run the review.\n' "$PR_NUMBER" "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`,
@@ -495,11 +513,24 @@ case "$*" in
     # Only the review gate queries commit check-runs. The mirror call targets
     # repos/<owner>/<repo>/check-runs (no /commits/ segment), so it does not
     # consume a scripted review poll.
-    if [ -n "$GH_REVIEW_DIR" ]; then
+    if [ -n "$GH_REVIEW_COUNT" ]; then
       GH_REVIEW_POLLS=$(cat "$GH_REVIEW_COUNT" 2>/dev/null || printf 0)
       GH_REVIEW_POLLS=$((GH_REVIEW_POLLS + 1))
       printf '%s' "$GH_REVIEW_POLLS" > "$GH_REVIEW_COUNT"
-      GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/$GH_REVIEW_POLLS.json"
+    fi
+    # GH_REVIEW_STALL_SECONDS is a request that never answers and
+    # GH_REVIEW_FAIL a request that answers with an error: the two ways a
+    # reviewer lookup can go wrong on the runner. The stub execs into sleep so
+    # it stays one process and timeout reaches the thing that is hanging.
+    if [ -n "$GH_REVIEW_STALL_SECONDS" ]; then
+      exec sleep "$GH_REVIEW_STALL_SECONDS"
+    fi
+    if [ -n "$GH_REVIEW_FAIL" ]; then
+      printf 'gh: HTTP 502 from api.github.com\n' >&2
+      exit 1
+    fi
+    if [ -n "$GH_REVIEW_DIR" ]; then
+      GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/${GH_REVIEW_POLLS:-1}.json"
       if [ ! -f "$GH_REVIEW_RESPONSE" ]; then
         GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/last.json"
       fi
