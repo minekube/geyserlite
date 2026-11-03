@@ -197,7 +197,18 @@ jobs:
           # written. The contract tests rewrite these literals to prove the cap
           # without waiting it out, and pin the shipped values in
           # go/release_review_gate_test.go.
-          REVIEW_WAIT_SECONDS=900
+          #
+          # 20 minutes, not 15. Waiting is the chosen trade: "I'd rather wait
+          # and have more safety ... then not wait and get something wrong".
+          # Measured on this repository (#247..#257, every CodeRabbit review run
+          # on those heads): 13 successful reviews, 181s..735s, median 398s, and
+          # #251's review was still running at 982s when the merge cancelled it.
+          # So 900s refused a review just 22% slower than the slowest successful
+          # one and sat *below* a run this chain had already produced. 1200s
+          # keeps 218s over that #251 run and 465s (1.63x) over the slowest
+          # successful review, while still ending the wait: a reviewer that hangs
+          # leaves the PR open instead of stalling the release forever.
+          REVIEW_WAIT_SECONDS=1200
           REVIEW_POLL_SECONDS=15
           REVIEW_REQUEST_SECONDS=60
           # The review must come from CodeRabbit's own GitHub App: app id 347564
@@ -213,7 +224,10 @@ jobs:
           REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit" and .app.id == 347564)] | sort_by(.started_at) | last)'
           echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"
           REVIEW_DEADLINE=$(( $(date -u +%s) + REVIEW_WAIT_SECONDS ))
-          REVIEW_STATUS="missing"
+          # `unknown` is "we never got an answer"; `missing` is "the answer had
+          # no CodeRabbit run". They are different facts for an operator, and a
+          # stalled request must not be reported as a missing check.
+          REVIEW_STATUS="unknown"
           REVIEW_CONCLUSION=""
           REVIEW_REASON=""
           REVIEW_FAILURES=0

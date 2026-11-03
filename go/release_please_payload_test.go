@@ -239,14 +239,14 @@ func releasePleaseWantCommands() []string {
 		// terminal state for this head commit, and fail closed on anything that
 		// is not an approving conclusion. Pinned command-by-command by
 		// go/release_review_gate_test.go as well.
-		`REVIEW_WAIT_SECONDS=900`,
+		`REVIEW_WAIT_SECONDS=1200`,
 		`REVIEW_POLL_SECONDS=15`,
 		`REVIEW_REQUEST_SECONDS=60`,
 		`REVIEW_APP_ID=347564`,
 		`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit" and .app.id == 347564)] | sort_by(.started_at) | last)'`,
 		`echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"`,
 		`REVIEW_DEADLINE=$(( $(date -u +%s) + REVIEW_WAIT_SECONDS ))`,
-		`REVIEW_STATUS="missing"`,
+		`REVIEW_STATUS="unknown"`,
 		`REVIEW_CONCLUSION=""`,
 		`REVIEW_REASON=""`,
 		`REVIEW_FAILURES=0`,
