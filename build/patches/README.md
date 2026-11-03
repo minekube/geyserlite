@@ -47,6 +47,21 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   false negative cannot freeze a player. Reference implementation and lab A/B
   (Paper 26.3, `allow-flight=false`): kanban `t_1e9c9090`.
 
+- `0009-player-thread-termination.patch` — a Bedrock player thread
+  (`GeyserServerInitializer`'s `DefaultEventLoopGroup`) that dies from a fatal error
+  (e.g. `OutOfMemoryError` while zlib-compressing a downstream burst) is terminated for
+  good by Netty: `Unexpected exception from an event executor` is logged once and every
+  later `schedule`/`execute` on it is rejected. Before this patch the group was created
+  once, so every session after the death was bound to a dead executor,
+  `GeyserSession.connectDownstream` threw `RejectedExecutionException` when scheduling the
+  tick, `authenticate()` swallowed it, and the client waited on "generating world" until
+  its own timeout while its XUID stayed reserved — a total, silent NetherNet outage for
+  the life of the process. The patch (a) replaces a player thread group whose threads have
+  terminated instead of handing it to new sessions, logging and counting the loss, and
+  (b) disconnects a session with an explicit reason when its tick still cannot be
+  scheduled, instead of leaving it hanging. Reference: kanban `t_5cc9131c` /
+  `t_ec15de25`, 2026-11-01 NetherNet outage.
+
 ## Generating new patches
 
 When you find you need a real source modification:
