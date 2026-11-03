@@ -164,6 +164,93 @@ jobs:
             exit 1
           fi
 
+          # Review gate: the release PR must not merge before CodeRabbit has
+          # actually reviewed this head commit. The step used to go straight
+          # from the mirrored `lint-test` context to `gh pr merge`, so the
+          # merge closed the PR mid-review and GitHub recorded the review run
+          # as `cancelled`: #256 merged 2026-11-03T06:37:31Z while its
+          # CodeRabbit check (started 06:33:23Z) was still running and was
+          # cancelled at 06:38:29Z; #251 merged 2026-10-31T20:29:46Z with the
+          # same shape. CodeRabbit is deliberately NOT a required
+          # branch-protection context: that is a settings change nobody can
+          # review here, and a required context an external reviewer app can
+          # leave `cancelled` would block the pull request UI as well. The gate
+          # lives in this workflow so it is reviewable and fail-closed.
+          #
+          # Only `success` may merge, plus `neutral`/`skipped`, whose detail is
+          # recorded in the job summary (CodeRabbit reports "No files to
+          # review" as `skipped`). Any other conclusion, a check that never
+          # appears at all, and no terminal result inside the cap all leave the
+          # PR open and stop the chain before anything is tagged.
+          #
+          # The cap is the literal 900s below (60 polls, 15s apart); the
+          # contract tests rewrite those two literals to prove the cap without
+          # waiting it out, and pin the shipped values in
+          # go/release_review_gate_test.go.
+          REVIEW_WAIT_SECONDS=900
+          REVIEW_POLL_SECONDS=15
+          REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit")] | sort_by(.started_at) | last)'
+          echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"
+          ELAPSED=0
+          REVIEW_STATUS="missing"
+          REVIEW_CONCLUSION=""
+          REVIEW_REASON=""
+          while [ "$ELAPSED" -lt "$REVIEW_WAIT_SECONDS" ]; do
+            REVIEW_JSON=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")
+            REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"")
+            REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"")
+            REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\"")
+            if [ "$REVIEW_STATUS" = "completed" ]; then
+              break
+            fi
+            sleep "$REVIEW_POLL_SECONDS"
+            ELAPSED=$((ELAPSED + REVIEW_POLL_SECONDS))
+          done
+
+          REVIEW_OUTCOME="$REVIEW_CONCLUSION"
+          if [ -z "$REVIEW_OUTCOME" ]; then
+            REVIEW_OUTCOME="no terminal result"
+          fi
+          if [ -z "$REVIEW_REASON" ]; then
+            REVIEW_REASON="none"
+          fi
+
+          REVIEW_APPROVED="false"
+          case "$REVIEW_OUTCOME" in
+            success | neutral | skipped)
+              REVIEW_APPROVED="true"
+              ;;
+          esac
+
+          printf '### CodeRabbit review gate\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| field | value |\n| --- | --- |\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| release PR | #%s |\n' "$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          printf '| head commit | %s |\n' "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '| check status | %s |\n' "$REVIEW_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          printf '| conclusion | %s |\n' "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          printf '| detail | %s |\n' "$REVIEW_REASON" >> "$GITHUB_STEP_SUMMARY"
+          printf '| wait limit | %ss |\n' "$REVIEW_WAIT_SECONDS" >> "$GITHUB_STEP_SUMMARY"
+          printf '| merge | %s |\n\n' "$REVIEW_APPROVED" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$REVIEW_APPROVED" != "true" ]; then
+            printf 'Release PR #%s NOT merged (CodeRabbit: %s). Merge by hand if acceptable, else re-run the review.\n' "$PR_NUMBER" "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::CodeRabbit review of $HEAD_SHA concluded $REVIEW_OUTCOME; release PR #$PR_NUMBER stays open and no tag is cut"
+            exit 1
+          fi
+
+          # The gate is about the reviewed commit: if the release branch moved
+          # while CodeRabbit was reviewing, the merge would land a commit
+          # nobody reviewed.
+          MERGED_HEAD_SHA=$(gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json headRefOid \
+            --jq '.headRefOid')
+          if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then
+            printf 'Release PR #%s head is %s after CodeRabbit reviewed %s; not merging an unreviewed commit.\n' "$PR_NUMBER" "$MERGED_HEAD_SHA" "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Release PR #$PR_NUMBER head moved from the reviewed $HEAD_SHA to $MERGED_HEAD_SHA; not merging"
+            exit 1
+          fi
+
           echo "Merging release PR #$PR_NUMBER"
           for _ in $(seq 1 30); do
             if gh pr merge "$PR_NUMBER" \

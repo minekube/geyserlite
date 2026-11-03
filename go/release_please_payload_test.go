@@ -235,6 +235,62 @@ func releasePleaseWantCommands() []string {
 		`echo "::error::Release PR CI concluded $CONCLUSION"`,
 		`exit 1`,
 		`fi`,
+		// The CodeRabbit review gate: hold the merge until the review reaches a
+		// terminal state for this head commit, and fail closed on anything that
+		// is not an approving conclusion. Pinned command-by-command by
+		// go/release_review_gate_test.go as well.
+		`REVIEW_WAIT_SECONDS=900`,
+		`REVIEW_POLL_SECONDS=15`,
+		`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit")] | sort_by(.started_at) | last)'`,
+		`echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"`,
+		`ELAPSED=0`,
+		`REVIEW_STATUS="missing"`,
+		`REVIEW_CONCLUSION=""`,
+		`REVIEW_REASON=""`,
+		`while [ "$ELAPSED" -lt "$REVIEW_WAIT_SECONDS" ]; do`,
+		`REVIEW_JSON=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")`,
+		`REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"")`,
+		`REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"")`,
+		`REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\"")`,
+		`if [ "$REVIEW_STATUS" = "completed" ]; then`,
+		`break`,
+		`fi`,
+		`sleep "$REVIEW_POLL_SECONDS"`,
+		`ELAPSED=$((ELAPSED + REVIEW_POLL_SECONDS))`,
+		`done`,
+		`REVIEW_OUTCOME="$REVIEW_CONCLUSION"`,
+		`if [ -z "$REVIEW_OUTCOME" ]; then`,
+		`REVIEW_OUTCOME="no terminal result"`,
+		`fi`,
+		`if [ -z "$REVIEW_REASON" ]; then`,
+		`REVIEW_REASON="none"`,
+		`fi`,
+		`REVIEW_APPROVED="false"`,
+		`case "$REVIEW_OUTCOME" in`,
+		`success | neutral | skipped)`,
+		`REVIEW_APPROVED="true"`,
+		`;;`,
+		`esac`,
+		`printf '### CodeRabbit review gate\n\n' >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| field | value |\n| --- | --- |\n' >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| release PR | #%s |\n' "$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| head commit | %s |\n' "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| check status | %s |\n' "$REVIEW_STATUS" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| conclusion | %s |\n' "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| detail | %s |\n' "$REVIEW_REASON" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| wait limit | %ss |\n' "$REVIEW_WAIT_SECONDS" >> "$GITHUB_STEP_SUMMARY"`,
+		`printf '| merge | %s |\n\n' "$REVIEW_APPROVED" >> "$GITHUB_STEP_SUMMARY"`,
+		`if [ "$REVIEW_APPROVED" != "true" ]; then`,
+		`printf 'Release PR #%s NOT merged (CodeRabbit: %s). Merge by hand if acceptable, else re-run the review.\n' "$PR_NUMBER" "$REVIEW_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`,
+		`echo "::error::CodeRabbit review of $HEAD_SHA concluded $REVIEW_OUTCOME; release PR #$PR_NUMBER stays open and no tag is cut"`,
+		`exit 1`,
+		`fi`,
+		`MERGED_HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq '.headRefOid')`,
+		`if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then`,
+		`printf 'Release PR #%s head is %s after CodeRabbit reviewed %s; not merging an unreviewed commit.\n' "$PR_NUMBER" "$MERGED_HEAD_SHA" "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"`,
+		`echo "::error::Release PR #$PR_NUMBER head moved from the reviewed $HEAD_SHA to $MERGED_HEAD_SHA; not merging"`,
+		`exit 1`,
+		`fi`,
 		`echo "Merging release PR #$PR_NUMBER"`,
 		`for _ in $(seq 1 30); do`,
 		`if gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge; then`,
@@ -435,11 +491,33 @@ case "$*" in
   *"--json headRefName,headRefOid"*)
     printf '{"headRefName":"release-please--branches--main--components--geyserlite","headRefOid":"%s"}\n' "$GH_STUB_HEAD_SHA"
     ;;
+  */commits/*/check-runs*)
+    # Only the review gate queries commit check-runs. The mirror call targets
+    # repos/<owner>/<repo>/check-runs (no /commits/ segment), so it does not
+    # consume a scripted review poll.
+    if [ -n "$GH_REVIEW_DIR" ]; then
+      GH_REVIEW_POLLS=$(cat "$GH_REVIEW_COUNT" 2>/dev/null || printf 0)
+      GH_REVIEW_POLLS=$((GH_REVIEW_POLLS + 1))
+      printf '%s' "$GH_REVIEW_POLLS" > "$GH_REVIEW_COUNT"
+      GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/$GH_REVIEW_POLLS.json"
+      if [ ! -f "$GH_REVIEW_RESPONSE" ]; then
+        GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/last.json"
+      fi
+      cat "$GH_REVIEW_RESPONSE"
+    else
+      printf '{"total_count":1,"check_runs":[{"name":"CodeRabbit","status":"completed","conclusion":"success","output":{"title":"Review completed"}}]}\n'
+    fi
+    ;;
   *"run list"*)
     printf '4242\n'
     ;;
   *"run view"*)
     printf '{"status":"completed","conclusion":"success","url":"https://github.example/minekube/geyserlite/actions/runs/4242"}\n'
+    ;;
+  *"--json headRefOid"*)
+    # The review gate re-reads the head commit right before merging, so the
+    # "the head moved while it was being reviewed" path is testable.
+    printf '%s\n' "${GH_STUB_MERGED_HEAD_SHA:-$GH_STUB_HEAD_SHA}"
     ;;
   *"--json state"*)
     printf 'MERGED\n'
@@ -453,8 +531,9 @@ exit 0
 
 // runReleasePleaseMergeStep executes the step's own shell script the way the
 // runner does (bash -e) with a stub `gh` on PATH, and returns the combined script
-// output plus the recorded `gh` invocations.
-func runReleasePleaseMergeStep(t *testing.T, run string, stepEnv map[string]string, payload string) (string, error) {
+// output, the job summary the step appended to `$GITHUB_STEP_SUMMARY`, and the
+// recorded `gh` invocations.
+func runReleasePleaseMergeStep(t *testing.T, run string, stepEnv map[string]string, payload string) (string, string, error) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
@@ -491,12 +570,14 @@ func runReleasePleaseMergeStep(t *testing.T, run string, stepEnv map[string]stri
 		t.Fatal(err)
 	}
 
+	summaryPath := filepath.Join(dir, "job-summary.md")
 	env := []string{
 		"PATH=" + binDir + string(filepath.ListSeparator) + os.Getenv("PATH"),
 		"GH_LOG=" + ghLog,
 		"GH_STUB_HEAD_SHA=" + releasePleaseStubHeadSHA,
 		"HOME=" + dir,
 		"GITHUB_REPOSITORY=minekube/geyserlite",
+		"GITHUB_STEP_SUMMARY=" + summaryPath,
 	}
 	for name, value := range stepEnv {
 		env = append(env, name+"="+renderReleasePleaseStepText(value, payload))
@@ -510,7 +591,11 @@ func runReleasePleaseMergeStep(t *testing.T, run string, stepEnv map[string]stri
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
-	return string(output) + "recorded gh calls:\n" + string(logged), runErr
+	summary, err := os.ReadFile(summaryPath)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	return string(output) + "recorded gh calls:\n" + string(logged), string(summary), runErr
 }
 
 // TestReleasePleaseMergeStepHandlesApostrophesInReleaseNotes runs the workflow's
@@ -539,7 +624,7 @@ func TestReleasePleaseMergeStepHandlesApostrophesInReleaseNotes(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			output, runErr := runReleasePleaseMergeStep(t, step.Run, step.Env, testCase.payload)
+			output, _, runErr := runReleasePleaseMergeStep(t, step.Run, step.Env, testCase.payload)
 			if runErr != nil {
 				t.Fatalf("the auto-merge step failed for a release PR payload with %s:\n%v\n%s", testCase.name, runErr, output)
 			}
@@ -573,7 +658,7 @@ func TestReleasePleaseDetectionCatchesShellInterpolatedPayload(t *testing.T) {
 	}
 
 	apostrophePayload := releasePleasePayload(t, 216, "chore(main): release 0.5.31", releasePleasePRBodyApostrophe)
-	output, runErr := runReleasePleaseMergeStep(t, historicalRun, step.Env, apostrophePayload)
+	output, _, runErr := runReleasePleaseMergeStep(t, historicalRun, step.Env, apostrophePayload)
 	if runErr == nil {
 		t.Fatalf("a shell-interpolated payload must fail; the harness reported success:\n%s", output)
 	}
@@ -589,7 +674,7 @@ func TestReleasePleaseDetectionCatchesShellInterpolatedPayload(t *testing.T) {
 	}
 
 	quoteFreePayload := releasePleasePayload(t, 217, "chore(main): release 0.5.32", releasePleasePRBodyQuoteFree)
-	if output, runErr := runReleasePleaseMergeStep(t, historicalRun, step.Env, quoteFreePayload); runErr != nil {
+	if output, _, runErr := runReleasePleaseMergeStep(t, historicalRun, step.Env, quoteFreePayload); runErr != nil {
 		t.Fatalf("the historical shape must still work for quote-free release notes (the defect was silent); got %v:\n%s", runErr, output)
 	}
 }
