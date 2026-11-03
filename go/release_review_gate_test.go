@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -364,6 +365,15 @@ func TestReleasePleaseReviewGatePinsTheFailClosedDisposition(t *testing.T) {
 	indexOf("REVIEW_WAIT_SECONDS=" + releaseReviewDefaultWaitSeconds)
 	indexOf("REVIEW_POLL_SECONDS=" + releaseReviewDefaultPollSeconds)
 
+	// Fail-closed defaults, pinned by name so a Windows run (where the shell
+	// harness skips) still catches them: nothing approves by default, the wait
+	// loop is bounded by the cap, it only stops on a terminal review, and a
+	// missing conclusion is never silently treated as an approval.
+	indexOf(`REVIEW_APPROVED="false"`)
+	indexOf(`while [ "$ELAPSED" -lt "$REVIEW_WAIT_SECONDS" ]; do`)
+	indexOf(`if [ "$REVIEW_STATUS" = "completed" ]; then`)
+	indexOf(`REVIEW_OUTCOME="no terminal result"`)
+
 	poll := indexOf(`REVIEW_JSON=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")`)
 	refusal := indexOf(`if [ "$REVIEW_APPROVED" != "true" ]; then`)
 	headRecheck := indexOf(`if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then`)
@@ -421,6 +431,22 @@ func TestReleasePleaseReviewGatePinsTheFailClosedDisposition(t *testing.T) {
 func TestReleasePleaseReviewGatePolicyRejectsWeakeningMutations(t *testing.T) {
 	if os.Getenv(releasePleaseMutationChildEnv) == "1" {
 		t.Skip("mutation child runs only the review gate tests")
+	}
+	// Half of the mutations below are only observable by executing the step's
+	// shell, which the harness only does on a POSIX host with bash and jq (the
+	// step itself runs on ubuntu-latest). The structural pin above keeps its
+	// teeth on every platform; the execution half skips where it cannot run
+	// rather than reporting a false "weakening survived".
+	if runtime.GOOS == "windows" {
+		t.Skip("the review gate's shell harness needs bash + jq; only the structural pin runs on Windows")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		if _, err := exec.LookPath("sh"); err != nil {
+			t.Skipf("no bash/sh on PATH: %v", err)
+		}
+	}
+	if _, err := exec.LookPath("jq"); err != nil {
+		t.Skipf("the review gate parses its payload with jq and it is not on PATH: %v", err)
 	}
 
 	baseline := releasePleaseWorkflowSource(t, "..")
