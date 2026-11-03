@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,19 +56,21 @@ const (
 	releaseReviewPollArgs = "/commits/" + releasePleaseStubHeadSHA + "/check-runs"
 
 	// releaseReviewDefaultWaitSeconds / releaseReviewDefaultPollSeconds are the
-	// cap and cadence the workflow itself uses. 900s is 15 minutes: measured
-	// from the CodeRabbit check-runs of release PRs #247..#257
-	// (2026-10-30..2026-11-03), the nine successful reviews took 274s at the
-	// median (4m34s) and 735s at the slowest (12m15s — this change's own
-	// re-review of a76ec0e), so the cap is ~1.2x the worst review actually
-	// recorded and ~3.3x the median, leaving ~2m45s of headroom over the
-	// slowest real review while keeping the whole release job well inside the
-	// runner's 6h limit (the other waits in the step already allow 40 minutes).
-	// A review slower than that leaves the PR open rather than merging it
-	// unreviewed — the direction the report asked for. (#251 is not in the
-	// successful set: its review was cancelled after 16m22s when the PR was
-	// merged underneath it.)
-	releaseReviewDefaultWaitSeconds = "900"
+	// cap and cadence the workflow itself uses. 1200s is 20 minutes, chosen on
+	// the reporter's rule ("I'd rather wait and have more safety ... then not
+	// wait and get something wrong when this could've helped"). Measured from
+	// every CodeRabbit review run on the heads of #247..#257
+	// (2026-10-30..2026-11-03): 13 successful reviews, 181s..735s, median 398s
+	// (6m38s), slowest 735s (12m15s) — and #251's review was still running at
+	// 982s (16m22s) when the merge cancelled it. A 15-minute cap refused a
+	// review 22% slower than the slowest successful one and sat below a run this
+	// chain had already produced, so the cap now keeps 218s over that #251 run
+	// and 465s (1.63x) over the slowest successful review, while still ending
+	// the wait (the whole release job stays well inside the runner's 6h limit;
+	// the CI wait earlier in the step already allows 30 minutes). A review
+	// slower than the cap leaves the PR open rather than merging it unreviewed —
+	// the direction the report asked for.
+	releaseReviewDefaultWaitSeconds = "1200"
 	releaseReviewDefaultPollSeconds = "15"
 
 	// releaseReviewDefaultRequestSeconds bounds one check-runs request, so a
@@ -185,9 +188,9 @@ func releaseReviewRunStep(t *testing.T, env map[string]string, waitSeconds, poll
 }
 
 // releaseReviewShortenStep rewrites the shipped cap/cadence literals so a
-// refusal costs seconds instead of the real 900s. It refuses to guess: the
+// refusal costs seconds instead of the real 1200s. It refuses to guess: the
 // shipped values are pinned by the structural test below, and a renamed
-// constant makes this fail loudly instead of silently testing the real 900s.
+// constant makes this fail loudly instead of silently testing the real 1200s.
 // The single-request timeout is shortened to the cap as well, so the tests
 // never rely on a request budget larger than the window they are proving.
 func releaseReviewShortenStep(t *testing.T, run, waitSeconds, pollSeconds string) string {
@@ -304,6 +307,8 @@ func TestReleasePleaseReviewGateRefusesWhenTheCheckNeverAppears(t *testing.T) {
 	if strings.Contains(output, "pr merge 256") {
 		t.Fatalf("%s a missing CodeRabbit check reached the merge:\n%s", releaseReviewGatePrefix, output)
 	}
+	// The lookups succeed and the answer has no CodeRabbit run at all, so the
+	// status is `missing` — not `unknown`, which means no lookup ever answered.
 	releaseReviewRequireSummaryRow(t, summary, "| check status | missing |", "| conclusion | no terminal result |")
 	if !strings.Contains(summary, "| merge | false |") {
 		t.Fatalf("%s the job summary must record the refusal:\n%s", releaseReviewGatePrefix, summary)
@@ -342,7 +347,7 @@ func TestReleasePleaseReviewGateAcceptsNeutralAndSkippedWithRecordedDetail(t *te
 // TestReleasePleaseReviewGateIsBoundedByItsCap proves a hung reviewer cannot
 // stall the release job indefinitely: the wait stops at the cap and refuses
 // instead of merging. The shipped literals are rewritten to 2s / 1s here so the
-// test costs seconds; the structural test below pins 900s / 15s.
+// test costs seconds; the structural test below pins 1200s / 15s.
 func TestReleasePleaseReviewGateIsBoundedByItsCap(t *testing.T) {
 	env := releaseReviewScenario(t, releaseReviewCheckRunsJSON(t,
 		releaseReviewCheckRun{Name: "CodeRabbit", Status: "in_progress"},
@@ -368,7 +373,7 @@ func TestReleasePleaseReviewGateIsBoundedByItsCap(t *testing.T) {
 // wall-clock deadline and not a count of sleeps: a check-runs request that
 // never answers must be cut off inside the budget instead of running past it
 // (with the old shape the request had no timeout at all, so one hung call
-// outlived the 900s cap entirely and the step still had no other ceiling).
+// outlived the cap entirely and the step still had no other ceiling).
 func TestReleasePleaseReviewGateBoundsAStalledRequest(t *testing.T) {
 	env := releaseReviewScenario(t, releaseReviewCheckRunsJSON(t,
 		releaseReviewCheckRun{Name: "CodeRabbit", Status: "in_progress"},
@@ -433,7 +438,9 @@ func TestReleasePleaseReviewGateSurvivesAPersistentRequestFailure(t *testing.T) 
 			releaseReviewGatePrefix, output)
 	}
 	// Every row criterion 2 asks for, on the path where the step used to die.
-	releaseReviewRequireSummaryRow(t, summary, "| check status |", "")
+	// No lookup answered, so the status is `unknown` — reporting `missing` here
+	// would claim a check was read and absent, which is a different fact.
+	releaseReviewRequireSummaryRow(t, summary, "| check status | unknown |", "")
 	releaseReviewRequireSummaryRow(t, summary, "| conclusion | no terminal result |", "| merge | false |")
 	releaseReviewRequireSummaryRow(t, summary, "| detail | request failed |", "")
 	if !strings.Contains(summary, "NOT merged") {
@@ -495,6 +502,87 @@ func TestReleasePleaseReviewGateRefusesAMovedHead(t *testing.T) {
 	if !strings.Contains(summary, "not merging an unreviewed commit") {
 		t.Fatalf("%s the job summary must record the moved head:\n%s", releaseReviewGatePrefix, summary)
 	}
+}
+
+// TestReleasePleaseReviewGateCapCoversObservedReviewTimes keeps the wait on the
+// side of the trade the report chose: "I'd rather wait and have more safety ...
+// then not wait and get something wrong when this could've helped".
+//
+// The measurements are every CodeRabbit review run on the heads of #247..#257
+// (GET /repos/minekube/geyserlite/commits/<sha>/check-runs?check_name=CodeRabbit
+// &app_id=347564, 2026-10-30..2026-11-03): 13 successful reviews, 181s..735s,
+// median 398s (6m38s), plus #251, whose review was cancelled at 982s (16m22s)
+// when the PR was merged underneath it — a run length this chain has already
+// produced, so it is a floor for the cap, not an outlier to argue away.
+//
+// A 15-minute (900s) cap both refuses a merely slow review (735s is 82% of it)
+// and sits below a run already observed here (982s), which turns "wait for the
+// reviewer" back into "refuse to release". The cap therefore has to stay above
+// the longest run recorded, keep real headroom over the slowest successful
+// review, and still be a bound — an unbounded wait is the defect this gate was
+// built to remove.
+func TestReleasePleaseReviewGateCapCoversObservedReviewTimes(t *testing.T) {
+	const (
+		// longestSuccessfulReviewSeconds is the slowest *successful* CodeRabbit
+		// review in the measured set (#257 a76ec0e, 12m15s).
+		longestSuccessfulReviewSeconds = 735
+		// longestRunSeconds is the longest review run observed at all: #251's,
+		// cancelled by the merge at 16m22s, i.e. still in progress.
+		longestRunSeconds = 982
+		// minimumHeadroom is how much room a review slower than the slowest
+		// successful one must still have before the gate refuses.
+		minimumHeadroom = 1.15
+		// requiredCapSeconds is the 20-minute floor the report chose.
+		requiredCapSeconds = 1200
+		// largestAcceptableCapSeconds keeps the cap a bound: the CI wait earlier
+		// in this step already allows 30 minutes and the runner's ceiling is 6h,
+		// so a gate that waits longer than half an hour is no longer a timeout.
+		largestAcceptableCapSeconds = 1800
+	)
+
+	step := readReleasePleaseMergeStep(t, "..")
+	commands := releasePleaseShellCommands(step.Run)
+
+	const prefix = "REVIEW_WAIT_SECONDS="
+	capSeconds := -1
+	for _, command := range commands {
+		if !strings.HasPrefix(command, prefix) {
+			continue
+		}
+		if capSeconds >= 0 {
+			t.Fatalf("%s the wait cap must be declared exactly once, found %q twice", releaseReviewGatePrefix, strings.TrimSpace(command))
+		}
+		value, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(command, prefix)))
+		if err != nil {
+			t.Fatalf("%s the wait cap %q is not a number of seconds: %v", releaseReviewGatePrefix, strings.TrimSpace(command), err)
+		}
+		capSeconds = value
+	}
+	if capSeconds < 0 {
+		t.Fatalf("%s the auto-merge step must declare %q", releaseReviewGatePrefix, prefix)
+	}
+
+	if capSeconds < requiredCapSeconds {
+		t.Fatalf("%s the wait cap is %ds; the report chose to wait rather than refuse, so it must be at least %ds (20 minutes). At %ds a review only 22%% slower than the slowest successful one (%ds) is refused, and #251's review had already run %ds when it was merged away",
+			releaseReviewGatePrefix, capSeconds, requiredCapSeconds, capSeconds, longestSuccessfulReviewSeconds, longestRunSeconds)
+	}
+	if capSeconds <= longestRunSeconds {
+		t.Fatalf("%s the wait cap is %ds, at or below the longest CodeRabbit review run recorded on this repository (%ds, #251): a slow reviewer would refuse a release instead of waiting for it",
+			releaseReviewGatePrefix, capSeconds, longestRunSeconds)
+	}
+	if float64(capSeconds) < minimumHeadroom*float64(longestSuccessfulReviewSeconds) {
+		t.Fatalf("%s the wait cap is %ds, which is less than %.2fx the slowest successful review (%ds): too little headroom before a merely slow review is refused",
+			releaseReviewGatePrefix, capSeconds, minimumHeadroom, longestSuccessfulReviewSeconds)
+	}
+	if capSeconds > largestAcceptableCapSeconds {
+		t.Fatalf("%s the wait cap is %ds, above the %ds ceiling: waiting must stay bounded so a hung reviewer cannot stall the release job",
+			releaseReviewGatePrefix, capSeconds, largestAcceptableCapSeconds)
+	}
+
+	t.Logf("%s wait cap %ds covers the longest recorded run (%ds) with %ds to spare and the slowest successful review (%ds) with %ds to spare (%.2fx)",
+		releaseReviewGatePrefix, capSeconds, longestRunSeconds, capSeconds-longestRunSeconds,
+		longestSuccessfulReviewSeconds, capSeconds-longestSuccessfulReviewSeconds,
+		float64(capSeconds)/float64(longestSuccessfulReviewSeconds))
 }
 
 // TestReleasePleaseReviewGatePinsTheFailClosedDisposition is the structural pin.
@@ -716,6 +804,16 @@ func TestReleasePleaseReviewGatePolicyRejectsWeakeningMutations(t *testing.T) {
 			`--merge; then`),
 		// Accepting a skip without recording why.
 		replaceReleasePleaseWorkflow("waiver-detail-dropped", `printf '| detail | %s |\n' "$REVIEW_REASON"`, `printf '| detail | %s |\n' "none"`),
+		// Quietly shrinking the wait back to 15 minutes: the recorded rule for
+		// this gate is "wait rather than refuse", and a 900s cap both refuses a
+		// merely slow review (735s is 82% of it) and sits below a review run
+		// this repository has already produced (#251, 982s).
+		replaceReleasePleaseWorkflow("cap-lowered-to-fifteen-minutes",
+			`REVIEW_WAIT_SECONDS=1200`, `REVIEW_WAIT_SECONDS=900`),
+		// The opposite defect: a "cap" so large it is not a bound at all, so a
+		// hung reviewer stalls the release job instead of leaving the PR open.
+		replaceReleasePleaseWorkflow("cap-no-longer-a-bound",
+			`REVIEW_WAIT_SECONDS=1200`, `REVIEW_WAIT_SECONDS=86400`),
 	}
 
 	executable, err := os.Executable()
