@@ -255,7 +255,8 @@ jobs:
           for _ in $(seq 1 30); do
             if gh pr merge "$PR_NUMBER" \
               --repo "$GITHUB_REPOSITORY" \
-              --merge; then
+              --merge \
+              --match-head-commit "$HEAD_SHA"; then
               break
             fi
             STATE=$(gh pr view "$PR_NUMBER" \

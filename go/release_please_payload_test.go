@@ -293,7 +293,7 @@ func releasePleaseWantCommands() []string {
 		`fi`,
 		`echo "Merging release PR #$PR_NUMBER"`,
 		`for _ in $(seq 1 30); do`,
-		`if gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge; then`,
+		`if gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge --match-head-commit "$HEAD_SHA"; then`,
 		`break`,
 		`fi`,
 		`STATE=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq '.state')`,
@@ -715,7 +715,7 @@ func TestReleasePleasePayloadPolicyRejectsWeakeningMutations(t *testing.T) {
 		replaceReleasePleaseWorkflow("payload-env-removed", "          RP_PR: ${{ steps.rp.outputs.pr }}\n", ""),
 		replaceReleasePleaseWorkflow("repository-expression-interpolated", `gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"`, `gh workflow run ci.yml --repo "${{ github.repository }}" --ref "$HEAD_REF"`),
 		replaceReleasePleaseWorkflow("release-tag-expression-interpolated", `--ref "$RELEASE_TAG"`, `--ref "${{ needs.release-please.outputs.tag_name }}"`),
-		replaceReleasePleaseWorkflow("async-merge", `--merge; then`, `--auto; then`),
+		replaceReleasePleaseWorkflow("async-merge", `--match-head-commit "$HEAD_SHA"; then`, `--auto; then`),
 		// The trust boundary of this step: the required-check mirroring, the
 		// commit status, and the post-merge state verification.
 		replaceReleasePleaseWorkflow("required-check-mirror-removed", `gh api "repos/$GITHUB_REPOSITORY/check-runs"`, `echo "check-runs mirror removed"`),

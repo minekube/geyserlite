@@ -379,6 +379,11 @@ func TestReleasePleaseReviewGatePinsTheFailClosedDisposition(t *testing.T) {
 	headRecheck := indexOf(`if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then`)
 	merge := indexOf(`echo "Merging release PR #$PR_NUMBER"`)
 
+	// The merge itself is bound to the reviewed commit. A re-check followed by an
+	// unbound merge still lets the head move in the window between the two
+	// calls; `--match-head-commit` makes GitHub reject that merge server-side.
+	indexOf(`if gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge --match-head-commit "$HEAD_SHA"; then`)
+
 	// Fail closed, and in this order: look at the review, refuse on anything
 	// that is not an approval, re-check the reviewed commit, then merge.
 	if poll >= refusal || refusal >= headRecheck || headRecheck >= merge {
@@ -471,6 +476,12 @@ func TestReleasePleaseReviewGatePolicyRejectsWeakeningMutations(t *testing.T) {
 		replaceReleasePleaseWorkflow("break-on-running-review", `if [ "$REVIEW_STATUS" = "completed" ]; then`, `if true; then`),
 		// Reviewing one commit and merging another.
 		replaceReleasePleaseWorkflow("head-recheck-removed", `if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then`, `if false; then`),
+		// Re-checking the head and then merging without binding the merge to it
+		// leaves the same window open (CodeRabbit's finding on this PR).
+		replaceReleasePleaseWorkflow("merge-not-bound-to-reviewed-sha",
+			`--merge \
+              --match-head-commit "$HEAD_SHA"; then`,
+			`--merge; then`),
 		// Accepting a skip without recording why.
 		replaceReleasePleaseWorkflow("waiver-detail-dropped", `printf '| detail | %s |\n' "$REVIEW_REASON"`, `printf '| detail | %s |\n' "none"`),
 	}
