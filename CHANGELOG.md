@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.6](https://github.com/minekube/geyserlite/compare/v0.7.5...v0.7.6) (2026-11-03)
+
+
+### Bug Fixes
+
+* **bedrock:** replace a terminated player thread group instead of handing it to new sessions ([#255](https://github.com/minekube/geyserlite/issues/255)) ([c5dbdff](https://github.com/minekube/geyserlite/commit/c5dbdff7032c6d08e609ce5468d585bcab78a368))
+
 ## [0.7.5](https://github.com/minekube/geyserlite/compare/v0.7.4...v0.7.5) (2026-11-01)
 
 
