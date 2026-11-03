@@ -1,0 +1,209 @@
+diff --git a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
+index 6f70c8e7e..732b7a474 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
+@@ -27,8 +27,6 @@ package org.geysermc.geyser.network;
+ 
+ import io.netty.channel.Channel;
+ import io.netty.channel.DefaultEventLoopGroup;
+-import io.netty.util.concurrent.DefaultThreadFactory;
+-import lombok.Getter;
+ import org.checkerframework.checker.nullness.qual.NonNull;
+ import org.cloudburstmc.protocol.bedrock.BedrockPeer;
+ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
+@@ -47,20 +45,56 @@ import org.geysermc.geyser.session.GeyserSession;
+  */
+ public abstract class GeyserServerInitializer extends BedrockServerInitializer {
+     protected final GeyserImpl geyser;
+-    // There is a constructor that doesn't require inputting threads, but older Netty versions don't have it
+-    @Getter
+-    private final DefaultEventLoopGroup eventLoopGroup;
++    private final PlayerEventExecutors playerExecutors;
+ 
+     protected GeyserServerInitializer(GeyserImpl geyser, String playerThreadName) {
+         this.geyser = geyser;
+-        this.eventLoopGroup = new DefaultEventLoopGroup(0, new DefaultThreadFactory(playerThreadName));
++        this.playerExecutors = new PlayerEventExecutors(playerThreadName);
++    }
++
++    /**
++     * The player thread group new sessions are bound to.
++     * <p>
++     * A player thread that dies only dies for the sessions it already carries. It must not
++     * poison the transport for everyone connecting later, so a group whose threads have
++     * terminated is replaced here instead of being handed out again.
++     */
++    public DefaultEventLoopGroup getEventLoopGroup() {
++        long terminatedBefore = this.playerExecutors.terminatedExecutors();
++        DefaultEventLoopGroup group = this.playerExecutors.liveGroup();
++        long terminatedNow = this.playerExecutors.terminatedExecutors();
++
++        if (terminatedNow > terminatedBefore && this.geyser != null) {
++            this.geyser.getLogger().severe("Bedrock transport player thread terminated: "
++                + (terminatedNow - terminatedBefore) + " of " + group.executorCount()
++                + " threads of this transport were lost to a fatal event-loop error, so the player"
++                + " thread group has been re-created for new sessions. Sessions that were already on a"
++                + " lost thread cannot tick and have to reconnect. Lost threads since start: "
++                + terminatedNow + ".");
++        }
++        return group;
++    }
++
++    /**
++     * @return how many player threads of this transport have been lost to a fatal event-loop error
++     */
++    public long terminatedPlayerThreads() {
++        return this.playerExecutors.terminatedExecutors();
++    }
++
++    /**
++     * Stops every player thread of this transport, including the ones still carrying sessions
++     * from a group that was replaced.
++     */
++    public void shutdownPlayerThreads() {
++        this.playerExecutors.shutdown();
+     }
+ 
+     @Override
+     public void initSession(@NonNull BedrockServerSession bedrockServerSession) {
+         try {
+             bedrockServerSession.setLogging(this.geyser.config().debugMode());
+-            GeyserSession session = new GeyserSession(this.geyser, bedrockServerSession, this.eventLoopGroup.next());
++            GeyserSession session = new GeyserSession(this.geyser, bedrockServerSession, this.playerExecutors.next());
+ 
+             if (!bedrockServerSession.isSubClient()) {
+                 Channel channel = bedrockServerSession.getPeer().getChannel();
+diff --git a/core/src/main/java/org/geysermc/geyser/network/RaknetServer.java b/core/src/main/java/org/geysermc/geyser/network/RaknetServer.java
+index 37df46002..18fc8578a 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/RaknetServer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/RaknetServer.java
+@@ -81,7 +81,7 @@ public final class RaknetServer {
+     // Split childGroup may improve IO
+     private EventLoopGroup childGroup;
+     private final ServerBootstrap bootstrap;
+-    private EventLoopGroup playerGroup;
++    private GeyserServerInitializer playerInitializer;
+ 
+     private int listenCount;
+ 
+@@ -146,12 +146,11 @@ public final class RaknetServer {
+             this.childGroup = null;
+             Future<?> futureGroup = this.group.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+             this.group = null;
+-            Future<?> futurePlayerGroup = this.playerGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+-            this.playerGroup = null;
++            this.playerInitializer.shutdownPlayerThreads();
++            this.playerInitializer = null;
+ 
+             futureChildGroup.sync();
+             futureGroup.sync();
+-            futurePlayerGroup.sync();
+         } catch (InterruptedException e) {
+             GeyserImpl.getInstance().getLogger().severe("Exception in shutdown process", e);
+         }
+@@ -197,7 +196,7 @@ public final class RaknetServer {
+         this.geyser.getLogger().debug("Disabling RakNet rate limiting " + rakRateLimitingDisabled);
+ 
+         RakServerInitializer serverInitializer = new RakServerInitializer(this.geyser, rakSendCookie);
+-        playerGroup = serverInitializer.getEventLoopGroup();
++        playerInitializer = serverInitializer;
+ 
+         return new ServerBootstrap()
+             .channelFactory(RakChannelFactory.server(TRANSPORT.datagramChannelClass()))
+diff --git a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
+index c1b24001f..fb1fd41b2 100644
+--- a/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
++++ b/core/src/main/java/org/geysermc/geyser/network/bedrock/nethernet/NetherNetServer.java
+@@ -774,7 +774,7 @@ public final class NetherNetServer implements EventRegistrar {
+         if (inbuiltChannel != null) inbuiltChannel.close();
+         if (signaling != null) signaling.close();
+         if (inbuiltEventLoopGroup != null) inbuiltEventLoopGroup.shutdownGracefully();
+-        if (inbuiltInitialiser != null) inbuiltInitialiser.getEventLoopGroup().shutdownGracefully();
++        if (inbuiltInitialiser != null) inbuiltInitialiser.shutdownPlayerThreads();
+     }
+ 
+     private void closeNetworkResources() {
+diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
+index 4ee8b7efa..d41bc058c 100644
+--- a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
++++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
+@@ -261,6 +261,7 @@ import java.util.concurrent.CompletableFuture;
+ import java.util.concurrent.CompletionException;
+ import java.util.concurrent.ConcurrentLinkedQueue;
+ import java.util.concurrent.CopyOnWriteArrayList;
++import java.util.concurrent.RejectedExecutionException;
+ import java.util.concurrent.ScheduledFuture;
+ import java.util.concurrent.TimeUnit;
+ import java.util.concurrent.atomic.AtomicInteger;
+@@ -818,6 +819,14 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+      */
+     private ScheduledFuture<?> tickThread = null;
+ 
++    /**
++     * Sessions that could not start ticking because the player thread of their Bedrock transport
++     * had terminated. A fatal error inside a player thread (an {@link OutOfMemoryError} while
++     * compressing a downstream burst, for example) terminates its executor for good; every
++     * session bound to it can never tick again.
++     */
++    private static final AtomicLong TERMINATED_TICK_SCHEDULES = new AtomicLong();
++
+     /**
+      * The number of ticks that have elapsed since the start of this session
+      */
+@@ -1232,6 +1241,31 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+         }).getNow(false);
+     }
+ 
++    /**
++     * Starts the session tick on the player thread of the Bedrock transport.
++     * <p>
++     * When that thread has terminated, scheduling is rejected; without handling it the client
++     * waits on "generating world" until its own timeout while its XUID stays reserved, which is
++     * exactly how a NetherNet outage looked silent for 35 hours.
++     *
++     * @return whether the tick was scheduled; {@code false} means the transport's player thread
++     * has terminated and the session cannot continue
++     */
++    private boolean startTicking() {
++        try {
++            tickThread = tickEventLoop.scheduleAtFixedRate(this::tick, nanosecondsPerTick, nanosecondsPerTick, TimeUnit.NANOSECONDS);
++            return true;
++        } catch (RejectedExecutionException e) {
++            long failed = TERMINATED_TICK_SCHEDULES.incrementAndGet();
++            geyser.getLogger().severe("Unable to start the session tick of " + bedrockUsername()
++                + " (" + upstream.getAddress() + "): " + e.getMessage()
++                + ". The player thread of this Bedrock transport has terminated and cannot be restarted,"
++                + " so the session is being disconnected instead of hanging. Sessions lost this way since"
++                + " start: " + failed + ".");
++            return false;
++        }
++    }
++
+     /**
+      * After getting whatever credentials needed, we attempt to join the Java server.
+      */
+@@ -1251,7 +1285,11 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+         this.remoteServer = this.geyser.platformType() == PlatformType.STANDALONE ? loginEvent.remoteServer() : remoteServer;
+ 
+         // Start ticking
+-        tickThread = tickEventLoop.scheduleAtFixedRate(this::tick, nanosecondsPerTick, nanosecondsPerTick, TimeUnit.NANOSECONDS);
++        if (!startTicking()) {
++            disconnect("This server's Bedrock transport thread stopped working, so your session was closed."
++                + " Please reconnect in a moment.");
++            return;
++        }
+ 
+         ClientSession downstream;
+         if (geyser.getBootstrap().getSocketAddress() != null) {
+@@ -1398,7 +1436,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+         tickRate = MathUtils.clamp(tickRate, 1.0f, 10000.0f);
+         millisecondsPerTick = 1000.0f / tickRate;
+         nanosecondsPerTick = MathUtils.ceil(1000000000.0f / tickRate);
+-        tickThread = tickEventLoop.scheduleAtFixedRate(this::tick, nanosecondsPerTick, nanosecondsPerTick, TimeUnit.NANOSECONDS);
++        if (!startTicking()) {
++            disconnect("This server's Bedrock transport thread stopped working, so your session was closed."
++                + " Please reconnect in a moment.");
++        }
+     }
+ 
+     private void executeRunnable(Runnable runnable) {
