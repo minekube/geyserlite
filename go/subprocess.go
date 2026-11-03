@@ -212,11 +212,20 @@ func (r *subprocessRunner) runOnce(ctx context.Context, s *Server, binary, workd
 // pipeToLogger forwards each line from r to logger at the given level.
 // If readyFlag is non-nil, sets it to true on first sight of Geyser's
 // "Done (...)" boot completion line.
+//
+// A Bedrock version refusal is the one line that is not logged verbatim: it is
+// parsed into a [VersionRefusal], counted, and re-emitted as a single
+// structured record. That keeps the refusal observable without reproducing the
+// child's raw text, so nothing else can ride along into shared logs.
 func pipeToLogger(r io.Reader, logger *slog.Logger, level slog.Level, readyFlag *atomic.Bool) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
+		if refusal, ok := parseVersionRefusal(line); ok {
+			observeVersionRefusal(refusal, logger)
+			continue
+		}
 		logger.LogAttrs(context.Background(), level, line)
 		if readyFlag != nil && !readyFlag.Load() {
 			if isGeyserReady(line) {
