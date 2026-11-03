@@ -200,7 +200,17 @@ jobs:
           REVIEW_WAIT_SECONDS=900
           REVIEW_POLL_SECONDS=15
           REVIEW_REQUEST_SECONDS=60
-          REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit")] | sort_by(.started_at) | last)'
+          # The review must come from CodeRabbit's own GitHub App: app id 347564
+          # (github.com/apps/coderabbitai, confirmed both by the `app.id` of the
+          # check-runs on this repository and by GET /apps/coderabbitai). A
+          # check that is merely *named* `CodeRabbit` by another app holding
+          # `checks: write` could otherwise report `success` and approve a merge
+          # CodeRabbit never reviewed. The request filters server-side on
+          # `check_name` + `app_id`, and the jq filter repeats the app id so a
+          # dropped query parameter cannot widen it; the contract test pins the
+          # two literals to the same value.
+          REVIEW_APP_ID=347564
+          REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit" and .app.id == 347564)] | sort_by(.started_at) | last)'
           echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"
           REVIEW_DEADLINE=$(( $(date -u +%s) + REVIEW_WAIT_SECONDS ))
           REVIEW_STATUS="missing"
@@ -216,7 +226,7 @@ jobs:
             if [ "$REVIEW_TIMEOUT" -gt "$REVIEW_REMAINING" ]; then
               REVIEW_TIMEOUT="$REVIEW_REMAINING"
             fi
-            if ! { REVIEW_JSON=$(timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100") \
+            if ! { REVIEW_JSON=$(timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=CodeRabbit&app_id=$REVIEW_APP_ID&per_page=100") \
               && REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"") \
               && REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"") \
               && REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\""); }; then

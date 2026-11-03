@@ -242,7 +242,8 @@ func releasePleaseWantCommands() []string {
 		`REVIEW_WAIT_SECONDS=900`,
 		`REVIEW_POLL_SECONDS=15`,
 		`REVIEW_REQUEST_SECONDS=60`,
-		`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit")] | sort_by(.started_at) | last)'`,
+		`REVIEW_APP_ID=347564`,
+		`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit" and .app.id == 347564)] | sort_by(.started_at) | last)'`,
 		`echo "Waiting up to $REVIEW_WAIT_SECONDS seconds for CodeRabbit to review $HEAD_SHA"`,
 		`REVIEW_DEADLINE=$(( $(date -u +%s) + REVIEW_WAIT_SECONDS ))`,
 		`REVIEW_STATUS="missing"`,
@@ -258,7 +259,7 @@ func releasePleaseWantCommands() []string {
 		`if [ "$REVIEW_TIMEOUT" -gt "$REVIEW_REMAINING" ]; then`,
 		`REVIEW_TIMEOUT="$REVIEW_REMAINING"`,
 		`fi`,
-		`if ! { REVIEW_JSON=$(timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100") && REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"") && REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"") && REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\""); }; then`,
+		`if ! { REVIEW_JSON=$(timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=CodeRabbit&app_id=$REVIEW_APP_ID&per_page=100") && REVIEW_STATUS=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .status // \"missing\"") && REVIEW_CONCLUSION=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .conclusion // \"\"") && REVIEW_REASON=$(echo "$REVIEW_JSON" | jq -r "$REVIEW_FILTER | .output.title // \"\""); }; then`,
 		`REVIEW_FAILURES=$((REVIEW_FAILURES + 1))`,
 		`REVIEW_REASON="request failed"`,
 		`fi`,
@@ -534,10 +535,21 @@ case "$*" in
       if [ ! -f "$GH_REVIEW_RESPONSE" ]; then
         GH_REVIEW_RESPONSE="$GH_REVIEW_DIR/last.json"
       fi
-      cat "$GH_REVIEW_RESPONSE"
+      GH_REVIEW_BODY=$(cat "$GH_REVIEW_RESPONSE")
     else
-      printf '{"total_count":1,"check_runs":[{"name":"CodeRabbit","status":"completed","conclusion":"success","output":{"title":"Review completed"}}]}\n'
+      GH_REVIEW_BODY='{"total_count":1,"check_runs":[{"name":"CodeRabbit","status":"completed","conclusion":"success","output":{"title":"Review completed"},"app":{"id":347564,"slug":"coderabbitai"}}]}'
     fi
+    # GitHub filters check_name/app_id server-side. The stub does the same, so a
+    # gate that drops either query parameter sees the check runs it was supposed
+    # to exclude instead of silently passing against a filtered fixture.
+    GH_CHECK_NAME=$(printf '%s' "$*" | sed -n 's/.*check_name=\([^&]*\).*/\1/p')
+    GH_APP_ID=$(printf '%s' "$*" | sed -n 's/.*app_id=\([0-9]*\).*/\1/p')
+    printf '%s' "$GH_REVIEW_BODY" | jq -c --arg name "$GH_CHECK_NAME" --arg app "$GH_APP_ID" '
+      def wanted:
+        (($name == "") or (.name == $name))
+        and (($app == "") or ((.app.id // 0) | tostring) == $app);
+      {total_count: 0, check_runs: [.check_runs[] | select(wanted)]}
+      | .total_count = (.check_runs | length)'
     ;;
   *"run list"*)
     printf '4242\n'

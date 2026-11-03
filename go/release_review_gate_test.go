@@ -73,6 +73,14 @@ const (
 	// releaseReviewDefaultRequestSeconds bounds one check-runs request, so a
 	// stalled HTTP call cannot outlive the wall-clock deadline.
 	releaseReviewDefaultRequestSeconds = "60"
+
+	// releaseReviewCodeRabbitAppID is CodeRabbit's GitHub App id
+	// (github.com/apps/coderabbitai): the `app.id` of every CodeRabbit check-run
+	// on this repository, and the id `GET /apps/coderabbitai` reports. The gate
+	// scopes the review to this app, so a check that is merely *named*
+	// `CodeRabbit` by another app cannot approve the merge.
+	releaseReviewCodeRabbitAppID = 347564
+	releaseReviewAppID           = "347564"
 )
 
 // releaseReviewCheckRun is one entry of the scripted check-runs response.
@@ -81,27 +89,47 @@ type releaseReviewCheckRun struct {
 	Status     string
 	Conclusion string
 	Detail     string
+	// AppID is the producing GitHub App. Zero means CodeRabbit's own app
+	// (releaseReviewCodeRabbitAppID), which is what GitHub's `app_id` filter
+	// matches; any other value models a different app publishing a check with
+	// the same name.
+	AppID int
 }
 
 // releaseReviewCheckRunsJSON renders a commit's check-runs response. A run whose
 // Conclusion is empty is still running, which is the state #256 merged in.
+// Every run carries its producing app, because GitHub's check-runs endpoint can
+// filter on `app_id` and the stub mirrors that filter (see releasePleaseStubGH).
 func releaseReviewCheckRunsJSON(t *testing.T, runs ...releaseReviewCheckRun) string {
 	t.Helper()
 	type output struct {
 		Title string `json:"title"`
+	}
+	type app struct {
+		ID   int    `json:"id"`
+		Slug string `json:"slug"`
 	}
 	type checkRun struct {
 		Name       string  `json:"name"`
 		Status     string  `json:"status"`
 		Conclusion *string `json:"conclusion"`
 		Output     output  `json:"output"`
+		App        app     `json:"app"`
 	}
 	document := struct {
 		TotalCount int        `json:"total_count"`
 		CheckRuns  []checkRun `json:"check_runs"`
 	}{TotalCount: len(runs)}
 	for _, run := range runs {
-		entry := checkRun{Name: run.Name, Status: run.Status, Output: output{Title: run.Detail}}
+		appID := run.AppID
+		slug := "coderabbitai"
+		if appID == 0 {
+			appID = releaseReviewCodeRabbitAppID
+		} else if appID != releaseReviewCodeRabbitAppID {
+			slug = "some-other-app"
+		}
+		entry := checkRun{Name: run.Name, Status: run.Status, Output: output{Title: run.Detail},
+			App: app{ID: appID, Slug: slug}}
 		if run.Conclusion != "" {
 			conclusion := run.Conclusion
 			entry.Conclusion = &conclusion
@@ -413,6 +441,39 @@ func TestReleasePleaseReviewGateSurvivesAPersistentRequestFailure(t *testing.T) 
 	}
 }
 
+// TestReleasePleaseReviewGateIgnoresACheckNamedCodeRabbitFromAnotherApp is
+// CodeRabbit's own finding on this PR: selecting "the newest check run named
+// CodeRabbit" is not the same as selecting CodeRabbit's review. Any GitHub App
+// holding `checks: write` can publish a check with that name, and a `success`
+// from it would approve a merge CodeRabbit never made. The gate scopes the
+// request to app id 347564 and repeats the app id in the jq filter, so a
+// foreign check can neither be returned nor selected.
+func TestReleasePleaseReviewGateIgnoresACheckNamedCodeRabbitFromAnotherApp(t *testing.T) {
+	const foreignAppID = 999999
+	env := releaseReviewScenario(t, releaseReviewCheckRunsJSON(t,
+		// CodeRabbit's own review of this head, still running...
+		releaseReviewCheckRun{Name: "CodeRabbit", Status: "in_progress"},
+		// ...and a success published under the same name by another app. The
+		// filter takes the last run, so an unscoped gate would approve on it.
+		releaseReviewCheckRun{Name: "CodeRabbit", Status: "completed", Conclusion: "success",
+			Detail: "Not CodeRabbit", AppID: foreignAppID},
+	))
+	output, summary, runErr := releaseReviewRunStep(t, env, "2", "1")
+	if runErr == nil {
+		t.Fatalf("%s a check named CodeRabbit from another app must not approve the merge:\n%s", releaseReviewGatePrefix, output)
+	}
+	if strings.Contains(output, "pr merge 256") {
+		t.Fatalf("%s a foreign CodeRabbit check reached the merge:\n%s", releaseReviewGatePrefix, output)
+	}
+	// The request itself has to carry both filters: the server-side scope is
+	// what keeps the foreign run out of the payload at all.
+	if !strings.Contains(output, "check_name=CodeRabbit&app_id="+releaseReviewAppID) {
+		t.Fatalf("%s the review request must be scoped to app_id %s:\n%s", releaseReviewGatePrefix, releaseReviewAppID, output)
+	}
+	releaseReviewRequireSummaryRow(t, summary, "| check status | in_progress |", "| merge | false |")
+	releaseReviewRequireSummaryRow(t, summary, "| conclusion | no terminal result |", "")
+}
+
 // TestReleasePleaseReviewGateRefusesAMovedHead covers the review being for a
 // different commit than the one that would merge: the release branch can be
 // force-pushed while CodeRabbit runs, and merging then lands an unreviewed head.
@@ -482,6 +543,16 @@ func TestReleasePleaseReviewGatePinsTheFailClosedDisposition(t *testing.T) {
 	indexOf("REVIEW_POLL_SECONDS=" + releaseReviewDefaultPollSeconds)
 	indexOf("REVIEW_REQUEST_SECONDS=" + releaseReviewDefaultRequestSeconds)
 
+	// The review has to come from CodeRabbit's own GitHub App, in the request
+	// (server-side filter) and in the jq filter (client-side second check). Both
+	// carry the same pinned id, so a check merely *named* `CodeRabbit` by another
+	// app cannot approve the merge — CodeRabbit's own finding on this PR.
+	indexOf("REVIEW_APP_ID=" + releaseReviewAppID)
+	indexOf(`REVIEW_FILTER='([.check_runs[] | select(.name == "CodeRabbit" and .app.id == ` + releaseReviewAppID + `)] | sort_by(.started_at) | last)'`)
+	if !strings.Contains(strings.Join(commands, "\n"), `check-runs?check_name=CodeRabbit&app_id=$REVIEW_APP_ID&per_page=100`) {
+		t.Fatalf("%s the review request must filter on check_name and app_id, not on the check name alone", releaseReviewGatePrefix)
+	}
+
 	// Fail-closed defaults, pinned by name so a Windows run (where the shell
 	// harness skips) still catches them: nothing approves by default, the wait
 	// is a wall-clock deadline that is re-checked before the request and again
@@ -504,7 +575,7 @@ func TestReleasePleaseReviewGatePinsTheFailClosedDisposition(t *testing.T) {
 	// not an abort: that is what keeps the refusal summary unconditional.
 	indexOf(`REVIEW_REASON="request failed"`)
 
-	poll := indexOfContaining(`timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100"`)
+	poll := indexOfContaining(`timeout "$REVIEW_TIMEOUT" gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=CodeRabbit&app_id=$REVIEW_APP_ID&per_page=100"`)
 	refusal := indexOf(`if [ "$REVIEW_APPROVED" != "true" ]; then`)
 	headRecheck := indexOf(`if [ "$MERGED_HEAD_SHA" != "$HEAD_SHA" ]; then`)
 	merge := indexOf(`echo "Merging release PR #$PR_NUMBER"`)
@@ -620,6 +691,15 @@ func TestReleasePleaseReviewGatePolicyRejectsWeakeningMutations(t *testing.T) {
 		replaceReleasePleaseWorkflow("request-failure-treated-as-approval",
 			"              REVIEW_FAILURES=$((REVIEW_FAILURES + 1))\n              REVIEW_REASON=\"request failed\"",
 			"              REVIEW_STATUS=\"completed\"\n              REVIEW_CONCLUSION=\"success\"\n              REVIEW_REASON=\"request failed\""),
+		// Scoping the review to CodeRabbit's own GitHub App: dropping either the
+		// request filter or the jq filter lets a check merely *named*
+		// `CodeRabbit` by another app approve the merge (CodeRabbit's finding on
+		// this PR). Each layer is pinned, and the execution test above refuses a
+		// foreign success even when both are present.
+		replaceReleasePleaseWorkflow("app-scope-removed",
+			`&app_id=$REVIEW_APP_ID`, ``),
+		replaceReleasePleaseWorkflow("app-filter-name-only",
+			` and .app.id == `+releaseReviewAppID, ``),
 		// Sleeping past the deadline the loop just checked.
 		replaceReleasePleaseWorkflow("sleep-not-clipped",
 			`if [ "$REVIEW_SLEEP" -gt "$REVIEW_REMAINING" ]; then`, `if false; then`),
