@@ -98,9 +98,11 @@ class PlayerThreadTerminationTest {
      * getter again), so it must reach the transport's sever log with the identity of the
      * player threads it lost.
      * <p>
-     * The mocked Geyser graph does not have to survive the whole login: {@code initSession}
-     * hands the session its executor (and therefore reports the loss) before
-     * {@code GeyserSession} is constructed, and the report is what this test asserts.
+     * The mocked Geyser graph does not have to survive the whole login: {@code GeyserSession}
+     * is constructed from registry caches whose static initialisers require a registered Geyser
+     * API, so its construction is mocked out. {@code initSession} hands the session its executor
+     * (and therefore reports the loss) before that constructor would run, and the report is what
+     * this test asserts.
      */
     @Test
     void theLoginThatTriggersTheReplacementReportsTheLostPlayerThreads() throws Exception {
