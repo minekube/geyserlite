@@ -1,5 +1,5 @@
 diff --git a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
-index 6f70c8e7e..732b7a474 100644
+index 6f70c8e7e..8a5a1fd6f 100644
 --- a/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
 +++ b/core/src/main/java/org/geysermc/geyser/network/GeyserServerInitializer.java
 @@ -27,8 +27,6 @@ package org.geysermc.geyser.network;
@@ -11,7 +11,7 @@ index 6f70c8e7e..732b7a474 100644
  import org.checkerframework.checker.nullness.qual.NonNull;
  import org.cloudburstmc.protocol.bedrock.BedrockPeer;
  import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
-@@ -47,20 +45,56 @@ import org.geysermc.geyser.session.GeyserSession;
+@@ -47,20 +45,63 @@ import org.geysermc.geyser.session.GeyserSession;
   */
  public abstract class GeyserServerInitializer extends BedrockServerInitializer {
      protected final GeyserImpl geyser;
@@ -23,7 +23,25 @@ index 6f70c8e7e..732b7a474 100644
      protected GeyserServerInitializer(GeyserImpl geyser, String playerThreadName) {
          this.geyser = geyser;
 -        this.eventLoopGroup = new DefaultEventLoopGroup(0, new DefaultThreadFactory(playerThreadName));
-+        this.playerExecutors = new PlayerEventExecutors(playerThreadName);
++        this.playerExecutors = new PlayerEventExecutors(playerThreadName, this::reportPlayerThreadLoss);
++    }
++
++    /**
++     * The sink of {@link PlayerEventExecutors}: a player thread group is only ever replaced by
++     * the login that finds one of its threads terminated ({@code initSession} hands every
++     * session {@link PlayerEventExecutors#next()}), so this is the only moment the loss of a
++     * player thread is observable on the NetherNet path.
++     */
++    private void reportPlayerThreadLoss(PlayerEventExecutors.Loss loss) {
++        if (this.geyser == null) {
++            return;
++        }
++        this.geyser.getLogger().severe("Bedrock transport player thread generation "
++            + loss.generation() + " terminated: " + String.join(", ", loss.terminatedExecutors())
++            + " were lost to a fatal event-loop error, so the player thread group has been re-created"
++            + " for new sessions. " + loss.sessions() + " session(s) had been handed a player thread"
++            + " from the lost group and cannot tick anymore; those players have to reconnect."
++            + " Lost threads since start: " + terminatedPlayerThreads() + ".");
 +    }
 +
 +    /**
@@ -31,22 +49,11 @@ index 6f70c8e7e..732b7a474 100644
 +     * <p>
 +     * A player thread that dies only dies for the sessions it already carries. It must not
 +     * poison the transport for everyone connecting later, so a group whose threads have
-+     * terminated is replaced here instead of being handed out again.
++     * terminated is replaced instead of being handed out again. The replacement itself reports
++     * the loss, see {@link #reportPlayerThreadLoss(PlayerEventExecutors.Loss)}.
 +     */
 +    public DefaultEventLoopGroup getEventLoopGroup() {
-+        long terminatedBefore = this.playerExecutors.terminatedExecutors();
-+        DefaultEventLoopGroup group = this.playerExecutors.liveGroup();
-+        long terminatedNow = this.playerExecutors.terminatedExecutors();
-+
-+        if (terminatedNow > terminatedBefore && this.geyser != null) {
-+            this.geyser.getLogger().severe("Bedrock transport player thread terminated: "
-+                + (terminatedNow - terminatedBefore) + " of " + group.executorCount()
-+                + " threads of this transport were lost to a fatal event-loop error, so the player"
-+                + " thread group has been re-created for new sessions. Sessions that were already on a"
-+                + " lost thread cannot tick and have to reconnect. Lost threads since start: "
-+                + terminatedNow + ".");
-+        }
-+        return group;
++        return this.playerExecutors.liveGroup();
 +    }
 +
 +    /**

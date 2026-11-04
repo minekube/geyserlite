@@ -22,14 +22,22 @@
 
 package org.geysermc.geyser.network;
 
+import io.netty.channel.DefaultEventLoop;
 import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.EventExecutor;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /**
  * The player threads of one Bedrock transport, as handed to each new session.
@@ -43,11 +51,17 @@ import java.util.concurrent.atomic.AtomicLong;
  * "generating world" until its own timeout while its XUID stays reserved.
  * <p>
  * So a terminated executor must never be handed to a new session. When one is found the
- * whole group is retired and replaced. Sessions that are still on the retired group keep
- * ticking; the retired group is shut down when the transport stops.
+ * whole group is retired and replaced, and the loss is reported once per retired generation
+ * to the {@link Loss} listener. Sessions that are still on the retired group keep ticking;
+ * the retired group is shut down when the transport stops.
  */
 public final class PlayerEventExecutors {
     private final String threadName;
+    /**
+     * Told once about every generation that is retired because one of its threads had
+     * terminated.
+     */
+    private final Consumer<Loss> listener;
     /**
      * Groups that were replaced because one of their threads had terminated. They are only
      * kept so that {@link #shutdown()} can stop the threads of sessions that are still on
@@ -56,22 +70,42 @@ public final class PlayerEventExecutors {
     private final Queue<DefaultEventLoopGroup> retired = new ConcurrentLinkedQueue<>();
     private final AtomicLong terminatedExecutors = new AtomicLong();
 
-    private volatile DefaultEventLoopGroup eventLoopGroup;
+    private volatile Generation generation;
+
+    /**
+     * A player thread group that was retired because one of its threads had terminated.
+     *
+     * @param generation the generation number of the group that was lost; the first group of a
+     *                   transport is generation 1
+     * @param terminatedExecutors the names of the player threads that terminated, for example
+     *                            {@code Geyser NetherNet player thread #1}
+     * @param sessions how many sessions had been handed an executor from the lost group
+     */
+    public record Loss(int generation, List<String> terminatedExecutors, long sessions) {
+        public Loss {
+            terminatedExecutors = List.copyOf(terminatedExecutors);
+        }
+    }
 
     public PlayerEventExecutors(String threadName) {
-        this(threadName, 0);
+        this(threadName, 0, loss -> { });
+    }
+
+    public PlayerEventExecutors(String threadName, Consumer<Loss> listener) {
+        this(threadName, 0, listener);
     }
 
     /**
      * @param threads the number of player threads, or 0 to use Netty's default
      */
     PlayerEventExecutors(String threadName, int threads) {
-        this.threadName = threadName;
-        this.eventLoopGroup = newEventLoopGroup(threads);
+        this(threadName, threads, loss -> { });
     }
 
-    private DefaultEventLoopGroup newEventLoopGroup(int threads) {
-        return new DefaultEventLoopGroup(threads, new DefaultThreadFactory(this.threadName));
+    PlayerEventExecutors(String threadName, int threads, Consumer<Loss> listener) {
+        this.threadName = threadName;
+        this.listener = listener != null ? listener : loss -> { };
+        this.generation = newGeneration(1, threads);
     }
 
     /**
@@ -79,7 +113,9 @@ public final class PlayerEventExecutors {
      * has terminated
      */
     public EventLoop next() {
-        return liveGroup().next();
+        Generation current = liveGeneration();
+        current.sessionsHandedOut.incrementAndGet();
+        return current.group.next();
     }
 
     /**
@@ -87,28 +123,70 @@ public final class PlayerEventExecutors {
      * terminated
      */
     public DefaultEventLoopGroup liveGroup() {
-        DefaultEventLoopGroup group = this.eventLoopGroup;
-        if (hasTerminatedExecutor(group)) {
-            group = replace(group);
-        }
-        return group;
+        return liveGeneration().group;
     }
 
-    private synchronized DefaultEventLoopGroup replace(DefaultEventLoopGroup observed) {
-        // Another thread may have replaced it while this one was waiting for the lock
-        if (this.eventLoopGroup != observed) {
-            return this.eventLoopGroup;
+    private Generation liveGeneration() {
+        Generation observed = this.generation;
+        if (!hasTerminatedExecutor(observed.group)) {
+            return observed;
         }
-        long terminated = 0;
-        for (EventExecutor executor : observed) {
-            if (isTerminated(executor)) {
-                terminated++;
+        return replace(observed);
+    }
+
+    /**
+     * Retires a group that lost a player thread and hands new sessions a fresh generation.
+     * <p>
+     * The loss is reported exactly once per generation: only the caller that performs the swap
+     * reports it, so logins waiting on the lock never report the same generation twice.
+     */
+    private Generation replace(Generation observed) {
+        Generation replacement;
+        Loss loss;
+        synchronized (this) {
+            // Another thread may have replaced it while this one was waiting for the lock
+            if (this.generation != observed) {
+                return this.generation;
             }
+            List<String> terminated = new ArrayList<>();
+            for (EventExecutor executor : observed.group) {
+                if (isTerminated(executor)) {
+                    terminated.add(observed.nameOf(executor));
+                }
+            }
+            this.retired.add(observed.group);
+            this.terminatedExecutors.addAndGet(terminated.size());
+            replacement = newGeneration(observed.number + 1, observed.group.executorCount());
+            this.generation = replacement;
+            loss = new Loss(observed.number, terminated, observed.sessionsHandedOut.get());
         }
-        this.retired.add(observed);
-        this.terminatedExecutors.addAndGet(terminated);
-        this.eventLoopGroup = newEventLoopGroup(observed.executorCount());
-        return this.eventLoopGroup;
+        // Outside the lock: a slow listener must not hold up the logins of the new generation
+        if (!loss.terminatedExecutors().isEmpty()) {
+            this.listener.accept(loss);
+        }
+        return replacement;
+    }
+
+    /**
+     * @param number the generation number, counting from 1
+     * @param threads the number of player threads, or 0 to use Netty's default
+     */
+    private Generation newGeneration(int number, int threads) {
+        String threadName = this.threadName;
+        AtomicInteger threadIndex = new AtomicInteger();
+        Map<EventExecutor, String> threadNames = new ConcurrentHashMap<>();
+        // Each player thread is named after the transport and its index, so a reported loss
+        // names the thread an operator will also find in a thread dump.
+        DefaultEventLoopGroup group = new DefaultEventLoopGroup(threads, new DefaultThreadFactory(threadName)) {
+            @Override
+            protected EventLoop newChild(Executor executor, Object... args) {
+                String name = threadName + " #" + threadIndex.incrementAndGet();
+                EventLoop child = new DefaultEventLoop(this, new PlayerThreadFactory(name));
+                threadNames.put(child, name);
+                return child;
+            }
+        };
+        return new Generation(number, group, threadNames);
     }
 
     public static boolean hasTerminatedExecutor(DefaultEventLoopGroup group) {
@@ -133,10 +211,55 @@ public final class PlayerEventExecutors {
     }
 
     public void shutdown() {
-        this.retired.add(this.eventLoopGroup);
+        synchronized (this) {
+            this.retired.add(this.generation.group);
+        }
         DefaultEventLoopGroup group;
         while ((group = this.retired.poll()) != null) {
             group.shutdownGracefully();
+        }
+    }
+
+    /**
+     * One player thread group, and what it has served so far.
+     */
+    private static final class Generation {
+        private final int number;
+        private final DefaultEventLoopGroup group;
+        /**
+         * The thread name of each executor, so a loss can name the executors that terminated
+         * after Netty has already discarded their threads.
+         */
+        private final Map<EventExecutor, String> threadNames;
+        private final AtomicLong sessionsHandedOut = new AtomicLong();
+
+        private Generation(int number, DefaultEventLoopGroup group, Map<EventExecutor, String> threadNames) {
+            this.number = number;
+            this.group = group;
+            this.threadNames = threadNames;
+        }
+
+        private String nameOf(EventExecutor executor) {
+            return this.threadNames.getOrDefault(executor, "player thread of generation " + this.number);
+        }
+    }
+
+    /**
+     * Names a player thread exactly as a {@link Loss} reports it. Netty's default factory would
+     * append its own pool and thread ids, which makes the reported name impossible to recognize
+     * in a thread dump.
+     */
+    private static final class PlayerThreadFactory extends DefaultThreadFactory {
+        private final String name;
+
+        private PlayerThreadFactory(String name) {
+            super(name);
+            this.name = name;
+        }
+
+        @Override
+        protected Thread newThread(Runnable runnable, String ignored) {
+            return super.newThread(runnable, this.name);
         }
     }
 }
