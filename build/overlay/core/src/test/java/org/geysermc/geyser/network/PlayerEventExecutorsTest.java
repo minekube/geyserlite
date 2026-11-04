@@ -27,7 +27,10 @@ import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Player threads that die are counted and replaced, never reused.
+ * Player threads that die are counted and replaced, never reused, and the replacement is
+ * reported exactly once per retired generation.
  *
  * @see PlayerThreadTerminationTest for the reproduction of the production failure
  */
@@ -63,7 +67,9 @@ class PlayerEventExecutorsTest {
 
     @Test
     void healthyPlayerThreadsAreReused() throws Exception {
-        PlayerEventExecutors executors = new PlayerEventExecutors("Geyser test player thread", 2);
+        AtomicInteger lossReports = new AtomicInteger();
+        PlayerEventExecutors executors =
+            new PlayerEventExecutors("Geyser test player thread", 2, loss -> lossReports.incrementAndGet());
         try {
             DefaultEventLoopGroup group = executors.liveGroup();
 
@@ -72,6 +78,84 @@ class PlayerEventExecutorsTest {
 
             assertSame(group, executors.liveGroup(), "a healthy group must not be replaced");
             assertEquals(0, executors.terminatedExecutors(), "no player thread was lost");
+            assertEquals(0, lossReports.get(), "a healthy generation must not be reported as lost");
+        } finally {
+            executors.shutdown();
+        }
+    }
+
+    /**
+     * The login path hands every session {@code PlayerEventExecutors.next()}
+     * ({@code GeyserServerInitializer.initSession}), so the replacement a login triggers is the
+     * only chance to report a dead generation on the NetherNet path. That report must fire once,
+     * name the terminated player threads and say how many sessions had been bound to the retired
+     * group — a loss invisible from the client side is what kept the 2026-11-01 NetherNet outage
+     * silent for 35 hours.
+     */
+    @Test
+    void aLostGenerationIsReportedExactlyOnceWithItsIdentityAndSessionCount() throws Exception {
+        List<PlayerEventExecutors.Loss> reported = new CopyOnWriteArrayList<>();
+        PlayerEventExecutors executors =
+            new PlayerEventExecutors("Geyser test player thread", 2, reported::add);
+        try {
+            // Three logins on the healthy generation, exactly like initSession's next()
+            for (int login = 0; login < 3; login++) {
+                assertFalse(executors.next().isTerminated(), "the healthy generation must serve the login");
+            }
+            DefaultEventLoopGroup lost = executors.liveGroup();
+            assertEquals(2, terminateEveryThread(lost), "both player threads must have terminated");
+
+            assertFalse(executors.next().isTerminated(),
+                "the login that follows the death must not get a terminated executor");
+
+            assertEquals(1, reported.size(), "the retired generation must be reported exactly once");
+            PlayerEventExecutors.Loss loss = reported.get(0);
+            assertEquals(1, loss.generation(), "the first player thread generation is generation 1");
+            assertEquals(2, loss.terminatedExecutors().size(),
+                "the report must name every terminated player thread: " + loss.terminatedExecutors());
+            assertTrue(loss.terminatedExecutors().contains("Geyser test player thread #1"),
+                "the report must identify the terminated executor: " + loss.terminatedExecutors());
+            assertTrue(loss.terminatedExecutors().contains("Geyser test player thread #2"),
+                "the report must identify the terminated executor: " + loss.terminatedExecutors());
+            assertEquals(3, loss.sessions(),
+                "the report must carry how many sessions had been handed an executor from the retired group");
+
+            // Every later login is served by the replacement and must not report the same loss again
+            for (int login = 0; login < 5; login++) {
+                assertFalse(executors.next().isTerminated());
+            }
+            assertEquals(1, reported.size(), "a generation must be reported once, not once per login");
+        } finally {
+            executors.shutdown();
+        }
+    }
+
+    /**
+     * A transport that loses its player threads twice must be told twice, with the generation
+     * number advancing, so the report can be correlated with the Netty
+     * {@code Unexpected exception from an event executor} that preceded it.
+     */
+    @Test
+    void everyLostGenerationIsReported() throws Exception {
+        List<PlayerEventExecutors.Loss> reported = new CopyOnWriteArrayList<>();
+        PlayerEventExecutors executors =
+            new PlayerEventExecutors("Geyser test player thread", 2, reported::add);
+        try {
+            assertEquals(2, terminateEveryThread(executors.liveGroup()));
+            executors.next();
+
+            // one more login on the replacement, then that generation dies as well
+            assertFalse(executors.next().isTerminated());
+            assertEquals(2, terminateEveryThread(executors.liveGroup()));
+            executors.next();
+
+            assertEquals(2, reported.size(), "each retired generation must be reported");
+            assertEquals(1, reported.get(0).generation());
+            assertEquals(2, reported.get(1).generation(), "the generation number must advance");
+            assertEquals(2, reported.get(1).sessions(),
+                "the second report carries the logins the replacement had served: the one that"
+                    + " triggered it and the one after");
+            assertEquals(4, executors.terminatedExecutors());
         } finally {
             executors.shutdown();
         }
