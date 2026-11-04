@@ -29,8 +29,10 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.GeyserLogger;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetChannelInitialiser;
+import org.geysermc.geyser.session.GeyserSession;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,6 +97,10 @@ class PlayerThreadTerminationTest {
      * only observable moment of the loss on the NetherNet path (nothing calls the bind-time
      * getter again), so it must reach the transport's sever log with the identity of the
      * player threads it lost.
+     * <p>
+     * The mocked Geyser graph does not have to survive the whole login: {@code initSession}
+     * hands the session its executor (and therefore reports the loss) before
+     * {@code GeyserSession} is constructed, and the report is what this test asserts.
      */
     @Test
     void theLoginThatTriggersTheReplacementReportsTheLostPlayerThreads() throws Exception {
@@ -108,8 +115,13 @@ class PlayerThreadTerminationTest {
             assertEquals(threads, terminateEveryThread(group),
                 "the simulated fatal error must have terminated every player thread");
 
-            // The production login path: initSession -> playerExecutors.next() -> replace()
-            initialiser.initSession(bedrockSession);
+            // The production login path: initSession -> playerExecutors.next() -> replace().
+            // GeyserSession is constructed from caches whose static initialisers need a fully
+            // registered Geyser API, so it is mocked out: the hand-out (and the report) happens
+            // before it and is the only thing this test asserts.
+            try (MockedConstruction<GeyserSession> ignored = mockConstruction(GeyserSession.class)) {
+                initialiser.initSession(bedrockSession);
+            }
 
             ArgumentCaptor<String> report = ArgumentCaptor.forClass(String.class);
             verify(logger, times(1)).severe(report.capture());
