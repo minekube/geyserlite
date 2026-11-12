@@ -1,6 +1,6 @@
 # geyserlite roadmap
 
-> Living document. Last updated 2026-05-02.
+> Living document. Last updated 2026-11-12.
 
 ## Vision
 
@@ -262,13 +262,17 @@ For users who don't want to embed and don't want to pre-place the `.so`.
 - [ ] Optional cosign signature verification when present — sigstore bundle files are published but client-side verification not yet implemented
 - [ ] **Acceptance** (both langs): fresh run on a machine with no cache fetches the `.so`, runs in-process, second run uses cache — pending end-to-end test on a Linux host
 
-### v0.6.0 — Gate adapter (first prod consumer)
+### v0.6.0 — Gate adapter (first prod consumer) 🚧 (managed dependency shipped; in-process embed open)
 
 Validates the Go in-process API by replacing moxy's hand-rolled supervisor.
 
 - [x] `go/integration/gate/` package — adapts `geyserlite.Server` to Gate's bedrock interface (Config → Options mapping, hex floodgate key decoding, nil-receiver-safe lifecycle)
-- [ ] PR to `minekube/gate`: add `bedrock.mode: embedded` (in-process via geyserlite)
-- [ ] Cut Gate `v0.65.0` with the new mode opt-in
+- [ ] PR to `minekube/gate`: add `bedrock.mode: embedded` (in-process via geyserlite).
+  Gate consumes GeyserLite today as a **managed subprocess dependency** —
+  `go.minekube.com/geyserlite v0.7.6` in Gate's `go.mod`, pinned by Gate v0.76.2 — so the
+  first-prod-consumer goal is met by the subprocess path and the in-process opt-in is the
+  remaining cross-repo item
+- [x] Gate ships the managed Bedrock runtime on GeyserLite releases, not on a pinned upstream Geyser build (see the versions below)
 - [ ] PR to `minekube/moxy`:
   - Remove `cmd/floodgate.go`, `geyser-bedrock/entrypoint.sh`, the entire `geyser-bedrock/` subtree
   - Switch `connect-proxy.yaml` to `bedrock.mode: embedded`
@@ -278,6 +282,29 @@ Validates the Go in-process API by replacing moxy's hand-rolled supervisor.
 
 (No Rust adapter in this phase — there's no flagship Rust proxy in
 the Minekube portfolio. Rust users integrate directly via the crate.)
+
+### v0.6.x – v0.7.x — Bedrock currency, placement and transport correctness ✅ (shipped)
+
+Not in the original phase list; recorded here because these releases changed
+what operators can expect from a Bedrock edge. Every item links the release
+that carries it, all with downloadable builds.
+
+- [x] **Java keepalives are not gated on the Bedrock echo** (v0.6.1): `gameplay.forward-player-ping`
+  matches upstream's `false`, so a throttled mobile client or a lossy UDP leg no longer starves the
+  backend keepalive into a `Timed out` kick.
+- [x] **HAProxy toggle rendered where Geyser 2.x reads it** (v0.6.4):
+  `advanced.java.use-haproxy-protocol`, instead of the pre-2.0 path Geyser silently drops — in
+  managed mode the dropped header closed every Bedrock join in the same second.
+- [x] **Native NetherNet ingress + Bedrock 26.60** (v0.7.0, moved to upstream stable 26.60 in v0.7.1):
+  bundled `libdatachannel-java.so` retained, dynamic glibc on both Linux architectures, and separate
+  TCP/UDP binds (`GEYSER_SIGNALING_ADDRESS`, `geyserSignalingAddress` for subprocess hosts).
+- [x] **Converted-placement hold** (v0.7.2 → v0.7.4): a placement resolves against the world's own
+  surface in the column, holds on evidence rather than a timer, and holds by silence while terrain
+  cannot be proved — so Paper's floating check no longer kicks converted players with
+  `Flying is not enabled on this server`. v0.7.5 logs how a hold ended.
+- [x] **Transport recovery** (v0.7.6): a terminated player event-loop group is replaced instead of
+  being handed to new NetherNet sessions, so one heap-exhausted session no longer leaves every later
+  session hanging on "generating world" with its XUID reserved.
 
 ### v1.0.0 — Stable
 

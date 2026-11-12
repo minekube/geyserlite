@@ -126,6 +126,53 @@ Optional settings:
 - `GEYSERLITE_BEDROCK_PACKET_TRACE_VERBOSE=1` logs each packet-metadata and
   channel-event record as it occurs and can produce high-volume output.
 
+### `Flying is not enabled on this server` moments after a Bedrock player joins
+
+A converted Bedrock client that is suspended in the air — no terrain under it
+yet, no vertical motion — is a state a Java client cannot produce, and Paper's
+floating check latches on it: `clientIsFloating` is geometric and counts server
+ticks, so it disconnects the player after 81 ticks (~4.05 s) with
+`allow-flight=false`. The client's own on-ground flag does not help; the check
+reads the position in the last movement packet.
+
+Fixed across v0.7.2 – v0.7.4: a pending placement is resolved against the
+world's own surface anywhere in the column (not only a 32-block window), the
+hold survives on evidence instead of a 5 s timer, and while a placement cannot
+be proved against real terrain **no movement sample is forwarded at all** —
+sending the frozen position at an unsupported height re-arms the counter. On
+v0.7.5 and newer the end of a hold is logged, so a hold that was released by a
+timeout is distinguishable from one that was released by terrain.
+
+If you still see this kick, capture the hold-end line plus
+`GEYSERLITE_BEDROCK_PACKET_TRACE=1`; the counter is in the backend's own ticks,
+so the backend's `server.properties` (`allow-flight`) and the player's
+placement both matter.
+
+### A player hangs on "generating world" and the log claims a login that never happened
+
+Before v0.7.6, a session that exhausted the heap (for example inside
+`ZlibCompression.encode` under `-Xmx256m`) terminated the Netty player
+event-loop threads permanently. The player event-loop group was created once per
+transport, so every later NetherNet session was bound to a dead executor:
+`connectDownstream()` threw `RejectedExecutionException: event executor
+terminated`, `authenticate()` swallowed it, the client sat on "generating world"
+until its own timeout with its XUID still reserved, and the edge still logged
+`Player connected with username <x>` after the throw.
+
+v0.7.6 replaces a terminated thread group instead of handing it to new sessions.
+On an older build the recovery is a restart — and the reserved XUID means the
+same player cannot retry until the process is restarted.
+
+### `Timed out` about 30 s after spawn while the session looks healthy
+
+Before v0.6.1 the baseline config booted Geyser with
+`gameplay.forward-player-ping: true`, so the Java backend's keepalive was
+answered only when the Bedrock client echoed `NetworkStackLatency`. A
+backgrounded or throttled mobile client, or a lossy UDP leg, starves that echo
+and the backend drops the player with `Timed out` even though everything else is
+healthy. Upstream Geyser's default for this setting is `false`; if you run a
+custom `config.yml`, check that you have not set it back to `true`.
+
 ## Routing
 
 ### Player joins but lands in a different/unexpected world
