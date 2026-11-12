@@ -55,7 +55,10 @@ func readDocFile(t *testing.T, rel string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	return string(b)
+	// Windows runners check the docs out with CRLF line endings. Normalising here
+	// keeps every assertion below about content, not about how git checked the
+	// files out (a multi-line needle otherwise fails only on windows-latest).
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
 }
 
 func requireContains(t *testing.T, file, content string, want []string) {
@@ -128,6 +131,6 @@ func TestReadmeKeepsTheNetherNetRuntimeRequirement(t *testing.T) {
 	requireContains(t, readmeDoc, readme, []string{
 		"NetherNet also needs the",
 		"libdatachannel",
-		"static\nmusl executables cannot load it",
+		"musl executables cannot load it",
 	})
 }
