@@ -57,10 +57,16 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   tick, `authenticate()` swallowed it, and the client waited on "generating world" until
   its own timeout while its XUID stayed reserved — a total, silent NetherNet outage for
   the life of the process. The patch (a) replaces a player thread group whose threads have
-  terminated instead of handing it to new sessions, logging and counting the loss, and
+  terminated instead of handing it to new sessions, reporting the loss exactly once per
+  retired generation from the replacement itself — naming the terminated player threads
+  (`Geyser <transport> player thread #N`) and how many sessions the retired group had been
+  handed — and counting them, and
   (b) disconnects a session with an explicit reason when its tick still cannot be
-  scheduled, instead of leaving it hanging. Reference: kanban `t_5cc9131c` /
-  `t_ec15de25`, 2026-11-01 NetherNet outage.
+  scheduled, instead of leaving it hanging. The report has to come from the replacement, not
+  from the bind-time getter: `initSession` only ever calls `PlayerEventExecutors.next()`, so
+  on NetherNet (where the bind happens once at startup) the login is the only place the
+  loss is observable. Reference: kanban `t_5cc9131c` / `t_ec15de25`, 2026-11-01 NetherNet
+  outage; `t_0b6a8b5d` for the report path.
 
 ## Generating new patches
 

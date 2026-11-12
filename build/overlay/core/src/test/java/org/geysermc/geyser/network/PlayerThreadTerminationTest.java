@@ -25,17 +25,30 @@ package org.geysermc.geyser.network;
 import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
+import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
+import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.GeyserLogger;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetChannelInitialiser;
+import org.geysermc.geyser.session.GeyserSession;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * A player thread that dies must not take the whole transport with it.
+ * A player thread that dies must not take the whole transport with it, and the login that
+ * triggers the replacement must report the loss.
  * <p>
  * On 2026-11-01 an {@link OutOfMemoryError} escaped the Netty run loop of both NetherNet
  * player threads of a long-lived server. Netty logged
@@ -47,15 +60,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * unaffected because it uses a different group, which is why the standing RakNet-only check
  * stayed green for 35 hours.
  * <p>
- * This test reproduces the executors' death exactly (a task that throws an
- * {@link OutOfMemoryError} inside the loop terminates the executor and nothing brings it
- * back) and asserts that the next session is not bound to a dead one.
+ * The replacement happens inside the login path ({@code initSession} hands every session
+ * {@code PlayerEventExecutors.next()}), so the report is asserted from there as well: a loss
+ * that only the bind-time {@code getEventLoopGroup()} could describe is a loss nobody sees on
+ * NetherNet, where the bind happens once at startup.
  */
 class PlayerThreadTerminationTest {
 
     /**
-     * Mirrors how {@code GeyserSessionInitializer.initSession} picks the tick executor:
-     * {@code getEventLoopGroup().next()}.
+     * The login path hands every session {@code PlayerEventExecutors.next()}, so the next
+     * session must not be bound to a terminated executor.
      */
     @Test
     void terminatedPlayerExecutorIsNotHandedToTheNextSession() throws Exception {
@@ -74,7 +88,52 @@ class PlayerThreadTerminationTest {
                     + "the client waits on 'generating world' until its own timeout and its XUID stays "
                     + "reserved. A terminated executor must never be used for new sessions.");
         } finally {
-            initialiser.getEventLoopGroup().shutdownGracefully().await(5, TimeUnit.SECONDS);
+            initialiser.shutdownPlayerThreads();
+        }
+    }
+
+    /**
+     * A login that finds the player threads dead replaces the group. That replacement is the
+     * only observable moment of the loss on the NetherNet path (nothing calls the bind-time
+     * getter again), so it must reach the transport's sever log with the identity of the
+     * player threads it lost.
+     * <p>
+     * The mocked Geyser graph does not have to survive the whole login: {@code GeyserSession}
+     * is constructed from registry caches whose static initialisers require a registered Geyser
+     * API, so its construction is mocked out. {@code initSession} hands the session its executor
+     * (and therefore reports the loss) before that constructor would run, and the report is what
+     * this test asserts.
+     */
+    @Test
+    void theLoginThatTriggersTheReplacementReportsTheLostPlayerThreads() throws Exception {
+        GeyserImpl geyser = mock(GeyserImpl.class, RETURNS_DEEP_STUBS);
+        GeyserLogger logger = mock(GeyserLogger.class);
+        when(geyser.getLogger()).thenReturn(logger);
+        BedrockServerSession bedrockSession = mock(BedrockServerSession.class, RETURNS_DEEP_STUBS);
+        GeyserServerInitializer initialiser = new NetherNetChannelInitialiser(geyser);
+        try {
+            DefaultEventLoopGroup group = initialiser.getEventLoopGroup();
+            int threads = group.executorCount();
+            assertEquals(threads, terminateEveryThread(group),
+                "the simulated fatal error must have terminated every player thread");
+
+            // The production login path: initSession -> playerExecutors.next() -> replace().
+            // GeyserSession is constructed from caches whose static initialisers need a fully
+            // registered Geyser API, so it is mocked out: the hand-out (and the report) happens
+            // before it and is the only thing this test asserts.
+            try (MockedConstruction<GeyserSession> ignored = mockConstruction(GeyserSession.class)) {
+                initialiser.initSession(bedrockSession);
+            }
+
+            ArgumentCaptor<String> report = ArgumentCaptor.forClass(String.class);
+            verify(logger, times(1)).severe(report.capture());
+            String line = report.getValue();
+            assertTrue(line.contains("Geyser NetherNet player thread #1"),
+                "the report of the loss must name the terminated player thread, got: " + line);
+            assertTrue(line.contains("generation 1"),
+                "the report must identify the generation that was lost, got: " + line);
+        } finally {
+            initialiser.shutdownPlayerThreads();
         }
     }
 
