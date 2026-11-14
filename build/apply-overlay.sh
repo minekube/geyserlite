@@ -13,40 +13,61 @@ GEYSER_DIR="${WORK_DIR}/Geyser"
 GEYSER_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/build/geyser.version")"
 PYTHON_BIN="${PYTHON:-python3}"
 
-echo "▸ Geyser ref: ${GEYSER_VERSION}"
-
-# Fresh checkout each run — small price for guaranteed clean state.
-rm -rf "${GEYSER_DIR}"
-mkdir -p "${WORK_DIR}"
-
-git clone --quiet https://github.com/GeyserMC/Geyser.git "${GEYSER_DIR}"
-( cd "${GEYSER_DIR}"
-  git checkout --quiet "${GEYSER_VERSION}"
-  git submodule --quiet update --init --recursive --depth 1
-)
-
-echo "▸ Copying overlay/ into Geyser tree"
-cp -R "${REPO_ROOT}/build/overlay/." "${GEYSER_DIR}/"
-
-# The .so build's gradle config points at ${rootProject.projectDir}/agent-config
-# (i.e. <Geyser-root>/agent-config) for reflection metadata. The reflect-config
-# patcher (run later by Dockerfile) reads from /tmp/agent-config; the
-# committed source-of-truth lives at REPO_ROOT/build/agent-config. Stage a
-# copy at the Geyser root so the gradle build sees it. Without this, the
-# .so silently builds with NO reflection metadata — log4j2 plugin discovery
-# implodes at runtime ("ServiceLoader.load(Class,ClassLoader)" /
-# "NoSuchMethodException: <init>()").
-echo "▸ Staging agent-config at Geyser root for the .so build"
-cp -R "${REPO_ROOT}/build/agent-config" "${GEYSER_DIR}/agent-config"
-
-echo "▸ Registering :geyserlite-native subproject"
-SETTINGS="${GEYSER_DIR}/settings.gradle.kts"
-INCLUDE_LINE='include(":geyserlite-native")'
-if grep -qF "${INCLUDE_LINE}" "${SETTINGS}"; then
-  echo "  already registered; skipping"
+# Fast fixture mode for the overlay regression test. It applies only the
+# intent-based standalone-bootstrap mutation to caller-supplied sources, so the
+# failure contract can be tested without cloning or compiling Geyser.
+PATCH_ONLY=false
+if [[ "${1:-}" == "--patch-bootstrap" ]]; then
+  if [[ $# -ne 4 ]]; then
+    echo "usage: $0 --patch-bootstrap <bootstrap.java> <GeyserBridge.java> <ConfigLoader.java>" >&2
+    exit 2
+  fi
+  PATCH_ONLY=true
+  SBP="$2"
+  BRIDGE_SOURCE="$3"
+  CONFIG_LOADER="$4"
 else
-  printf '\n// geyserlite overlay (added by https://github.com/minekube/geyserlite)\n%s\n' "${INCLUDE_LINE}" >> "${SETTINGS}"
-  echo "  appended to settings.gradle.kts"
+  echo "▸ Geyser ref: ${GEYSER_VERSION}"
+
+  # Fresh checkout each run — small price for guaranteed clean state.
+  rm -rf "${GEYSER_DIR}"
+  mkdir -p "${WORK_DIR}"
+
+  git clone --quiet https://github.com/GeyserMC/Geyser.git "${GEYSER_DIR}"
+  ( cd "${GEYSER_DIR}"
+    git checkout --quiet "${GEYSER_VERSION}"
+    git submodule --quiet update --init --recursive --depth 1
+  )
+
+  echo "▸ Copying overlay/ into Geyser tree"
+  cp -R "${REPO_ROOT}/build/overlay/." "${GEYSER_DIR}/"
+
+  BRIDGE_SOURCE="${GEYSER_DIR}/geyserlite-native/src/main/java/com/minekube/geyserlite/bridge/GeyserBridge.java"
+  SBP="${GEYSER_DIR}/bootstrap/standalone/src/main/java/org/geysermc/geyser/platform/standalone/GeyserStandaloneBootstrap.java"
+  CONFIG_LOADER="${GEYSER_DIR}/core/src/main/java/org/geysermc/geyser/configuration/ConfigLoader.java"
+fi
+
+if ! $PATCH_ONLY; then
+  # The .so build's gradle config points at ${rootProject.projectDir}/agent-config
+  # (i.e. <Geyser-root>/agent-config) for reflection metadata. The reflect-config
+  # patcher (run later by Dockerfile) reads from /tmp/agent-config; the
+  # committed source-of-truth lives at REPO_ROOT/build/agent-config. Stage a
+  # copy at the Geyser root so the gradle build sees it. Without this, the
+  # .so silently builds with NO reflection metadata — log4j2 plugin discovery
+  # implodes at runtime ("ServiceLoader.load(Class,ClassLoader)" /
+  # "NoSuchMethodException: <init>()").
+  echo "▸ Staging agent-config at Geyser root for the .so build"
+  cp -R "${REPO_ROOT}/build/agent-config" "${GEYSER_DIR}/agent-config"
+
+  echo "▸ Registering :geyserlite-native subproject"
+  SETTINGS="${GEYSER_DIR}/settings.gradle.kts"
+  INCLUDE_LINE='include(":geyserlite-native")'
+  if grep -qF "${INCLUDE_LINE}" "${SETTINGS}"; then
+    echo "  already registered; skipping"
+  else
+    printf '\n// geyserlite overlay (added by https://github.com/minekube/geyserlite)\n%s\n' "${INCLUDE_LINE}" >> "${SETTINGS}"
+    echo "  appended to settings.gradle.kts"
+  fi
 fi
 
 echo "▸ Patching GeyserStandaloneBootstrap for embedded use"
@@ -54,16 +75,25 @@ echo "▸ Patching GeyserStandaloneBootstrap for embedded use"
 # the standalone bootstrap are show-stoppers:
 #   - System.exit(1)/System.exit(0) terminate the *host* process
 #   - geyserLogger.start() is the stdin command-prompt loop; it blocks
-# Gate them behind the geyserlite.embedded system property (set by
-# GeyserBridge.init before kicking off the lifecycle) so the standalone
-# behavior is unchanged when run as an ELF.
-# Also expose two private fields so the bridge can configure the
-# bootstrap without reflection.
-#
-# The property name lives in GeyserBridge.java's EMBED_PROP constant.
-# Anchor it here too so a rename in either place breaks loudly.
-SBP="${GEYSER_DIR}/bootstrap/standalone/src/main/java/org/geysermc/geyser/platform/standalone/GeyserStandaloneBootstrap.java"
-EMBED_PROP="geyserlite.embedded"
+# Gate them behind the embedded system property (set by GeyserBridge.init
+# before kicking off the lifecycle) so standalone behavior is unchanged when
+# run as an ELF. The property name is read from GeyserBridge.EMBED_PROP below;
+# this script intentionally does not duplicate its literal value.
+# Also expose the fields/state the bridge needs without reflection.
+if [[ ! -f "$BRIDGE_SOURCE" ]]; then
+  echo "apply-overlay: bridge source not found: $BRIDGE_SOURCE" >&2
+  exit 2
+fi
+EMBED_PROP="$(${PYTHON_BIN} - "$BRIDGE_SOURCE" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+matches = re.findall(r'\bEMBED_PROP\s*=\s*"([^"]+)"\s*;', src)
+if len(matches) != 1:
+    sys.stderr.write(f"apply-overlay: expected exactly one EMBED_PROP constant, got {len(matches)}\n")
+    sys.exit(2)
+print(matches[0])
+PY
+)"
 "${PYTHON_BIN}" - "$SBP" "$EMBED_PROP" <<'PY'
 import sys, re
 path, prop = sys.argv[1], sys.argv[2]
@@ -79,11 +109,20 @@ def once(pattern, repl):
     src = new
     count += 1
 
-# 1. config-load failure should bail (return) instead of terminating
-#    the host process when embedded.
+# 1. A config-load failure must not terminate the embedding host. Report it
+#    directly to stderr, then return so GeyserBridge can observe the null
+#    config and return its dedicated failure code. Keep the ELF exit path byte-
+#    for-byte equivalent outside the property gate.
 once(
-    r'(\n\s+)System\.exit\(1\);',
-    rf'\1if (Boolean.getBoolean("{prop}")) {{ return; }} else {{ System.exit(1); }}',
+    r'\n(?P<indent>[ \t]+)System\.exit\(1\);',
+    lambda match: (
+        f'\n{match["indent"]}if (Boolean.getBoolean("{prop}")) {{\n'
+        f'{match["indent"]}    System.err.println("geyserlite: failed to load Geyser config: " + configFilename);\n'
+        f'{match["indent"]}    return;\n'
+        f'{match["indent"]}}} else {{\n'
+        f'{match["indent"]}    System.exit(1);\n'
+        f'{match["indent"]}}}'
+    ),
 )
 # 2. stdin command-prompt loop must not run in-process.
 once(
@@ -109,10 +148,60 @@ once(
 #      to a similarly-named field can't silently match.
 once(r'\bprivate (boolean useGui\b\s*=)', r'public \1')
 once(r'\bprivate (String configFilename\b\s*=)', r'public \1')
+# 7. Give the bridge an explicit, reflection-free way to distinguish the
+#    early null-config return from successful startup.
+once(
+    r'\n(?P<indent>[ \t]+)@Override\n(?P=indent)public <T extends GeyserConfig> T loadConfig',
+    lambda match: (
+        f'\n{match["indent"]}/** True when onGeyserEnable returned before constructing Geyser. */\n'
+        f'{match["indent"]}public boolean geyserLiteConfigLoadFailed() {{\n'
+        f'{match["indent"]}    return this.geyserConfig == null;\n'
+        f'{match["indent"]}}}\n\n'
+        f'{match["indent"]}@Override\n'
+        f'{match["indent"]}public <T extends GeyserConfig> T loadConfig'
+    ),
+)
 
 open(path, 'w').write(src)
-print(f"  patched {count} sites")
+print(f"  patched {count} bootstrap sites")
 PY
+
+# ConfigLoader owns the caught IOException that causes load() to return null.
+# Its normal logger is not a reliable diagnostics channel in a native shared
+# library, so mirror the path and actual exception directly to stderr only for
+# embed mode. Standalone logging and exit behavior remain untouched.
+"${PYTHON_BIN}" - "$CONFIG_LOADER" "$EMBED_PROP" <<'PY'
+import re, sys
+path, prop = sys.argv[1], sys.argv[2]
+src = open(path).read()
+pattern = re.compile(
+    r'(?P<indent>[ \t]+)bootstrap\.getGeyserLogger\(\)\.error\('
+    r'GeyserLocale\.getLocaleStringLog\("geyser\.config\.failed"\), ex\);'
+)
+
+def replace(match):
+    indent = match["indent"]
+    return (
+        f'{indent}if (Boolean.getBoolean("{prop}")) {{\n'
+        f'{indent}    System.err.println("geyserlite: failed to load Geyser config " '
+        f'+ configFile + ": " + ex);\n'
+        f'{indent}    ex.printStackTrace(System.err);\n'
+        f'{indent}}}\n'
+        f'{indent}bootstrap.getGeyserLogger().error('
+        f'GeyserLocale.getLocaleStringLog("geyser.config.failed"), ex);'
+    )
+
+src, count = pattern.subn(replace, src, count=1)
+if count != 1:
+    sys.stderr.write(f"apply-overlay: expected exactly one ConfigLoader error catch, got {count}\n")
+    sys.exit(2)
+open(path, 'w').write(src)
+print("  patched 1 config-load diagnostic site")
+PY
+
+if $PATCH_ONLY; then
+  exit 0
+fi
 
 # Optional .patch files for anything that genuinely needs a contextual diff.
 shopt -s nullglob

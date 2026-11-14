@@ -105,7 +105,8 @@ public final class GeyserBridge {
      * IsolateThread (the create_isolate thread, in practice).
      *
      * @return 0 on clean shutdown, -1 on init/runtime error, -2 if run
-     *         was already called on this isolate
+     *         was already called on this isolate, -3 if Geyser could not
+     *         load its config
      */
     @CEntryPoint(name = "geyser_run")
     public static int run(IsolateThread thread) {
@@ -141,6 +142,9 @@ public final class GeyserBridge {
 
             GeyserLocale.init(bootstrap);
             bootstrap.onGeyserInitialize();
+            if (bootstrap.geyserLiteConfigLoadFailed()) {
+                return -3;
+            }
             // onGeyserInitialize → onGeyserEnable returns now: the
             // patched geyserLogger.start() is gated behind EMBED_PROP.
             // The bedrock listener was started by GeyserImpl.start()
