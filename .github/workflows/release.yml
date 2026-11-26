@@ -39,7 +39,7 @@ jobs:
     environment: release
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_tag || github.ref }}
@@ -502,7 +502,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Checkout Moxy main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: minekube/moxy
           ref: main
