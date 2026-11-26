@@ -35,17 +35,24 @@ Numbered `.patch` files applied to the upstream Geyser source tree by
   `requestImage` raises instead of returning the AWT fallback.
 - `0007-ground-converted-player-placement.patch` — grounds a converted player's
   placement (initial spawn, server switch, respawn) onto the world's surface
-  instead of accepting an airborne one, and stops forwarding a sustained
-  suspended-and-motionless Bedrock position. Upstream has no equivalent: a
-  Bedrock client with no terrain under it (chunk still loading, or a placement
-  carried over a server hand-over) reports a fixed airborne position with no
-  vertical motion, which a Java client cannot produce. Paper's
+  instead of accepting an airborne one, and keeps a sustained
+  suspended-and-motionless Bedrock position off the wire. Upstream has no
+  equivalent: a Bedrock client with no terrain under it (chunk still loading, or
+  a placement carried over a server hand-over) reports a fixed airborne position
+  with no vertical motion, which a Java client cannot produce. Paper's
   `ServerGamePacketListenerImpl` latches `clientIsFloating` and disconnects it
   with `multiplayer.disconnect.flying` after 81 ticks (~4.05 s). Exempt:
-  vehicle, no-clip, flying, climbing, spectator/creative, water; when no
-  surface can be proven below the feet the sample is forwarded unchanged, so a
-  false negative cannot freeze a player. Reference implementation and lab A/B
-  (Paper 26.3, `allow-flight=false`): kanban `t_1e9c9090`.
+  vehicle, no-clip, flying, climbing, spectator/creative, water.
+  `WorldManager#hasBlockData` separates "air" from "no chunk yet", so
+  `PlacementGrounding` reports SUPPORTED / SURFACE / UNKNOWN / VOID instead of
+  treating an unsent column as a void; a sample that cannot be resolved is
+  withheld (never forwarded) and the hold is disarmed once with a single falling
+  sample, because the placement itself arms the backend's counter. A pending
+  placement searches the whole column (`MAX_PLACEMENT_GROUND_SEARCH`, 384); a
+  settled session keeps the 32-block window. Reference implementation and lab
+  A/B (Paper 26.3, `allow-flight=false`): kanban `t_1e9c9090` and `t_220c857c`;
+  the 20 Hz Paper-latch harness is
+  `core/src/test/.../BedrockMovePlayerSuspendedPlacementTest` (overlay).
 
 - `0009-player-thread-termination.patch` — a Bedrock player thread
   (`GeyserServerInitializer`'s `DefaultEventLoopGroup`) that dies from a fatal error
