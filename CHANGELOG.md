@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.7](https://github.com/minekube/geyserlite/compare/v0.7.6...v0.7.7) (2026-11-26)
+
+
+### Bug Fixes
+
+* **bedrock:** hold a converted placement the backend has no terrain for yet ([#261](https://github.com/minekube/geyserlite/issues/261)) ([dae3aa3](https://github.com/minekube/geyserlite/commit/dae3aa3f448cc4090974b5f9191ad7821259755f))
+
 ## [0.7.6](https://github.com/minekube/geyserlite/compare/v0.7.5...v0.7.6) (2026-11-03)
 
 
