@@ -1,8 +1,72 @@
+diff --git a/bootstrap/spigot/src/main/java/org/geysermc/geyser/platform/spigot/world/manager/GeyserSpigotWorldManager.java b/bootstrap/spigot/src/main/java/org/geysermc/geyser/platform/spigot/world/manager/GeyserSpigotWorldManager.java
+index c8d77eea4..8b3510336 100644
+--- a/bootstrap/spigot/src/main/java/org/geysermc/geyser/platform/spigot/world/manager/GeyserSpigotWorldManager.java
++++ b/bootstrap/spigot/src/main/java/org/geysermc/geyser/platform/spigot/world/manager/GeyserSpigotWorldManager.java
+@@ -76,6 +76,15 @@ public class GeyserSpigotWorldManager extends WorldManager {
+         return BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.getOrDefault(block.getBlockData().getAsString(), org.geysermc.geyser.level.block.type.Block.JAVA_AIR_ID); // TODO could just make this a BlockState lookup?
+     }
+ 
++    @Override
++    public boolean hasBlockData(GeyserSession session, int x, int z) {
++        Player bukkitPlayer = Bukkit.getPlayer(session.getPlayerEntity().getUsername());
++        if (bukkitPlayer == null) {
++            return false;
++        }
++        return bukkitPlayer.getWorld().isChunkLoaded(x >> 4, z >> 4);
++    }
++
+     @Override
+     public boolean hasOwnChunkCache() {
+         return true;
+diff --git a/core/src/main/java/org/geysermc/geyser/level/GeyserWorldManager.java b/core/src/main/java/org/geysermc/geyser/level/GeyserWorldManager.java
+index 83cc04290..a06e2cfdc 100644
+--- a/core/src/main/java/org/geysermc/geyser/level/GeyserWorldManager.java
++++ b/core/src/main/java/org/geysermc/geyser/level/GeyserWorldManager.java
+@@ -31,6 +31,7 @@ import org.geysermc.erosion.packet.backendbound.BackendboundBlockRequestPacket;
+ import org.geysermc.erosion.util.BlockPositionIterator;
+ import org.geysermc.geyser.erosion.ErosionCancellationException;
+ import org.geysermc.geyser.session.GeyserSession;
++import org.geysermc.geyser.session.cache.ChunkCache;
+ import org.geysermc.mcprotocollib.protocol.data.game.entity.player.GameMode;
+ 
+ import java.util.concurrent.CompletableFuture;
+@@ -80,6 +81,12 @@ public class GeyserWorldManager extends WorldManager {
+         return future.join();
+     }
+ 
++    @Override
++    public boolean hasBlockData(GeyserSession session, int x, int z) {
++        ChunkCache chunkCache = session.getChunkCache();
++        return chunkCache.isCache() && chunkCache.hasChunk(x >> 4, z >> 4);
++    }
++
+     @Override
+     public boolean hasOwnChunkCache() {
+         // This implementation can only fetch data from the session chunk cache
+diff --git a/core/src/main/java/org/geysermc/geyser/level/WorldManager.java b/core/src/main/java/org/geysermc/geyser/level/WorldManager.java
+index 4a849c3fe..842142efd 100644
+--- a/core/src/main/java/org/geysermc/geyser/level/WorldManager.java
++++ b/core/src/main/java/org/geysermc/geyser/level/WorldManager.java
+@@ -97,6 +97,14 @@ public abstract class WorldManager {
+         return blocks;
+     }
+ 
++    /**
++     * @return true if the converter has block data for the column at the given coordinates, i.e. a
++     * negative answer from {@link #getBlockAt} means "air" rather than "we have not received this
++     * chunk yet". Placement grounding must never conclude "the player is floating" from an absence of
++     * data - a backend that is still streaming chunks looks exactly like an air column otherwise.
++     */
++    public abstract boolean hasBlockData(GeyserSession session, int x, int z);
++
+     /**
+      * Checks whether or not this world manager requires a separate chunk cache/has access to more block data than the chunk cache.
+      * <p>
 diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
-index 93fb21959..4ee8b7efa 100644
+index 003fd31bb..503ed3b27 100644
 --- a/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
 +++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSession.java
-@@ -264,6 +264,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
+@@ -265,6 +265,7 @@ import java.util.concurrent.RejectedExecutionException;
  import java.util.concurrent.ScheduledFuture;
  import java.util.concurrent.TimeUnit;
  import java.util.concurrent.atomic.AtomicInteger;
@@ -10,7 +74,7 @@ index 93fb21959..4ee8b7efa 100644
  
  @Getter
  public class GeyserSession implements GeyserConnection, GeyserCommandSource, JavaRegistryProvider.Provider {
-@@ -450,6 +451,73 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
+@@ -451,6 +452,41 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
  
      @Setter
      private boolean spawned;
@@ -34,73 +98,26 @@ index 93fb21959..4ee8b7efa 100644
 +    private int suspendedAirborneSamples;
 +
 +    /**
-+     * Number of suspended samples during which the Java backend demonstrably ticked, i.e. sent this
-+     * session at least one packet. This is the only budget a hold of unprovable terrain may spend: a
-+     * frozen backend (see {@code BedrockMovePlayer}) leaves it untouched, so a stall can never look
-+     * like proof that a placement is a void.
++     * When the converter started withholding a suspended placement's movement (epoch millis), or 0
++     * when it is not holding. The hold exists because a converted client whose world data has not
++     * arrived cannot be grounded, and forwarding its airborne sample is what arms the backend's
++     * 81-tick flying kick.
 +     */
 +    @Setter
-+    private int suspendedHoldLiveSamples;
++    private long suspendedHoldSince;
 +
 +    /**
-+     * {@link #downstreamPacketCount()} value observed on the last sample of the current suspension
-+     * episode; a later, different value is the evidence that the backend is ticking.
++     * When the "still holding, still no terrain" warning was last written, so the hold reports itself
++     * at most once per interval instead of once per movement sample.
 +     */
 +    @Setter
-+    private long suspendedHoldPacketMark;
-+
-+    /**
-+     * Set when a suspension episode has been announced in the log (the {@code Holding ...} line on the
-+     * {@code SUSPENDED_SAMPLE_THRESHOLD}-th sample) and cleared when that episode ends. It makes the
-+     * end of a hold observable exactly once, however long the hold lasts: without it the end-of-hold
-+     * lines could only ever be printed on the announcement sample, so a hold longer than 0.5 s ended
-+     * silently and an operator could not tell "ended on terrain arrival" from "never ended".
-+     */
-+    @Setter
-+    private boolean suspendedPlacementAnnounced;
-+
-+    /**
-+     * Monotonic count of packets received from the Java backend. Used only as a liveness signal:
-+     * geyserlite runs in its own process, so the backend stalling (a 26 s tick) is invisible to the
-+     * converter except as an absence of inbound Java traffic.
-+     */
-+    private final AtomicLong downstreamPackets = new AtomicLong();
-+
-+    /**
-+     * Records an inbound Java packet; called from the single clientbound dispatch point
-+     * ({@code GeyserSessionAdapter#packetReceived}) so the liveness signal sees every packet.
-+     */
-+    public void noteDownstreamPacket() {
-+        this.downstreamPackets.incrementAndGet();
-+    }
-+
-+    /**
-+     * @return how many packets the Java backend has sent this session
-+     */
-+    public long downstreamPacketCount() {
-+        return this.downstreamPackets.get();
-+    }
++    private long suspendedHoldWarnedAt;
 +
      /**
       * Accessed on the initial Java and Bedrock packet processing threads
       */
-diff --git a/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java b/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
-index 70d49d487..570e03929 100644
---- a/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
-+++ b/core/src/main/java/org/geysermc/geyser/session/GeyserSessionAdapter.java
-@@ -226,6 +226,10 @@ public class GeyserSessionAdapter extends SessionAdapter {
- 
-     @Override
-     public void packetReceived(Session session, Packet packet) {
-+        // Fault C liveness signal: one inbound Java packet is proof the backend actually ticked, which
-+        // is what lets the converter tell "the world has not answered yet because the server is frozen"
-+        // apart from "the placement really is in the void" (see BedrockMovePlayer).
-+        this.session.noteDownstreamPacket();
-         Registries.JAVA_PACKET_TRANSLATORS.translate(packet.getClass(), packet, this.session, true);
-     }
- 
 diff --git a/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java b/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
-index c6e78a33b..42097801e 100644
+index c6e78a33b..ba70b7d6a 100644
 --- a/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
 +++ b/core/src/main/java/org/geysermc/geyser/session/cache/ChunkCache.java
 @@ -118,6 +118,18 @@ public class ChunkCache {
@@ -108,11 +125,11 @@ index c6e78a33b..42097801e 100644
      }
  
 +    /**
-+     * @return true if the server has sent this column, i.e. a block read inside it is the world's own
-+     * answer rather than the empty default. A column that is not loaded yet must never be read as
-+     * "there is nothing here" (see {@code PlacementGrounding}).
++     * @return true if the chunk at these chunk coordinates has been received from the backend and is
++     * still in the cache. A {@code false} answer means block lookups in that column return air because
++     * the data is missing, not because the column is empty.
 +     */
-+    public boolean isChunkLoaded(int chunkX, int chunkZ) {
++    public boolean hasChunk(int chunkX, int chunkZ) {
 +        if (!cache) {
 +            return false;
 +        }
@@ -123,10 +140,18 @@ index c6e78a33b..42097801e 100644
          if (!cache) {
              return;
 diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-index 00dcdca50..8fddea412 100644
+index 00dcdca50..8e6c15fba 100644
 --- a/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
 +++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/BedrockMovePlayer.java
-@@ -36,19 +36,75 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+@@ -25,6 +25,7 @@
+ 
+ package org.geysermc.geyser.translator.protocol.bedrock.entity.player.input;
+ 
++import org.checkerframework.checker.nullness.qual.Nullable;
+ import org.cloudburstmc.math.vector.Vector3d;
+ import org.cloudburstmc.math.vector.Vector3f;
+ import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
+@@ -36,9 +37,12 @@ import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
  import org.geysermc.geyser.level.physics.BoundingBox;
  import org.geysermc.geyser.level.physics.CollisionResult;
  import org.geysermc.geyser.session.GeyserSession;
@@ -139,12 +164,7 @@ index 00dcdca50..8fddea412 100644
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerRotPacket;
- import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerStatusOnlyPacket;
- 
-+import java.util.Locale;
-+
- /**
-  * Holds processing input coming in from the {@link PlayerAuthInputPacket} packet.
+@@ -49,6 +53,39 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.Serv
   */
  final class BedrockMovePlayer {
  
@@ -156,139 +176,88 @@ index 00dcdca50..8fddea412 100644
 +    private static final double VERTICAL_MOTION_EPSILON = 0.03125;
 +
 +    /**
-+     * How many consecutive suspended, motionless samples a client sends before the converter starts
-+     * resolving the placement instead of forwarding it (10 samples = 0.5 s at 20 Hz).
++     * How many consecutive suspended, motionless samples a client must send before the converter stops
++     * treating it as an instant (a jump apex, a lag spike) and acts on it. This only gates the
++     * <i>grounding</i> decision - the samples themselves are already withheld by then, because a single
++     * forwarded "not on ground, not descending" sample arms the backend's counter.
 +     */
 +    private static final int SUSPENDED_SAMPLE_THRESHOLD = 10;
 +
 +    /**
-+     * The client's movement-sample cadence: 20 samples per second, i.e. one per server tick. Used only
-+     * to express a hold's length in seconds in its end-of-hold log line.
++     * One tick of vanilla player gravity ({@code 0.98 * (0 - 0.08)}): the vertical delta of a player who
++     * is falling rather than hovering.
 +     */
-+    private static final int SAMPLES_PER_SECOND = 20;
++    private static final double FALL_STEP = 0.0784;
 +
 +    /**
-+     * How many samples of <i>demonstrably live</i> backend time the converter may hold a placement
-+     * whose terrain it cannot prove (1200 = 60 s at 20 Hz). The hold budget is not wall-clock time:
-+     * only samples during which the Java backend sent us at least one packet are counted, so a
-+     * backend that stalls (one customer's Paper froze for a 26.375 s tick with TPS 0.1) consumes
-+     * nothing and a frozen server is never mistaken for a void.
-+     * <p>
-+     * 60 s is fifteen times Paper's own 81-tick (4.05 s) floating budget, and more than twice the
-+     * 26.375 s stall observed in production, so no plausible stall can exhaust it; it only expires
-+     * when a backend that is <i>still talking to us</i> has failed to publish the column under the
-+     * placement for a minute, i.e. the placement really is somewhere the world has no answer for.
++     * How long the converter will withhold a suspended placement before it escalates from "waiting for
++     * the world to arrive" to a logged warning. The hold itself is not abandoned at the budget: the only
++     * alternative the protocol offers is the airborne sample that arms Paper's 81-tick flying kick.
 +     */
-+    private static final int SUSPENDED_HOLD_LIVE_BUDGET = 1200;
++    private static final long HOLD_BUDGET_MILLIS = 20_000;
 +
 +    /**
-+     * A horizontal per-tick delta at or above this is the client moving under its own physics rather
-+     * than reporting the frozen position it holds when it has no terrain at all. Such a client is no
-+     * longer the suspended-placement state whatever our cache says, so the sample goes to the backend
-+     * unchanged.
++     * Once the budget has expired, how often the hold repeats its warning while it waits for terrain.
 +     */
-+    private static final double HORIZONTAL_MOTION_EPSILON = 0.03125;
-+
-+    /** What the converter does with a movement sample that has no support under it. */
-+    private enum Suspension {
-+        /** No suspension: forward the sample as computed. */
-+        NONE,
-+        /** Held placement: the sample is withheld from the backend until the column is provable. */
-+        HOLDING,
-+        /** A ground teleport was issued; the sample must not be forwarded. */
-+        GROUNDED
-+    }
++    private static final long HOLD_WARN_INTERVAL_MILLIS = 60_000;
 +
      static void translate(GeyserSession session, PlayerAuthInputPacket packet) {
          SessionPlayerEntity entity = session.getPlayerEntity();
          if (!session.isSpawned()) return;
-@@ -122,6 +178,33 @@ final class BedrockMovePlayer {
+@@ -122,6 +159,15 @@ final class BedrockMovePlayer {
              isOnGround = entity.isCollidingVertically() && entity.getLastTickEndVelocity().getY() < 0;
          }
  
 +        // Fault C: a converted client suspended in the air with no vertical motion is not a state a Java
 +        // client can produce. Paper's own floating check (clientIsFloating: not on ground, not
-+        // descending, no block within 0.55 below the feet) latches on it and counts every server tick,
-+        // disconnecting the player with multiplayer.disconnect.flying after 81 ticks. The latch is
-+        // geometric - Paper reads the position, not the client's on-ground flag - so the placement has
-+        // to be resolved against real terrain, and until it can be, no sample may be sent at all (see
-+        // resolveSuspendedPlacement).
-+        Suspension suspension = resolveSuspendedPlacement(session, entity, packet, isOnGround, hasVehicle, onClimbableBlock);
-+        if (suspension == Suspension.GROUNDED) {
-+            return;
-+        }
-+        if (suspension == Suspension.HOLDING) {
-+            // Terrain under this placement is not known (yet). Nothing may go over the wire: Paper's
-+            // floating check is geometric, so any sample it reads at an unsupported height re-latches
-+            // the 81-tick counter, whatever the client claims about being on ground (round 5: a 1 Hz
-+            // ServerboundMovePlayerPos at y=103 with the on-ground flag set was still disconnected at
-+            // tp+4.7 s). Staying silent leaves the latch where the backend's own placement left it,
-+            // which is what keeps the player alive until the column can be grounded against. The
-+            // converter still follows the client locally so chunk tracking and the reminder cadence
-+            // stay in step.
-+            entity.setPositionFromBedrockPos(packet.getPosition());
-+            entity.setLastTickEndVelocity(packet.getDelta());
-+            entity.setMotion(packet.getDelta());
-+            session.getInputCache().markPositionPacketSent();
++        // descending, no block within 0.55 below the feet) latches on it and disconnects the player with
++        // multiplayer.disconnect.flying after 81 ticks. Ground the placement instead of forwarding it -
++        // and when the world data needed to ground it has not arrived yet, withhold it.
++        if (handleSuspendedPlacement(session, entity, packet, isOnGround, hasVehicle, onClimbableBlock)) {
 +            return;
 +        }
 +
          // Resolve https://github.com/GeyserMC/Geyser/issues/3521, no void floor on java so player not supposed to collide with anything.
          // Therefore, we're fixing this by allowing player to no clip to clip through the floor, not only this fixed the issue but
          // player y velocity should match java perfectly, much better than teleport player right down :)
-@@ -238,6 +321,199 @@ final class BedrockMovePlayer {
+@@ -238,6 +284,183 @@ final class BedrockMovePlayer {
          }
      }
  
 +    /**
-+     * Resolves what a converted player that is suspended in the air without vertical motion should
-+     * report, and grounds the placement when the world says where it belongs.
++     * Keeps a converted client out of the backend's floating check while it is suspended in the air
++     * with nothing under it.
 +     * <p>
 +     * The condition is deliberately narrow: the client must report no support within 0.55 blocks below
 +     * its feet <i>and</i> essentially no vertical motion (Paper's own "not descending" threshold,
-+     * 0.03125) for {@link #SUSPENDED_SAMPLE_THRESHOLD} consecutive samples. A jumping, falling,
-+     * swimming, climbing, riding or flying player never satisfies it, so nothing legitimate is pinned:
-+     * only the state that a Bedrock client produces when it has no terrain under it (chunk still
-+     * loading, or a placement carried across a server hand-over) is caught.
++     * 0.03125). A jumping, falling, swimming, climbing, riding or flying player never satisfies it, so
++     * nothing legitimate is pinned: only the state that a Bedrock client produces when it has no terrain
++     * under it (chunk still loading, or a placement carried across a server hand-over) is caught.
 +     * <p>
-+     * The backend's floating counter is not driven by how many samples we forward - it latches from
-+     * the last one a movement packet delivers and counts server ticks - so an unprovable placement
-+     * cannot be hidden by relabelling it either: Paper 26.3 reads the position, not the client's
-+     * on-ground flag (round 5: 1 Hz {@code ServerboundMovePlayerPos} at an unsupported {@code y=103},
-+     * flag {@code 0x01}, was disconnected at tp+4.7 s). The hold therefore sends <b>nothing</b> while
-+     * the placement has no provable support - the latch stays where the backend's own placement left
-+     * it - and once terrain is provable the player is moved onto the surface.
-+     * <p>
-+     * What the hold may <i>not</i> do is expire on a wall-clock timer: geyserlite runs in its own
-+     * process, so its sample clock keeps running while the backend is frozen, and a 5 s budget is
-+     * shorter than the 26.375 s stall one customer's Paper produced. Releasing there would hand the
-+     * backend exactly the airborne sample it disconnects for, one stall later. A hold therefore ends
-+     * only when
++     * Two things can then be done with that sample, and the difference matters:
 +     * <ul>
-+     *   <li>the world's own data proves the column: a surface is found (grounded), or the column is
-+     *       loaded and empty (a real void - the backend reads the same blocks, so its verdict is
-+     *       the honest one);</li>
-+     *   <li>the client itself moves convincingly, i.e. it is simulating physics rather than holding
-+     *       the frozen position of a client with no terrain; or</li>
-+     *   <li>{@link #SUSPENDED_HOLD_LIVE_BUDGET} samples of <i>backend-alive</i> time have passed
-+     *       while the column stayed unknown - a backend that has stopped talking to us counts for
-+     *       nothing, so a stall can never consume the budget.</li>
++     *     <li>the converter can prove a surface below the feet ({@link PlacementGrounding.Resolution#SURFACE})
++     *     - it teleports the client onto it, which resets the backend's counter;</li>
++     *     <li>it cannot ({@link PlacementGrounding.Resolution#UNKNOWN} - the backend has not sent the
++     *     chunk - or {@link PlacementGrounding.Resolution#VOID}): the sample is <b>withheld</b>. Forwarding
++     *     it would tell the backend "not on ground, not descending", which is exactly what arms
++     *     {@code clientIsFloating}; withholding it means the counter is never armed (or, when samples were
++     *     already forwarded for this placement, is disarmed once with a falling sample - the physical
++     *     truth for a converted player with nothing under it).</li>
 +     * </ul>
-+     * Bookkeeping is per episode: {@code suspendedAirborneSamples} counts the consecutive suspended
-+     * samples (nothing is decided before {@link #SUSPENDED_SAMPLE_THRESHOLD} of them, so the apex of
-+     * a jump is never mistaken for a frozen client, but every one of them is withheld from the
-+     * backend), {@code suspendedHoldLiveSamples} counts only the samples during which the backend
-+     * proved it was ticking, and the episode resets the moment the client is supported, exempt, or
-+     * grounded.
++     * Withholding is bounded: after {@link #HOLD_BUDGET_MILLIS} without terrain the hold logs a warning
++     * and keeps holding, and it releases the instant the client stands on something it can prove.
++     *
++     * @return true if this sample must not be forwarded
 +     */
-+    private static Suspension resolveSuspendedPlacement(GeyserSession session, SessionPlayerEntity entity,
-+                                                        PlayerAuthInputPacket packet, boolean isOnGround,
-+                                                        boolean hasVehicle, boolean onClimbableBlock) {
++    private static boolean handleSuspendedPlacement(GeyserSession session, SessionPlayerEntity entity,
++                                                    PlayerAuthInputPacket packet, boolean isOnGround,
++                                                    boolean hasVehicle, boolean onClimbableBlock) {
 +        if (hasVehicle || session.isNoClip() || session.isFlying() || onClimbableBlock
 +            || session.getGameMode() == GameMode.SPECTATOR || session.getGameMode() == GameMode.CREATIVE
 +            || session.getCollisionManager().isPlayerTouchingWater()) {
-+            resetSuspendedPlacement(session);
-+            return Suspension.NONE;
++            releaseHold(session);
++            return false;
 +        }
 +
 +        Vector3d feetPosition = packet.getPosition().down(VanillaEntities.PLAYER_ENTITY_OFFSET).toDouble();
@@ -296,141 +265,140 @@ index 00dcdca50..8fddea412 100644
 +            // The converted player is standing on the world; the placement is settled.
 +            session.setPlacementPending(false);
 +        }
++
 +        boolean suspended = !isOnGround
 +            && Math.abs(packet.getDelta().getY()) <= VERTICAL_MOTION_EPSILON
 +            && PlacementGrounding.isSuspended(session, feetPosition);
 +
-+        if (!suspended) {
-+            // The ordinary end of a hold: the client's own sample is supported again (the terrain
-+            // arrived, or it landed under its own physics). Name the reason for an announced episode.
-+            logEndOfHold(session, session.getSuspendedAirborneSamples(), "Releasing suspended converted placement at "
-+                + feetPosition, " - the client is supported");
-+            resetSuspendedPlacement(session);
-+            return Suspension.NONE;
++        PlacementGrounding.Grounding grounding = null;
++        int samples = suspended ? session.getSuspendedAirborneSamples() + 1 : 0;
++        if (samples >= SUSPENDED_SAMPLE_THRESHOLD) {
++            // Sustained suspension: only now is it worth searching the column for a surface (a jump apex
++            // or a lag spike passes in a sample or two). A pending placement is the backend's own
++            // position, so it is resolved against the whole column rather than the mid-session window.
++            grounding = PlacementGrounding.resolve(session, feetPosition,
++                session.isPlacementPending()
++                    ? PlacementGrounding.MAX_PLACEMENT_GROUND_SEARCH
++                    : PlacementGrounding.MAX_GROUND_SEARCH);
 +        }
 +
-+        // Backend liveness: a sample only buys hold time when the backend proved it is ticking during
-+        // it (any inbound Java packet). A frozen backend leaves the counter untouched, which is what
-+        // keeps a stall from being read as "the placement is a void".
-+        long downstreamPackets = session.downstreamPacketCount();
-+        if (downstreamPackets != session.getSuspendedHoldPacketMark()) {
-+            session.setSuspendedHoldPacketMark(downstreamPackets);
-+            session.setSuspendedHoldLiveSamples(session.getSuspendedHoldLiveSamples() + 1);
-+        }
-+
-+        if (session.getSuspendedHoldLiveSamples() > SUSPENDED_HOLD_LIVE_BUDGET) {
-+            // The budget is spent for this episode: never re-hold it (the live counter keeps growing
-+            // while the backend is alive, and is only reset by the suspension ending). The backend's
-+            // own floating check decides from here.
-+            logEndOfHold(session, session.getSuspendedAirborneSamples(), "Releasing suspended converted placement at "
-+                + feetPosition, " - the hold budget is spent");
-+            return Suspension.NONE;
-+        }
-+
-+        int samples = session.getSuspendedAirborneSamples();
-+        samples++;
-+        session.setSuspendedAirborneSamples(samples);
-+        if (samples < SUSPENDED_SAMPLE_THRESHOLD) {
-+            // Too early to decide anything (this is what the apex of a jump looks like), but the
-+            // sample is still withheld: forwarding it is exactly what arms the backend's counter.
-+            return Suspension.HOLDING;
-+        }
-+
-+        boolean placement = session.isPlacementPending();
-+        PlacementGrounding.Surface surface = PlacementGrounding.surfaceBelow(session, feetPosition, placement);
-+        Vector3d grounded = surface.grounded();
-+        if (grounded != null) {
-+            if (Math.abs(grounded.getY() - feetPosition.getY()) <= 1.0E-4) {
-+                // Already level with the surface below: supported, so nothing to correct.
-+                logEndOfHold(session, samples, "Grounding suspended converted player at " + feetPosition
-+                    + " to " + grounded, "");
-+                resetSuspendedPlacement(session);
-+                return Suspension.NONE;
++        switch (decideSessionAction(suspended, samples, grounding, feetPosition)) {
++            case FORWARD -> {
++                releaseHold(session);
++                return false;
 +            }
-+
-+            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
++            case GROUND -> {
++                Vector3d grounded = grounding.position();
 +                session.getGeyser().getLogger().debug("Grounding suspended converted player at " + feetPosition
 +                    + " to " + grounded);
-+            } else {
-+                logEndOfHold(session, samples, "Grounding suspended converted player at " + feetPosition
-+                    + " to " + grounded, "");
++                entity.moveAbsolute(grounded.toFloat(), entity.getYaw(), entity.getPitch(), false, true);
++                session.setUnconfirmedTeleport(new TeleportCache(session, grounded.toFloat(),
++                    entity.getPitch(), entity.getYaw(), -1));
++                releaseHold(session);
++                return true;
 +            }
-+            entity.moveAbsolute(grounded.toFloat(), entity.getYaw(), entity.getPitch(), false, true);
-+            session.setUnconfirmedTeleport(new TeleportCache(session, grounded.toFloat(),
-+                entity.getPitch(), entity.getYaw(), -1));
-+            resetSuspendedPlacement(session);
-+            return Suspension.GROUNDED;
-+        }
-+
-+        if (surface.provable()) {
-+            // The world knows this column and there is nothing to stand on in it: a real void, which
-+            // the backend sees exactly the same way. Do not mask its verdict (and do not pin a player
-+            // in the void forever) - forward the sample untouched.
-+            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
-+                session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
-+                    + " - the column is loaded and has no surface");
-+            } else {
-+                logEndOfHold(session, samples, "Releasing suspended converted placement at " + feetPosition,
-+                    " - the column is loaded and has no surface");
++            default -> {
++                session.setSuspendedAirborneSamples(samples);
++                holdPlacement(session, feetPosition);
++                return true;
 +            }
-+            return Suspension.NONE;
 +        }
-+
-+        if (Math.abs(packet.getDelta().getX()) >= HORIZONTAL_MOTION_EPSILON
-+            || Math.abs(packet.getDelta().getZ()) >= HORIZONTAL_MOTION_EPSILON) {
-+            // The client is moving under its own physics, so it is not holding the frozen position of
-+            // a client with no terrain under it. Hand the sample over rather than hiding real motion.
-+            if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
-+                session.getGeyser().getLogger().debug("Releasing suspended converted placement at " + feetPosition
-+                    + " - the client is moving");
-+            } else {
-+                logEndOfHold(session, samples, "Releasing suspended converted placement at " + feetPosition,
-+                    " - the client is moving");
-+            }
-+            return Suspension.NONE;
-+        }
-+
-+        if (samples == SUSPENDED_SAMPLE_THRESHOLD) {
-+            session.setSuspendedPlacementAnnounced(true);
-+            session.getGeyser().getLogger().debug("Holding suspended converted placement at " + feetPosition
-+                + " - no terrain provable under it yet");
-+        }
-+        return Suspension.HOLDING;
 +    }
 +
 +    /**
-+     * Prints the end-of-hold line of an <i>announced</i> episode, at most once: the {@code Holding ...}
-+     * line is printed on the {@link #SUSPENDED_SAMPLE_THRESHOLD}-th sample and sets
-+     * {@code suspendedPlacementAnnounced}, so the end of any hold - however long it lasts - names its
-+     * reason and reports how many samples (and seconds) the placement was held. An episode that ends
-+     * before the announcement prints nothing here; the sample-10 lines the release already had are
-+     * printed unchanged by the callers.
-+     * <p>
-+     * The flag is cleared here as well as in {@link #resetSuspendedPlacement}, because three of the
-+     * terminal branches (a provable void, a moving client, a spent budget) deliberately do not reset
-+     * the episode: they end the hold but keep the counters for the backend's own verdict, so the flag
-+     * must not let the same episode be reported again on the next sample.
++     * The decision taken for one movement sample of a converted client.
 +     */
-+    private static void logEndOfHold(GeyserSession session, int samples, String prefix, String suffix) {
-+        if (!session.isSuspendedPlacementAnnounced()) {
++    enum SuspendedAction {
++        /** Forward the sample as usual. */
++        FORWARD,
++        /** Teleport the client onto the surface below it and drop the sample. */
++        GROUND,
++        /** Withhold the sample; the world under the client cannot be proven yet. */
++        HOLD
++    }
++
++    /**
++     * Decides what to do with a suspended sample. Kept free of session state so the rules can be
++     * exercised directly.
++     *
++     * @param suspended       the client reports no support and no vertical motion
++     * @param samples         consecutive suspended samples, including this one
++     * @param grounding       resolved placement for a sustained suspension, null before the threshold
++     * @param feetPosition    the client's feet position
++     */
++    static SuspendedAction decideSessionAction(boolean suspended, int samples,
++                                               PlacementGrounding.@Nullable Grounding grounding,
++                                               Vector3d feetPosition) {
++        if (!suspended) {
++            return SuspendedAction.FORWARD;
++        }
++        if (samples < SUSPENDED_SAMPLE_THRESHOLD || grounding == null) {
++            // Not sustained yet, so not diagnosable - but it is still a sample a Java client cannot
++            // produce, so it must not reach the backend. Dropping a jump apex or a two-sample lag blip
++            // costs nothing: the next sample supersedes this position.
++            return SuspendedAction.HOLD;
++        }
++        return switch (grounding.resolution()) {
++            case SUPPORTED -> SuspendedAction.FORWARD;
++            case SURFACE -> Math.abs(grounding.position().getY() - feetPosition.getY()) <= 1.0E-4
++                // Already level with the surface below: supported, so nothing to correct.
++                ? SuspendedAction.FORWARD
++                : SuspendedAction.GROUND;
++            case UNKNOWN, VOID -> SuspendedAction.HOLD;
++        };
++    }
++
++    /**
++     * Starts (or continues) withholding movement for a placement the converter cannot ground yet.
++     * <p>
++     * The sample itself is dropped, so the backend keeps the position it placed the player at and never
++     * receives the "not on ground, not descending" pair that arms its floating counter. If movement
++     * samples were already forwarded for this placement, the counter may be armed already - silence
++     * preserves it - so the hold first sends one falling sample ({@link #FALL_STEP} down, on ground
++     * false), which is the physical truth for a converted player with nothing under it and resets
++     * {@code clientIsFloating} on the backend.
++     */
++    private static void holdPlacement(GeyserSession session, Vector3d feetPosition) {
++        long now = System.currentTimeMillis();
++        if (session.getSuspendedHoldSince() == 0) {
++            session.setSuspendedHoldSince(now);
++            session.setSuspendedHoldWarnedAt(0);
++
++            // Disarm the backend's floating counter once, with the physical truth for a converted player
++            // that has nothing under it: it is falling, not hovering. This is needed even when no
++            // movement sample was forwarded for this placement - the backend arms the counter from the
++            // placement it made itself, and silence preserves an armed counter.
++            session.sendDownstreamGamePacket(new ServerboundMovePlayerPosPacket(false, false,
++                feetPosition.getX(), feetPosition.getY() - FALL_STEP, feetPosition.getZ()));
++            session.getGeyser().getLogger().debug("Holding converted player at " + feetPosition
++                + " until the backend sends the terrain for this column; sent one falling sample so its"
++                + " floating counter is not left armed by the placement");
 +            return;
 +        }
-+        session.setSuspendedPlacementAnnounced(false);
-+        session.getGeyser().getLogger().debug(prefix + " after " + samples + " held samples ("
-+            + String.format(Locale.ROOT, "%.1f", samples / (double) SAMPLES_PER_SECOND) + " s)" + suffix);
++
++        long heldFor = now - session.getSuspendedHoldSince();
++        if (heldFor >= HOLD_BUDGET_MILLIS
++            && (session.getSuspendedHoldWarnedAt() == 0
++                || now - session.getSuspendedHoldWarnedAt() >= HOLD_WARN_INTERVAL_MILLIS)) {
++            session.setSuspendedHoldWarnedAt(now);
++            // Honest fallback: we cannot prove a surface, so we do not pretend to. The player is held -
++            // forwarding the airborne sample would arm the backend's 81-tick flying kick - and this line
++            // is the signal that the backend never sent the world data.
++            session.getGeyser().getLogger().warning("Converted player " + session.bedrockUsername()
++                + " held at " + feetPosition + " for " + (heldFor / 1000) + "s: no terrain from the"
++                + " backend for this column, so no surface can be proven. Movement stays withheld"
++                + " (forwarding it would get the player kicked for flying); released as soon as the"
++                + " terrain arrives.");
++        }
 +    }
 +
 +    /**
-+     * Ends a suspension episode: the sample counter, the backend-alive budget and its packet mark
-+     * all belong to one episode, because the packet mark only means anything relative to the last
-+     * sample of the same episode.
++     * Clears every trace of a hold, so the next suspension starts from a clean slate.
 +     */
-+    private static void resetSuspendedPlacement(GeyserSession session) {
++    private static void releaseHold(GeyserSession session) {
 +        session.setSuspendedAirborneSamples(0);
-+        session.setSuspendedHoldLiveSamples(0);
-+        session.setSuspendedHoldPacketMark(session.downstreamPacketCount());
-+        // One end-of-hold line per episode: the next episode announces itself again.
-+        session.setSuspendedPlacementAnnounced(false);
++        session.setSuspendedHoldSince(0);
++        session.setSuspendedHoldWarnedAt(0);
 +    }
 +
      private static boolean isInvalidNumber(float val) {
@@ -464,7 +432,7 @@ index f755abb0f..b913f6067 100644
          entity.setLastTickEndVelocity(Vector3f.ZERO);
  
 diff --git a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
-index 8046eab0c..de374729c 100644
+index 8046eab0c..6c9c64c36 100644
 --- a/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
 +++ b/core/src/main/java/org/geysermc/geyser/translator/protocol/java/entity/player/JavaPlayerPositionTranslator.java
 @@ -39,6 +39,7 @@ import org.geysermc.geyser.translator.protocol.PacketTranslator;
@@ -475,7 +443,7 @@ index 8046eab0c..de374729c 100644
  import org.geysermc.mcprotocollib.protocol.data.game.entity.player.PositionElement;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerPositionPacket;
  import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.level.ServerboundAcceptTeleportationPacket;
-@@ -64,6 +65,22 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
+@@ -64,6 +65,21 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
              packet.getRelatives().contains(PositionElement.Y) ? entity.position().getY() : 0,
              packet.getRelatives().contains(PositionElement.Z) ? entity.position().getZ() : 0);
  
@@ -486,8 +454,7 @@ index 8046eab0c..de374729c 100644
 +        // placed - the initial spawn, a server switch, or a respawn - so deliberate airborne teleports
 +        // during play (jump pads, elytra launches) are untouched.
 +        if (!session.isSpawned() || session.isPlacementPending()) {
-+            // A placement is resolved against the world's own surface wherever it is in the column.
-+            Vector3d groundedPlacement = PlacementGrounding.groundPlacement(session, position, true);
++            Vector3d groundedPlacement = PlacementGrounding.groundPlacement(session, position);
 +            if (!groundedPlacement.equals(position)) {
 +                session.getGeyser().getLogger().debug("Grounding converted player placement from "
 +                    + position + " to " + groundedPlacement);
@@ -498,7 +465,7 @@ index 8046eab0c..de374729c 100644
          float newPitch = MathUtils.clamp(packet.getXRot() + (packet.getRelatives().contains(PositionElement.X_ROT) ? entity.getPitch() : 0), -90, 90);
          float newYaw = packet.getYRot() + (packet.getRelatives().contains(PositionElement.Y_ROT) ? entity.getYaw() : 0);
  
-@@ -97,6 +114,8 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
+@@ -97,6 +113,8 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
              // Log out and back in - and you're looking elsewhere :)
              entity.updateOwnRotation(entity.getYaw(), entity.getPitch(), entity.getHeadYaw());
              session.setSpawned(true);
@@ -509,10 +476,10 @@ index 8046eab0c..de374729c 100644
              Vector3f entityPosition = entity.position();
 diff --git a/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
 new file mode 100644
-index 000000000..ec42ddf9c
+index 000000000..2a4a4b3f9
 --- /dev/null
 +++ b/core/src/main/java/org/geysermc/geyser/util/PlacementGrounding.java
-@@ -0,0 +1,260 @@
+@@ -0,0 +1,349 @@
 +/*
 + * Copyright (c) 2019-2022 GeyserMC. http://geysermc.org
 + *
@@ -541,7 +508,6 @@ index 000000000..ec42ddf9c
 +import org.cloudburstmc.math.vector.Vector3d;
 +import org.geysermc.geyser.level.physics.BoundingBox;
 +import org.geysermc.geyser.session.GeyserSession;
-+import org.geysermc.geyser.session.cache.ChunkCache;
 +import org.geysermc.geyser.translator.collision.BlockCollision;
 +
 +/**
@@ -556,6 +522,11 @@ index 000000000..ec42ddf9c
 + * 0.55 below the feet, then disconnects with {@code multiplayer.disconnect.flying} after 81 ticks
 + * (~4.05 s). For a converted player the position - not the ground flag - is what has to change, so we
 + * need the world's own answer to "is there ground here".
++ * <p>
++ * The answer has to distinguish three states, not two: <i>supported</i>, <i>supported by nothing</i>
++ * (a void column the world really has) and <b>unknown</b> - the backend has not sent the chunk for this
++ * column yet. Treating unknown as "nothing there" is what leaves the airborne sample on the wire, and
++ * with it Paper's counter running; see {@link Resolution#UNKNOWN}.
 + */
 +public final class PlacementGrounding {
 +
@@ -567,20 +538,65 @@ index 000000000..ec42ddf9c
 +
 +    /**
 +     * How far below the feet a surface is still considered the player's placement, instead of a
-+     * different floor entirely, for a session that is already playing.
++     * different floor entirely.
 +     */
 +    public static final int MAX_GROUND_SEARCH = 32;
 +
 +    /**
 +     * How far below the feet a surface may be for a <i>pending placement</i> (initial spawn, server
 +     * switch, respawn). The backend chose the position, so the world's own surface under it is the
-+     * answer wherever it is in the column; with {@link #MAX_GROUND_SEARCH} a placement taken 42
-+     * blocks above the ground would never be resolved. Bounded by the dimension's own height.
++     * answer wherever it is in the column; with {@link #MAX_GROUND_SEARCH} a placement taken 42 blocks
++     * above the ground would never be resolved. Bounded by the dimension's own height.
 +     */
 +    public static final int MAX_PLACEMENT_GROUND_SEARCH = 384;
 +
 +    private static final double PLAYER_HALF_WIDTH = 0.3;
 +    private static final double PLAYER_HEIGHT = 1.8;
++
++    /**
++     * What the converter can say about the world under a placement.
++     */
++    public enum Resolution {
++        /**
++         * The position is already supported (or the body is inside geometry): nothing to do.
++         */
++        SUPPORTED,
++        /**
++         * There is a provable surface below the feet; {@link Grounding#position()} is where the player
++         * would stand on it.
++         */
++        SURFACE,
++        /**
++         * The converter has no block data for this column yet (the backend has not sent the chunk), so
++         * whether there is ground here is <i>unknown</i>. Nothing may be concluded from the air that
++         * block lookups returned.
++         */
++        UNKNOWN,
++        /**
++         * Block data for this column is present and there is genuinely nothing to stand on within
++         * {@link #MAX_GROUND_SEARCH} blocks: a void or sky placement.
++         */
++        VOID
++    }
++
++    /**
++     * The result of resolving a placement, with the standing position when one was found.
++     */
++    public record Grounding(Resolution resolution, @Nullable Vector3d position) {
++    }
++
++    /**
++     * Block collision lookup, so the placement rules can be exercised without a live session (and
++     * without the lifecycle that loads the block registries).
++     */
++    @FunctionalInterface
++    public interface CollisionLookup {
++        /**
++         * @return the collision of the block at these coordinates, or null when the block does not
++         * collide (air, water, plants, ...)
++         */
++        @Nullable BlockCollision at(int x, int y, int z);
++    }
 +
 +    private PlacementGrounding() {
 +    }
@@ -593,8 +609,69 @@ index 000000000..ec42ddf9c
 +        return (int) Math.floor(value);
 +    }
 +
-+    private static boolean collides(GeyserSession session, int x, int y, int z) {
-+        return BlockUtils.getCollision(session.getGeyser().getWorldManager().getBlockAt(session, x, y, z)) != null;
++    private static @Nullable BlockCollision collisionAt(GeyserSession session, int x, int y, int z) {
++        return BlockUtils.getCollision(session.getGeyser().getWorldManager().getBlockAt(session, x, y, z));
++    }
++
++    /**
++     * @return true if the converter holds block data for the column containing the given feet position
++     * and may therefore treat an air block as real air
++     */
++    public static boolean blockDataKnown(GeyserSession session, Vector3d feet) {
++        return session.getGeyser().getWorldManager().hasBlockData(session, floor(feet.getX()), floor(feet.getZ()));
++    }
++
++    /**
++     * Resolves the placement for a live session.
++     *
++     * @see #resolve(CollisionLookup, boolean, int, Vector3d)
++     */
++    public static Grounding resolve(GeyserSession session, Vector3d feet) {
++        return resolve(session, feet, MAX_GROUND_SEARCH);
++    }
++
++    /**
++     * Resolves the placement for a live session, searching {@code maxSearchDepth} blocks down.
++     * <p>
++     * A pending placement uses {@link #MAX_PLACEMENT_GROUND_SEARCH}: the backend put the player there,
++     * so the surface under it is the answer even when it is far below.
++     */
++    public static Grounding resolve(GeyserSession session, Vector3d feet, int maxSearchDepth) {
++        return resolve((x, y, z) -> collisionAt(session, x, y, z),
++            blockDataKnown(session, feet), session.getBedrockDimension().minY(), maxSearchDepth, feet);
++    }
++
++    /**
++     * Resolves what the world says about the given feet position.
++     *
++     * @param lookup         block collision lookup
++     * @param blockDataKnown whether the converter actually holds block data for this column; when it
++     *                       does not, an unsupported position is {@link Resolution#UNKNOWN} rather than
++     *                       a void placement
++     * @param dimensionMinY  the dimension's floor, to bound the search
++     * @param feet           feet position
++     */
++    public static Grounding resolve(CollisionLookup lookup, boolean blockDataKnown, int dimensionMinY, Vector3d feet) {
++        return resolve(lookup, blockDataKnown, dimensionMinY, MAX_GROUND_SEARCH, feet);
++    }
++
++    /**
++     * Resolves what the world says about the given feet position, searching {@code maxSearchDepth}
++     * blocks down for a surface.
++     */
++    public static Grounding resolve(CollisionLookup lookup, boolean blockDataKnown, int dimensionMinY,
++                                    int maxSearchDepth, Vector3d feet) {
++        if (hasSupport(lookup, feet) || intersectsCollidableBlock(lookup, feet)) {
++            return new Grounding(Resolution.SUPPORTED, feet);
++        }
++        if (!blockDataKnown) {
++            return new Grounding(Resolution.UNKNOWN, null);
++        }
++        Vector3d ground = groundBelow(lookup, dimensionMinY, maxSearchDepth, feet);
++        if (ground != null) {
++            return new Grounding(Resolution.SURFACE, ground);
++        }
++        return new Grounding(Resolution.VOID, null);
 +    }
 +
 +    /**
@@ -602,6 +679,10 @@ index 000000000..ec42ddf9c
 +     * position, i.e. the Java server would consider the player supported by the world
 +     */
 +    public static boolean hasSupport(GeyserSession session, Vector3d feet) {
++        return hasSupport((x, y, z) -> collisionAt(session, x, y, z), feet);
++    }
++
++    private static boolean hasSupport(CollisionLookup lookup, Vector3d feet) {
 +        int minX = floor(feet.getX() - PLAYER_HALF_WIDTH);
 +        int maxX = floor(feet.getX() + PLAYER_HALF_WIDTH);
 +        int minZ = floor(feet.getZ() - PLAYER_HALF_WIDTH);
@@ -612,7 +693,7 @@ index 000000000..ec42ddf9c
 +        for (int x = minX; x <= maxX; x++) {
 +            for (int z = minZ; z <= maxZ; z++) {
 +                for (int y = minY; y <= maxY; y++) {
-+                    if (collides(session, x, y, z)) {
++                    if (lookup.at(x, y, z) != null) {
 +                        return true;
 +                    }
 +                }
@@ -624,8 +705,16 @@ index 000000000..ec42ddf9c
 +    /**
 +     * @return true if the player's own body volume overlaps a collidable block, i.e. the position is
 +     * inside geometry rather than in the air above it
++     * <p>
++     * The body is tested against the blocks' own collision boxes, not against their block cells: a
++     * player standing on a slab has their feet inside the slab's cell, but touching its surface is not
++     * overlapping it.
 +     */
 +    public static boolean intersectsCollidableBlock(GeyserSession session, Vector3d feet) {
++        return intersectsCollidableBlock((x, y, z) -> collisionAt(session, x, y, z), feet);
++    }
++
++    private static boolean intersectsCollidableBlock(CollisionLookup lookup, Vector3d feet) {
 +        int minX = floor(feet.getX() - PLAYER_HALF_WIDTH);
 +        int maxX = floor(feet.getX() + PLAYER_HALF_WIDTH);
 +        int minZ = floor(feet.getZ() - PLAYER_HALF_WIDTH);
@@ -633,16 +722,48 @@ index 000000000..ec42ddf9c
 +        int minY = floor(feet.getY());
 +        int maxY = floor(feet.getY() + PLAYER_HEIGHT);
 +
++        double bodyMinX = feet.getX() - PLAYER_HALF_WIDTH;
++        double bodyMaxX = feet.getX() + PLAYER_HALF_WIDTH;
++        double bodyMinY = feet.getY();
++        double bodyMaxY = feet.getY() + PLAYER_HEIGHT;
++        double bodyMinZ = feet.getZ() - PLAYER_HALF_WIDTH;
++        double bodyMaxZ = feet.getZ() + PLAYER_HALF_WIDTH;
++
 +        for (int x = minX; x <= maxX; x++) {
 +            for (int z = minZ; z <= maxZ; z++) {
 +                for (int y = minY; y <= maxY; y++) {
-+                    if (collides(session, x, y, z)) {
-+                        return true;
++                    BlockCollision collision = lookup.at(x, y, z);
++                    if (collision == null) {
++                        continue;
++                    }
++                    for (BoundingBox box : collision.getBoundingBoxes()) {
++                        if (overlaps(box, x, y, z, bodyMinX, bodyMaxX, bodyMinY, bodyMaxY, bodyMinZ, bodyMaxZ)) {
++                            return true;
++                        }
 +                    }
 +                }
 +            }
 +        }
 +        return false;
++    }
++
++    /**
++     * @return true if the block-local collision box, translated to these block coordinates, overlaps the
++     * given volume with more than a surface touch
++     */
++    private static boolean overlaps(BoundingBox box, int blockX, int blockY, int blockZ,
++                                    double bodyMinX, double bodyMaxX, double bodyMinY, double bodyMaxY,
++                                    double bodyMinZ, double bodyMaxZ) {
++        double minX = blockX + box.getMiddleX() - (box.getSizeX() / 2.0);
++        double maxX = blockX + box.getMiddleX() + (box.getSizeX() / 2.0);
++        double minY = blockY + box.getMiddleY() - (box.getSizeY() / 2.0);
++        double maxY = blockY + box.getMiddleY() + (box.getSizeY() / 2.0);
++        double minZ = blockZ + box.getMiddleZ() - (box.getSizeZ() / 2.0);
++        double maxZ = blockZ + box.getMiddleZ() + (box.getSizeZ() / 2.0);
++
++        return minX < bodyMaxX && maxX > bodyMinX
++            && minY < bodyMaxY && maxY > bodyMinY
++            && minZ < bodyMaxZ && maxZ > bodyMinZ;
 +    }
 +
 +    /**
@@ -656,84 +777,39 @@ index 000000000..ec42ddf9c
 +    /**
 +     * @return the same position when it is already supported by the world, otherwise the nearest
 +     * standing position on a surface below it, or the original position when there is no surface to
-+     * stand on at all
++     * stand on at all (including when the converter has no data for the column yet)
++     * <p>
++     * This is the placement path (initial spawn, server switch, respawn), so the search covers the whole
++     * column the backend placed the player in - see {@link #MAX_PLACEMENT_GROUND_SEARCH}.
 +     */
-+    public static Vector3d groundPlacement(GeyserSession session, Vector3d position, boolean placement) {
-+        if (!isSuspended(session, position)) {
++    public static Vector3d groundPlacement(GeyserSession session, Vector3d position) {
++        Grounding grounding = resolve(session, position, MAX_PLACEMENT_GROUND_SEARCH);
++        if (grounding.resolution() != Resolution.SURFACE) {
 +            return position;
 +        }
-+        Vector3d grounded = groundBelow(session, position, placement);
-+        return grounded != null ? grounded : position;
++        return grounding.position();
 +    }
 +
 +    /**
 +     * Finds the nearest position on top of a collidable block below the given feet position, within
-+     * the search depth and within the dimension's height.
++     * {@link #MAX_GROUND_SEARCH} blocks and within the dimension's height.
 +     *
 +     * @return the grounded feet position in the same column, or null when there is no surface to
 +     * stand on (void world, or the player is already at the dimension floor)
 +     */
-+    public static @Nullable Vector3d groundBelow(GeyserSession session, Vector3d feet, boolean placement) {
-+        return groundBelow(session, feet,
-+            placement ? MAX_PLACEMENT_GROUND_SEARCH : MAX_GROUND_SEARCH);
++    public static @Nullable Vector3d groundBelow(GeyserSession session, Vector3d feet) {
++        return groundBelow((x, y, z) -> collisionAt(session, x, y, z),
++            session.getBedrockDimension().minY(), MAX_GROUND_SEARCH, feet);
 +    }
 +
-+    /**
-+     * Finds the nearest position on top of a collidable block below the given feet position, within
-+     * {@code maxSearchDepth} blocks and within the dimension's height.
-+     *
-+     * @return the grounded feet position in the same column, or null when there is no surface to
-+     * stand on (void world, or the player is already at the dimension floor)
-+     */
-+    public static @Nullable Vector3d groundBelow(GeyserSession session, Vector3d feet, int maxSearchDepth) {
-+        return surfaceBelow(session, feet, maxSearchDepth).grounded();
-+    }
-+
-+    /**
-+     * What the world can say about the column under a position, and whether it said anything at all.
-+     *
-+     * @param grounded the surface to stand on in this column, or null when there is nothing to stand
-+     *                 on within the search depth
-+     * @param provable whether the answer is the world's own: true when a surface was found, or when
-+     *                 every block between the feet and the search floor is known and none of them is
-+     *                 collidable; false when the column (or part of it) has not been sent yet, so
-+     *                 "no surface" is only the empty default and must not be read as a void
-+     */
-+    public record Surface(@Nullable Vector3d grounded, boolean provable) {
-+        static final Surface UNKNOWN = new Surface(null, false);
-+        static final Surface EMPTY = new Surface(null, true);
-+    }
-+
-+    /**
-+     * Resolves the column under {@code feet} the way {@link #groundBelow} does, but also reports
-+     * whether the absence of a surface is the world's answer or merely missing data.
-+     * <p>
-+     * This distinction is the whole difference between "the backend has not sent this chunk yet"
-+     * (chunk streaming behind a stalled or slowly ticking server) and "this placement is in the
-+     * void". A Bedrock client with no terrain under it reports a frozen airborne position, which the
-+     * Java backend disconnects for; the converter has to keep bridging that while the data is
-+     * missing, but must hand a genuine void back to the backend's own verdict.
-+     */
-+    public static Surface surfaceBelow(GeyserSession session, Vector3d feet, boolean placement) {
-+        return surfaceBelow(session, feet, placement ? MAX_PLACEMENT_GROUND_SEARCH : MAX_GROUND_SEARCH);
-+    }
-+
-+    /**
-+     * Resolves the column under {@code feet} within {@code maxSearchDepth} blocks.
-+     */
-+    public static Surface surfaceBelow(GeyserSession session, Vector3d feet, int maxSearchDepth) {
++    private static @Nullable Vector3d groundBelow(CollisionLookup lookup, int dimensionMinY,
++                                                 int maxSearchDepth, Vector3d feet) {
 +        int x = floor(feet.getX());
 +        int z = floor(feet.getZ());
-+        int minY = Math.max(session.getBedrockDimension().minY(), floor(feet.getY()) - maxSearchDepth);
++        int minY = Math.max(dimensionMinY, floor(feet.getY()) - maxSearchDepth);
 +
 +        for (int y = floor(feet.getY()) - 1; y >= minY; y--) {
-+            if (!blockKnown(session, x, y, z)) {
-+                // Below this point nothing is known: a surface may still be there.
-+                return Surface.UNKNOWN;
-+            }
-+
-+            BlockCollision collision = BlockUtils.getCollision(
-+                session.getGeyser().getWorldManager().getBlockAt(session, x, y, z));
++            BlockCollision collision = lookup.at(x, y, z);
 +            if (collision == null) {
 +                continue;
 +            }
@@ -746,30 +822,295 @@ index 000000000..ec42ddf9c
 +            }
 +
 +            Vector3d candidate = Vector3d.from(feet.getX(), top, feet.getZ());
-+            if (hasSupport(session, candidate) && !intersectsCollidableBlock(session, candidate)) {
-+                return new Surface(candidate, true);
++            if (hasSupport(lookup, candidate) && !intersectsCollidableBlock(lookup, candidate)) {
++                return candidate;
 +            }
 +        }
-+        return Surface.EMPTY;
++        return null;
++    }
++}
+diff --git a/core/src/test/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/SuspendedPlacementTest.java b/core/src/test/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/SuspendedPlacementTest.java
+new file mode 100644
+index 000000000..e2c9c40c3
+--- /dev/null
++++ b/core/src/test/java/org/geysermc/geyser/translator/protocol/bedrock/entity/player/input/SuspendedPlacementTest.java
+@@ -0,0 +1,104 @@
++/*
++ * Copyright (c) 2024 GeyserMC. http://geysermc.org
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++package org.geysermc.geyser.translator.protocol.bedrock.entity.player.input;
++
++import org.cloudburstmc.math.vector.Vector3d;
++import org.geysermc.geyser.translator.protocol.bedrock.entity.player.input.BedrockMovePlayer.SuspendedAction;
++import org.geysermc.geyser.util.PlacementGrounding;
++import org.geysermc.geyser.util.PlacementGrounding.Grounding;
++import org.geysermc.geyser.util.PlacementGrounding.Resolution;
++import org.junit.jupiter.api.Test;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++
++/**
++ * The rule that decides whether a converted Bedrock movement sample reaches the Java backend.
++ * <p>
++ * The failure this card fixes: a suspended, motionless sample was forwarded whenever the converter
++ * could not prove a surface, so the backend received "not on ground, not descending" and Paper's
++ * {@code clientIsFloating} counter started its 81-tick road to {@code multiplayer.disconnect.flying}.
++ * Every one of those samples must now be withheld ({@link SuspendedAction#HOLD}) until a surface can be
++ * proven; only a provable surface may be used to correct the placement
++ * ({@link SuspendedAction#GROUND}).
++ */
++class SuspendedPlacementTest {
++
++    private static final Vector3d FEET = Vector3d.from(0.5, -57.5, 0.5);
++    private static final int THRESHOLD = 10;
++
++    @Test
++    void sampleThatLooksGroundedIsForwarded() {
++        assertEquals(SuspendedAction.FORWARD, BedrockMovePlayer.decideSessionAction(false, 0, null, FEET));
 +    }
 +
 +    /**
-+     * @return true if the world's answer for this block is known: either the world manager owns its
-+     * own chunk data (Spigot reads live blocks), the block is outside the cached world height (there
-+     * is nothing there by definition), or the column has been sent to us
++     * The regression: no provable surface (chunk not received) must never forward the sample, not even
++     * on the first one - a single forwarded sample arms the backend's counter and silence afterwards does
++     * not disarm it.
 +     */
-+    private static boolean blockKnown(GeyserSession session, int x, int y, int z) {
-+        if (session.getGeyser().getWorldManager().hasOwnChunkCache()) {
-+            return true;
-+        }
-+        ChunkCache cache = session.getChunkCache();
-+        if (cache == null) {
-+            return false;
-+        }
-+        int section = y >> 4;
-+        if (section < cache.getChunkMinY() || section >= cache.getChunkMinY() + cache.getChunkHeightY()) {
-+            return true;
-+        }
-+        return cache.isChunkLoaded(x >> 4, z >> 4);
++    @Test
++    void unprovableSuspensionIsHeldFromTheFirstSample() {
++        assertEquals(SuspendedAction.HOLD,
++            BedrockMovePlayer.decideSessionAction(true, 1, null, FEET));
++        assertEquals(SuspendedAction.HOLD,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD,
++                new Grounding(Resolution.UNKNOWN, null), FEET));
++    }
++
++    @Test
++    void voidPlacementIsHeldToo() {
++        assertEquals(SuspendedAction.HOLD,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD, new Grounding(Resolution.VOID, null), FEET));
++    }
++
++    @Test
++    void sustainedSuspensionOverAProvableSurfaceIsGrounded() {
++        Grounding surface = new Grounding(Resolution.SURFACE, Vector3d.from(0.5, -60.0, 0.5));
++
++        assertEquals(SuspendedAction.GROUND,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD, surface, FEET));
++    }
++
++    @Test
++    void apexSampleIsHeldButNeverGrounds() {
++        // One or two suspended samples (a jump apex) are dropped, not teleported on: the threshold keeps
++        // a real jump from being yanked to the floor.
++        Grounding surface = new Grounding(Resolution.SURFACE, Vector3d.from(0.5, -60.0, 0.5));
++
++        assertEquals(SuspendedAction.HOLD,
++            BedrockMovePlayer.decideSessionAction(true, 1, surface, FEET));
++        assertEquals(SuspendedAction.HOLD,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD - 1, null, FEET));
++    }
++
++    @Test
++    void supportedResolutionForwardsWithoutTeleporting() {
++        Grounding supported = new Grounding(Resolution.SUPPORTED, FEET);
++        assertEquals(SuspendedAction.FORWARD,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD, supported, FEET));
++
++        Grounding levelWithTheSurface = new Grounding(Resolution.SURFACE, FEET);
++        assertEquals(SuspendedAction.FORWARD,
++            BedrockMovePlayer.decideSessionAction(true, THRESHOLD, levelWithTheSurface, FEET));
++    }
++}
+diff --git a/core/src/test/java/org/geysermc/geyser/util/PlacementGroundingTest.java b/core/src/test/java/org/geysermc/geyser/util/PlacementGroundingTest.java
+new file mode 100644
+index 000000000..326d80b98
+--- /dev/null
++++ b/core/src/test/java/org/geysermc/geyser/util/PlacementGroundingTest.java
+@@ -0,0 +1,169 @@
++/*
++ * Copyright (c) 2024 GeyserMC. http://geysermc.org
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++package org.geysermc.geyser.util;
++
++import org.cloudburstmc.math.vector.Vector3d;
++import org.geysermc.geyser.level.physics.BoundingBox;
++import org.geysermc.geyser.translator.collision.BlockCollision;
++import org.junit.jupiter.api.Test;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++/**
++ * The placement rules that keep a converted Bedrock client out of Paper's flying kick. The interesting
++ * case is the third one: an unsupported position whose column the backend has not sent yet must be
++ * reported as {@link PlacementGrounding.Resolution#UNKNOWN}, never as a void placement - the shipped
++ * grounding treated both as "no surface" and forwarded the airborne sample, which is what armed the
++ * 81-tick counter in production.
++ */
++class PlacementGroundingTest {
++
++    private static final int DIMENSION_MIN_Y = -64;
++
++    /**
++     * A full block at the given y, standing surface at y + 1.
++     */
++    private static BlockCollision fullBlock() {
++        BlockCollision collision = mock(BlockCollision.class);
++        when(collision.getBoundingBoxes()).thenReturn(new BoundingBox[]{
++            new BoundingBox(Vector3d.from(0.5, 0.5, 0.5), 1.0, 1.0, 1.0)
++        });
++        return collision;
++    }
++
++    /**
++     * A bottom slab at the given y: half a block tall, surface at y + 0.5.
++     */
++    private static BlockCollision bottomSlab() {
++        BlockCollision collision = mock(BlockCollision.class);
++        when(collision.getBoundingBoxes()).thenReturn(new BoundingBox[]{
++            new BoundingBox(Vector3d.from(0.5, 0.25, 0.5), 1.0, 0.5, 1.0)
++        });
++        return collision;
++    }
++
++    /**
++     * A single flat floor: only blocks at {@code floorY} collide.
++     */
++    private static PlacementGrounding.CollisionLookup floorAt(int floorY) {
++        BlockCollision floor = fullBlock();
++        return (x, y, z) -> y == floorY ? floor : null;
++    }
++
++    @Test
++    void supportedPositionNeedsNoCorrection() {
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve(floorAt(-61), true, DIMENSION_MIN_Y,
++            Vector3d.from(0.5, -60.0, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.SUPPORTED, grounding.resolution());
++        assertEquals(-60.0, grounding.position().getY());
++    }
++
++    @Test
++    void suspendedPositionOverKnownTerrainIsGroundedOnTheSurface() {
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve(floorAt(-61), true, DIMENSION_MIN_Y,
++            Vector3d.from(0.5, -57.5, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.SURFACE, grounding.resolution());
++        assertNotNull(grounding.position());
++        assertEquals(-60.0, grounding.position().getY());
++        // Grounding only changes the height; the column is the player's own.
++        assertEquals(0.5, grounding.position().getX());
++        assertEquals(0.5, grounding.position().getZ());
++    }
++
++    @Test
++    void partialBlockSurfaceIsHonoured() {
++        BlockCollision slab = bottomSlab();
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve(
++            (x, y, z) -> y == -61 ? slab : null, true, DIMENSION_MIN_Y, Vector3d.from(0.5, -57.5, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.SURFACE, grounding.resolution());
++        assertEquals(-60.5, grounding.position().getY());
++    }
++
++    /**
++     * The regression this card is about: the converter has no chunk for the column, so every block
++     * lookup returns air. That is missing data, not a void world - it must not be resolved either way.
++     */
++    @Test
++    void columnWithoutBlockDataIsUnknownAndNeverGrounded() {
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve(floorAt(-61), false, DIMENSION_MIN_Y,
++            Vector3d.from(0.5, -57.5, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.UNKNOWN, grounding.resolution());
++        assertNull(grounding.position());
++    }
++
++    @Test
++    void knownColumnWithNothingToStandOnIsVoid() {
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve((x, y, z) -> null, true,
++            DIMENSION_MIN_Y, Vector3d.from(0.5, -57.5, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.VOID, grounding.resolution());
++        assertNull(grounding.position());
++    }
++
++    @Test
++    void unknownColumnIsLeftWhereTheBackendPlacedThePlayer() {
++        // An unknown column must stay exactly where the backend put the player instead of being guessed
++        // onto a surface the converter cannot see.
++        PlacementGrounding.Grounding grounding = PlacementGrounding.resolve((x, y, z) -> null, false,
++            DIMENSION_MIN_Y, Vector3d.from(0.5, -57.5, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.UNKNOWN, grounding.resolution());
++        assertNull(grounding.position());
++    }
++
++    /**
++     * A placement is the backend's own position - a spawn, a server switch, a respawn - so the surface
++     * under it counts even when it is farther down than the mid-session window. This is the behaviour
++     * released geyserlite has (kanban t_1e9c9090: a placement 42 blocks above the ground), and it must
++     * survive the rework that introduced {@link PlacementGrounding.Resolution#UNKNOWN}.
++     */
++    @Test
++    void pendingPlacementGroundsOnASurfaceBelowTheMidSessionWindow() {
++        PlacementGrounding.Grounding placement = PlacementGrounding.resolve(floorAt(60), true, DIMENSION_MIN_Y,
++            PlacementGrounding.MAX_PLACEMENT_GROUND_SEARCH, Vector3d.from(0.5, 103.0, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.SURFACE, placement.resolution());
++        assertEquals(61.0, placement.position().getY());
++    }
++
++    /**
++     * The same column while the player is already playing must not be mistaken for a placement: a
++     * settled session keeps the narrow window and leaves the player where they are.
++     */
++    @Test
++    void settledSessionKeepsTheNarrowWindow() {
++        PlacementGrounding.Grounding session = PlacementGrounding.resolve(floorAt(60), true, DIMENSION_MIN_Y,
++            PlacementGrounding.MAX_GROUND_SEARCH, Vector3d.from(0.5, 103.0, 0.5));
++
++        assertEquals(PlacementGrounding.Resolution.VOID, session.resolution());
++        assertNull(session.position());
 +    }
 +}
